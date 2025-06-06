@@ -75,7 +75,7 @@ export function useDocumentProcessing(options: UseDocumentProcessingOptions = {}
   } = options;
 
   // WebSocket context for real-time updates
-  const { connected, sendMessage, addMessageListener } = useWebSocket();
+  const { connected, send, addMessageListener } = useWebSocket();
 
   // State management
   const [processingStatus, setProcessingStatus] = useState<UserProcessingStatus | null>(null);
@@ -148,7 +148,7 @@ export function useDocumentProcessing(options: UseDocumentProcessingOptions = {}
     }
 
     try {
-      sendMessage('document-subscribe', { documentId });
+      send({ type: 'document-subscribe', documentId });
       subscribedDocuments.current.add(documentId);
       console.log(`Subscribed to document ${documentId} updates`);
       return true;
@@ -156,7 +156,7 @@ export function useDocumentProcessing(options: UseDocumentProcessingOptions = {}
       console.error(`Failed to subscribe to document ${documentId}:`, err);
       return false;
     }
-  }, [connected, sendMessage]);
+  }, [connected, send]);
 
   // Unsubscribe from document updates
   const unsubscribeFromDocument = useCallback((documentId: number) => {
@@ -171,7 +171,7 @@ export function useDocumentProcessing(options: UseDocumentProcessingOptions = {}
     }
 
     try {
-      sendMessage('document-unsubscribe', { documentId });
+      send({ type: 'document-unsubscribe', documentId });
       subscribedDocuments.current.delete(documentId);
       console.log(`Unsubscribed from document ${documentId} updates`);
       return true;
@@ -179,7 +179,7 @@ export function useDocumentProcessing(options: UseDocumentProcessingOptions = {}
       console.error(`Failed to unsubscribe from document ${documentId}:`, err);
       return false;
     }
-  }, [connected, sendMessage]);
+  }, [connected, send]);
 
   // Cancel document processing
   const cancelDocumentProcessing = useCallback(async (documentId: number): Promise<boolean> => {
