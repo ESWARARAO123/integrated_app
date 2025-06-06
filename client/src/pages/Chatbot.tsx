@@ -277,7 +277,7 @@ const Chatbot: React.FC = () => {
   ) => {
     console.log('MCP Chat message handling:', content);
     console.log('MCP connection state:', { 
-      isMCPConnected, 
+    isMCPConnected,
       defaultServer: !!defaultServer, 
       mcpConnectionClientId: mcpConnection?.clientId,
       mcpConnectionState: mcpConnection 

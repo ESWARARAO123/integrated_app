@@ -1,0 +1,84 @@
+#version: '3.8'
+
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: productdemo-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./DATA/chroma_data:/chroma/chroma
+    environment:
+      - ALLOW_RESET=true
+      - CHROMA_SERVER_CORS_ALLOW_ORIGINS=*
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_PORT=8000
+    restart: unless-stopped
+    networks:
+      - productdemo-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: productdemo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - productdemo-network
+
+  doc-workers:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.workers
+    container_name: productdemo-doc-workers
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DOC_WORKER_CONCURRENCY=3
+      - QUEUE_MAX_RETRIES=3
+      - CHROMADB_HOST=chromadb
+      - CHROMADB_PORT=8000
+    volumes:
+      - ../DATA:/app/DATA
+      - ../conf:/app/conf
+      - ../logs:/app/logs
+      - ../python:/app/python
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - productdemo-network
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  productdemo-network:
+    driver: bridge
+
+

@@ -1,0 +1,55 @@
+# Dockerfile for Document Processing Workers
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for document processing
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    bash \
+    curl \
+    imagemagick \
+    poppler-utils \
+    && ln -sf python3 /usr/bin/python
+
+# Create Python virtual environment and install dependencies
+RUN python -m venv /app/python/.venv
+COPY python/requirements.txt /app/python/requirements.txt
+RUN /app/python/.venv/bin/pip install --no-cache-dir -r /app/python/requirements.txt
+
+# Copy package files
+COPY package*.json ./
+
+# Install Node.js dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code (only what workers need)
+COPY src ./src
+COPY conf ./conf
+
+# Create necessary directories
+RUN mkdir -p /app/DATA/documents \
+    && mkdir -p /app/DATA/embeddings \
+    && mkdir -p /app/DATA/vector_store \
+    && mkdir -p /app/logs
+
+# Set permissions
+RUN chmod +x /app/python/.venv/bin/* && \
+    chown -R node:node /app
+
+# Switch to non-root user
+USER node
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "const redis = require('ioredis'); const client = new redis(process.env.REDIS_HOST, process.env.REDIS_PORT); client.ping().then(() => process.exit(0)).catch(() => process.exit(1));"
+
+# Default command (will be overridden by docker-compose)
+CMD ["node", "src/workers/documentWorker.js"]
+
+# Labels for better organization
+LABEL maintainer="ProductDemo Team"
+LABEL description="Document Processing Workers for Scalable RAG System"
+LABEL version="1.0.0" 
