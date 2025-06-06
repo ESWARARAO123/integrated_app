@@ -26,6 +26,7 @@ const aiContextRoutes = require('./routes/aiContext');
 const contextAgentRoutes = require('./routes/contextAgent');
 const chat2sqlRoutes = require('./routes/chat2sql');
 const { setSessionStore } = require('./services/sessionService');
+const { getWebSocketService } = require('./services/webSocketService');
 
 // Try to require the documents routes, but don't fail if they're not available
 let documentsRoutes;
@@ -192,12 +193,17 @@ async function startServer() {
     // Setup WebSocket server
     const wsServer = setupWebSocketServer(server);
 
+    // Initialize WebSocket service
+    const webSocketService = getWebSocketService(wsServer);
+    console.log('WebSocket service initialized with server instance');
+
     // Register MCP WebSocket handlers
     registerMCPHandlers(wsServer);
     console.log('Registered MCP WebSocket handlers');
 
     // Make WebSocket server available to routes and services
     app.set('wsServer', wsServer);
+    app.set('webSocketService', webSocketService);
 
     // Start HTTP server
     server.listen(port, host, () => {

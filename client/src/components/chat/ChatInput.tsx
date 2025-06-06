@@ -14,6 +14,8 @@ import {
 import { chatInputStyles } from './chatStyles';
 import FileUploadButton from './FileUploadButton';
 import FilePreview from './FilePreview';
+import DocumentProcessingStatus from './DocumentProcessingStatus';
+import { useDocumentProcessing } from '../../hooks/useDocumentProcessing';
 import './ChatInput.css';
 import { fetchChat2SqlResult } from '../../utils/chat2sqlApi'; // Added for Chat2SQL API
 import { documentService } from '../../services/documentService'; // Added for document uploads
@@ -70,6 +72,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [localLoading, setLocalLoading] = useState(false);
   const [localUploadProgress, setLocalUploadProgress] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Use the document processing hook for real-time updates
+  const {
+    hasActiveProcessing,
+    totalJobs,
+    activeJobs,
+    subscribeToDocument
+  } = useDocumentProcessing({
+    autoSubscribe: true,
+    enablePolling: true
+  });
 
   // Focus input when component mounts or loading state changes
   useEffect(() => {
@@ -410,36 +423,62 @@ The model is now ready for predictions! Type **"predict"** to generate route tab
         onUploadStart();
       }
 
-      console.log(`Starting upload for file: ${file.name}, session: ${currentSessionId || 'none'}`);
+      console.log(`Starting async upload for file: ${file.name}, session: ${currentSessionId || 'none'}`);
 
-      // Use the document service to upload to the correct endpoint
-      const result = await documentService.uploadDocument(
-        file,
-        currentSessionId,
-        undefined, // collectionId
-        (progress) => {
-          setLocalUploadProgress(progress);
-        }
-      );
-
-      console.log('Document upload completed:', result);
-
-      // Clear the selected file after successful upload
-      setSelectedFile(null);
-      setLocalUploadProgress(0);
-
-      // Notify parent component of successful upload
-      if (onUploadComplete) {
-        onUploadComplete(true, result.document.id);
+      // Prepare form data for the new async upload endpoint
+      const formData = new FormData();
+      formData.append('file', file);
+      if (currentSessionId) {
+        formData.append('sessionId', currentSessionId);
       }
+      formData.append('priority', '0'); // Normal priority
 
-      // Send a notification message to the chat about the upload
-      const uploadMessage = `I've uploaded ${file.name} for analysis. The document is now being processed and will be available for RAG in a moment.`;
-      onSendMessage(uploadMessage, undefined, { 
-        isUploadNotification: true, 
-        documentId: result.document.id,
-        fileName: file.name 
+      // Use the new async upload endpoint
+      const response = await fetch('/api/documents/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
       });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('Document upload queued successfully:', result);
+
+        // Subscribe to document updates for real-time progress
+        if (result.document?.id) {
+          subscribeToDocument(result.document.id);
+        }
+
+        // Clear the selected file after successful queuing
+        setSelectedFile(null);
+        setLocalUploadProgress(0);
+
+        // Notify parent component of successful upload
+        if (onUploadComplete) {
+          onUploadComplete(true, result.document.id);
+        }
+
+        // Send a notification message to the chat about the queued upload
+        const uploadMessage = `📄 **${file.name}** has been uploaded and queued for processing.
+
+${result.queue?.status === 'queued' 
+  ? `🔄 **Status:** Queued for processing${result.queue?.position ? ` (position ${result.queue.position} in queue)` : ''}
+⏱️ **Processing:** Will begin shortly and you'll see real-time progress updates below.` 
+  : '🔄 **Status:** Processing has started automatically'}
+
+📊 You can track the progress in the **Document Processing** section below. Once complete, the document will be available for Q&A and analysis.`;
+
+        onSendMessage(uploadMessage, undefined, { 
+          isUploadNotification: true, 
+          documentId: result.document.id,
+          fileName: file.name,
+          queueStatus: result.queue
+        });
+
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
 
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -452,7 +491,12 @@ The model is now ready for predictions! Type **"predict"** to generate route tab
       }
 
       // Send error message to chat
-      const errorMessage = `Failed to upload ${file.name}. Please try again.`;
+      const errorMessage = `❌ **Failed to upload ${file.name}**
+
+${error instanceof Error ? error.message : 'Unknown error occurred'}
+
+Please check your file format (PDF, DOCX, TXT supported) and try again.`;
+      
       onSendMessage(errorMessage, undefined, { 
         isUploadNotification: true, 
         isError: true,
@@ -685,6 +729,15 @@ The model is now ready for predictions! Type **"predict"** to generate route tab
           </button>
         </div>
       </form>
+
+      {/* Document Processing Status - Only show if there's active processing */}
+      {(hasActiveProcessing || totalJobs > 0) && (
+        <DocumentProcessingStatus 
+          className="mt-4"
+          showDetailedStatus={true}
+          maxVisibleJobs={3}
+        />
+      )}
     </div>
   );
 };

@@ -42,6 +42,8 @@ services:
       context: ..
       dockerfile: Docker/Dockerfile.workers
     container_name: productdemo-doc-workers
+    env_file:
+      - env.docker
     environment:
       - NODE_ENV=production
       - REDIS_HOST=redis

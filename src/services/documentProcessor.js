@@ -182,76 +182,168 @@ class DocumentProcessor {
    * Process a document from file to embeddings
    * @param {Object} document - Document object with file path
    * @param {Object} options - Processing options
+   * @param {Function} onProgress - Optional progress callback function
    * @returns {Promise<Object>} - Processing result
    */
-  async processDocument(document, options = {}) {
+  async processDocument(document, options = {}, onProgress = null) {
     try {
       const {
         userId = document.user_id,
-        sessionId = null
+        sessionId = null,
+        jobId = null, // Job ID from queue system
+        workerId = null // Worker ID for tracking
       } = options;
 
-      console.log(`Processing document ${document.id}: ${document.original_name}${sessionId ? ` for session ${sessionId}` : ''}`);
+      console.log(`Processing document ${document.id}: ${document.original_name}${sessionId ? ` for session ${sessionId}` : ''}${jobId ? ` (Job: ${jobId})` : ''}`);
+
+      // Enhanced progress reporting function
+      const reportProgress = async (progress, message, additionalData = {}) => {
+        const progressData = {
+          documentId: document.id,
+          progress,
+          message,
+          status: progress >= 100 ? 'completed' : 'processing',
+          jobId,
+          workerId,
+          timestamp: new Date().toISOString(),
+          ...additionalData
+        };
+
+        // Call external progress callback if provided
+        if (onProgress && typeof onProgress === 'function') {
+          try {
+            await onProgress(progressData);
+          } catch (callbackError) {
+            console.error(`Error in progress callback for document ${document.id}:`, callbackError);
+          }
+        }
+
+        // Update internal progress tracking
+        await this.updateDocumentProgress(document.id, progressData);
+      };
 
       // Update progress to indicate start
-      await this.updateDocumentProgress(document.id, {
-        status: 'processing',
-        progress: 10,
-        message: 'Started document processing'
-      });
+      await reportProgress(10, 'Started document processing', { phase: 'initialization' });
 
-      // Extract text from the document
-      const textResult = await this.extractText(document);
-      if (!textResult.success) {
-        console.error(`Failed to extract text: ${textResult.error}`);
-        return textResult;
+      // Extract text from the document with enhanced error handling
+      let textResult;
+      try {
+        textResult = await this.extractText(document);
+        if (!textResult.success) {
+          throw new Error(`Text extraction failed: ${textResult.error}`);
+        }
+      } catch (extractionError) {
+        console.error(`Text extraction error for document ${document.id}:`, extractionError);
+        await reportProgress(0, `Text extraction failed: ${extractionError.message}`, { 
+          phase: 'text_extraction',
+          error: extractionError.message 
+        });
+        return {
+          success: false,
+          error: `Text extraction failed: ${extractionError.message}`,
+          phase: 'text_extraction'
+        };
       }
 
       // Update progress after text extraction
-      await this.updateDocumentProgress(document.id, {
-        progress: 30,
-        message: 'Text extracted, chunking document'
+      await reportProgress(30, 'Text extracted, chunking document', { 
+        phase: 'text_extraction_complete',
+        textLength: textResult.text.length 
       });
 
-      // Split text into chunks
-      const chunks = await this.chunkText(textResult.text, document.file_type);
-      console.log(`Document ${document.id} chunked into ${chunks.length} segments`);
+      // Split text into chunks with enhanced error handling
+      let chunks;
+      try {
+        chunks = await this.chunkText(textResult.text, document.file_type);
+        console.log(`Document ${document.id} chunked into ${chunks.length} segments`);
+      } catch (chunkingError) {
+        console.error(`Text chunking error for document ${document.id}:`, chunkingError);
+        await reportProgress(30, `Text chunking failed: ${chunkingError.message}`, { 
+          phase: 'chunking',
+          error: chunkingError.message 
+        });
+        return {
+          success: false,
+          error: `Text chunking failed: ${chunkingError.message}`,
+          phase: 'chunking'
+        };
+      }
 
       // Update progress after chunking
-      await this.updateDocumentProgress(document.id, {
-        progress: 50,
-        message: 'Document chunked, generating embeddings'
+      await reportProgress(50, 'Document chunked, generating embeddings', { 
+        phase: 'chunking_complete',
+        chunkCount: chunks.length 
       });
 
-      // Generate embeddings for the chunks
-      const embeddingsResult = await this.generateEmbeddings(chunks, document.id, userId, sessionId);
-      if (!embeddingsResult.success) {
-        console.error(`Failed to generate embeddings: ${embeddingsResult.error}`);
-        return embeddingsResult;
+      // Generate embeddings for the chunks with enhanced error handling
+      let embeddingsResult;
+      try {
+        embeddingsResult = await this.generateEmbeddings(chunks, document.id, userId, sessionId, onProgress);
+        if (!embeddingsResult.success) {
+          throw new Error(`Embedding generation failed: ${embeddingsResult.error}`);
+        }
+      } catch (embeddingError) {
+        console.error(`Embedding generation error for document ${document.id}:`, embeddingError);
+        await reportProgress(50, `Embedding generation failed: ${embeddingError.message}`, { 
+          phase: 'embedding_generation',
+          error: embeddingError.message 
+        });
+        return {
+          success: false,
+          error: `Embedding generation failed: ${embeddingError.message}`,
+          phase: 'embedding_generation'
+        };
       }
 
       // Update progress after embedding generation
-      await this.updateDocumentProgress(document.id, {
-        status: 'completed',
-        progress: 100,
-        message: 'Document processing completed'
+      await reportProgress(100, 'Document processing completed', { 
+        phase: 'completed',
+        chunkCount: chunks.length,
+        embeddingCount: embeddingsResult.embeddings?.length || chunks.length,
+        processingTime: Date.now() - new Date().getTime()
       });
 
       console.log(`Document ${document.id} processing completed: ${chunks.length} chunks processed`);
       return {
         success: true,
         chunks: chunks.length,
-        message: `Document processed successfully: ${chunks.length} chunks created`
+        embeddings: embeddingsResult.embeddings?.length || chunks.length,
+        message: `Document processed successfully: ${chunks.length} chunks created`,
+        jobId,
+        workerId
       };
+
     } catch (error) {
       console.error(`Error processing document ${document.id}:`, error);
-      await this.updateDocumentProgress(document.id, {
+      
+      // Enhanced error reporting
+      const errorData = {
+        documentId: document.id,
         status: 'error',
-        message: `Processing error: ${error.message}`
-      });
+        message: `Processing error: ${error.message}`,
+        error: error.message,
+        errorStack: error.stack,
+        jobId: options.jobId,
+        workerId: options.workerId,
+        timestamp: new Date().toISOString()
+      };
+
+      // Call error callback if provided
+      if (onProgress && typeof onProgress === 'function') {
+        try {
+          await onProgress(errorData);
+        } catch (callbackError) {
+          console.error(`Error in error callback for document ${document.id}:`, callbackError);
+        }
+      }
+
+      await this.updateDocumentProgress(document.id, errorData);
+
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        jobId: options.jobId,
+        workerId: options.workerId
       };
     }
   }
@@ -262,9 +354,10 @@ class DocumentProcessor {
    * @param {string} documentId - Document ID
    * @param {string} userId - User ID
    * @param {string} sessionId - Optional session ID
+   * @param {Function} onProgress - Optional progress callback function
    * @returns {Promise<Object>} - Result with embeddings
    */
-  async generateEmbeddings(chunks, documentId, userId, sessionId = null) {
+  async generateEmbeddings(chunks, documentId, userId, sessionId = null, onProgress = null) {
     try {
       console.log(`Generating embeddings for document ${documentId}, ${chunks.length} chunks${sessionId ? `, session ${sessionId}` : ''}`);
 

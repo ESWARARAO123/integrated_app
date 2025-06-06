@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { pool } = require('../database');
 const { loadPathsFromConfig, ensureDirectoriesExist } = require('../utils/pathConfig');
+const { getDocumentQueueService } = require('./documentQueueService');
+const { getWebSocketService } = require('./webSocketService');
 // Don't require documentProcessor here to avoid circular dependency
 // We'll require it only when needed in specific methods
 
@@ -13,6 +15,20 @@ class DocumentService {
 
     // Set document directory from config
     this.documentsDir = paths.documentsDir;
+    this.queueService = null;
+    this.webSocketService = null;
+  }
+
+  /**
+   * Initialize services (called when services are available)
+   */
+  async initializeServices() {
+    try {
+      this.queueService = await getDocumentQueueService();
+      this.webSocketService = getWebSocketService();
+    } catch (error) {
+      console.error('Error initializing document service dependencies:', error);
+    }
   }
 
   /**
@@ -72,7 +88,7 @@ class DocumentService {
   }
 
   /**
-   * Trigger document processing
+   * Trigger document processing (Updated for queue-based processing)
    * @param {number} documentId - Document ID
    * @returns {Promise<void>}
    */
@@ -85,23 +101,27 @@ class DocumentService {
         throw new Error(`Document not found: ${documentId}`);
       }
 
-      // Update status to processing
-      await this.updateDocumentStatus(documentId, 'processing');
+      console.log(`Triggering async processing for document ${documentId}`);
 
-      // Process the document using the document processor
-      // Require documentProcessor only when needed to avoid circular dependency
-      const documentProcessor = require('./documentProcessor');
-      await documentProcessor.processDocument(document, {
+      // Use async queue-based processing instead of blocking
+      const result = await this.processDocumentAsync(documentId, {
         userId: document.user_id,
         sessionId: document.session_id || null
       });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to queue document for processing');
+      }
+
+      console.log(`Document ${documentId} queued successfully with job ID: ${result.jobId}`);
+
     } catch (error) {
-      console.error(`Error processing document ${documentId}:`, error);
+      console.error(`Error triggering processing for document ${documentId}:`, error);
       // Update document status to ERROR
-      await this.updateDocumentStatus(
+      await this.updateDocumentQueueStatus(
         documentId,
-        'ERROR',
-        error.message || 'Unknown error during processing'
+        'failed',
+        error.message || 'Unknown error during processing trigger'
       );
       throw error;
     }
@@ -242,14 +262,30 @@ class DocumentService {
   }
 
   /**
-   * Process document for vector storage and RAG
+   * Process document for vector storage and RAG (DEPRECATED - Use processDocumentAsync)
    * @param {string} documentId - Document ID
    * @param {Object} options - Processing options
    * @returns {Promise<Object>} - Processing result
    */
   async processDocument(documentId, options = {}) {
+    console.warn('DocumentService.processDocument is deprecated. Use processDocumentAsync for queue-based processing.');
+    return this.processDocumentAsync(documentId, options);
+  }
+
+  /**
+   * Process document asynchronously using queue system
+   * @param {string} documentId - Document ID
+   * @param {Object} options - Processing options
+   * @returns {Promise<Object>} - Queue job information
+   */
+  async processDocumentAsync(documentId, options = {}) {
     try {
-      const { userId, sessionId } = options;
+      const { userId, sessionId, priority = 0 } = options;
+
+      // Initialize services if not done yet
+      if (!this.queueService) {
+        await this.initializeServices();
+      }
 
       // Get document from database
       const document = await this.getDocument(documentId);
@@ -257,38 +293,246 @@ class DocumentService {
         throw new Error(`Document not found: ${documentId}`);
       }
 
-      // Update status to processing
-      await this.updateDocumentStatus(documentId, 'processing');
+      // Update document status to queued
+      await this.updateDocumentQueueStatus(documentId, 'queued', null, new Date());
 
-      console.log(`Processing document ${documentId} with options:`, {
+      console.log(`Queuing document ${documentId} for async processing with options:`, {
         userId: userId || document.user_id,
-        sessionId: sessionId || document.session_id || null
+        sessionId: sessionId || document.session_id || null,
+        priority
       });
 
-      // Require documentProcessor only when needed to avoid circular dependency
-      const documentProcessor = require('./documentProcessor');
-      // Process using document processor
-      const result = await documentProcessor.processDocument(document, {
+      // Prepare job data
+      const jobData = {
+        documentId: parseInt(documentId),
         userId: userId || document.user_id,
-        sessionId: sessionId || document.session_id || null
+        sessionId: sessionId || document.session_id || null,
+        filePath: document.file_path,
+        fileName: document.original_name || document.filename,
+        fileType: document.file_type,
+        processingOptions: {
+          ...options,
+          documentRecordId: document.id
+        }
+      };
+
+      // Add job to queue
+      const queueResult = await this.queueService.addDocumentJob(jobData, {
+        priority,
+        delay: options.delay || 0
       });
 
-      // Update status based on result
-      if (result.success) {
-        await this.updateDocumentStatus(documentId, 'processed');
-      } else {
-        await this.updateDocumentStatus(documentId, 'error', result.error);
+      // Update document with job ID
+      await this.updateDocumentWithJobId(documentId, queueResult.jobId);
+
+      // Send initial queue status to user
+      if (this.webSocketService && jobData.userId) {
+        this.webSocketService.emitToUser(jobData.userId, 'document-queued', {
+          documentId: parseInt(documentId),
+          jobId: queueResult.jobId,
+          queuePosition: queueResult.queuePosition,
+          message: 'Document queued for processing',
+          timestamp: new Date().toISOString()
+        });
       }
 
-      return result;
+      return {
+        success: true,
+        jobId: queueResult.jobId,
+        documentId: parseInt(documentId),
+        queuePosition: queueResult.queuePosition,
+        status: 'queued',
+        message: 'Document queued for processing'
+      };
+
     } catch (error) {
-      console.error(`Error processing document ${documentId}:`, error);
-      // Update document status to error
-      await this.updateDocumentStatus(documentId, 'error', error.message);
+      console.error(`Error queuing document ${documentId} for processing:`, error);
+      
+      // Update document status to failed
+      await this.updateDocumentQueueStatus(documentId, 'failed', error.message);
+
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        documentId: parseInt(documentId),
+        status: 'failed'
       };
+    }
+  }
+
+  /**
+   * Get user's processing status from queue
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} - User's queue status
+   */
+  async getUserProcessingStatus(userId) {
+    try {
+      // Initialize services if not done yet
+      if (!this.queueService) {
+        await this.initializeServices();
+      }
+
+      const queueStatus = await this.queueService.getUserProcessingStatus(userId);
+      
+      // Get additional info from database
+      const dbQuery = `
+        SELECT 
+          queue_status,
+          COUNT(*) as count
+        FROM documents 
+        WHERE user_id = $1 
+        GROUP BY queue_status
+      `;
+      
+      const dbResult = await pool.query(dbQuery, [userId]);
+      const dbCounts = {};
+      dbResult.rows.forEach(row => {
+        dbCounts[row.queue_status] = parseInt(row.count);
+      });
+
+      return {
+        queue: queueStatus.summary,
+        database: dbCounts,
+        jobs: {
+          active: queueStatus.jobs.active.map(job => ({
+            jobId: job.id,
+            documentId: job.data.documentId,
+            fileName: job.data.fileName,
+            progress: job.progress || 0
+          })),
+          waiting: queueStatus.jobs.waiting.map(job => ({
+            jobId: job.id,
+            documentId: job.data.documentId,
+            fileName: job.data.fileName,
+            queuePosition: job.opts.priority || 0
+          }))
+        }
+      };
+
+    } catch (error) {
+      console.error(`Error getting processing status for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cancel document processing
+   * @param {string} documentId - Document ID
+   * @param {string} userId - User ID (for authorization)
+   * @returns {Promise<boolean>} - Success status
+   */
+  async cancelDocumentProcessing(documentId, userId) {
+    try {
+      // Initialize services if not done yet
+      if (!this.queueService) {
+        await this.initializeServices();
+      }
+
+      // Get document to find job ID
+      const document = await this.getDocument(documentId, userId);
+      if (!document) {
+        throw new Error('Document not found or unauthorized');
+      }
+
+      if (!document.job_id) {
+        throw new Error('Document is not in the processing queue');
+      }
+
+      // Cancel the job
+      const cancelled = await this.queueService.cancelDocumentProcessing(document.job_id, userId);
+
+      if (cancelled) {
+        // Update document status
+        await this.updateDocumentQueueStatus(documentId, 'cancelled', 'Processing cancelled by user');
+
+        // Notify user
+        if (this.webSocketService) {
+          this.webSocketService.emitToUser(userId, 'document-cancelled', {
+            documentId: parseInt(documentId),
+            jobId: document.job_id,
+            message: 'Document processing cancelled',
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      return cancelled;
+
+    } catch (error) {
+      console.error(`Error cancelling document processing for ${documentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update document queue status in database
+   * @param {number} documentId - Document ID
+   * @param {string} queueStatus - New queue status
+   * @param {string} errorMessage - Optional error message
+   * @param {Date} queuedAt - Optional queued timestamp
+   * @returns {Promise<Object>} - Updated document
+   */
+  async updateDocumentQueueStatus(documentId, queueStatus, errorMessage = null, queuedAt = null) {
+    try {
+      let query = 'UPDATE documents SET queue_status = $1, updated_at = NOW()';
+      let params = [queueStatus];
+
+      if (errorMessage) {
+        query += ', error_message = $2';
+        params.push(errorMessage);
+      }
+
+      if (queuedAt) {
+        query += `, queued_at = $${params.length + 1}`;
+        params.push(queuedAt);
+      }
+
+      // Set processing timestamps based on status
+      if (queueStatus === 'processing') {
+        query += `, processing_started_at = NOW()`;
+      } else if (queueStatus === 'completed') {
+        query += `, processing_completed_at = NOW()`;
+      }
+
+      query += ` WHERE id = $${params.length + 1} RETURNING *`;
+      params.push(documentId);
+
+      const result = await pool.query(query, params);
+
+      if (result.rows.length === 0) {
+        throw new Error('Document not found');
+      }
+
+      return result.rows[0];
+
+    } catch (error) {
+      console.error('Error updating document queue status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update document with job ID
+   * @param {number} documentId - Document ID
+   * @param {string} jobId - Queue job ID
+   * @returns {Promise<Object>} - Updated document
+   */
+  async updateDocumentWithJobId(documentId, jobId) {
+    try {
+      const result = await pool.query(
+        'UPDATE documents SET job_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [jobId, documentId]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('Document not found');
+      }
+
+      return result.rows[0];
+
+    } catch (error) {
+      console.error('Error updating document with job ID:', error);
+      throw error;
     }
   }
 

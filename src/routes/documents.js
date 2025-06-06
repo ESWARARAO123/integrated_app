@@ -101,13 +101,13 @@ if (multer) {
 }
 
 /**
- * Handle document upload and processing
+ * Handle document upload and processing (Updated for async queue-based processing)
  * POST /api/documents/upload
  */
 router.post('/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
     const userId = req.session.userId;
-    const { sessionId } = req.body;
+    const { sessionId, priority } = req.body;
     const file = req.file;
 
     if (!file) {
@@ -139,8 +139,7 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
     const { originalname, mimetype, size, filename, path: filePath } = file;
     const collectionId = req.body.collectionId || null;
 
-    // Process the document (rest of the document upload code)
-    // Create database entry
+    // Create database entry first
     const document = await documentService.createDocument({
       user_id: userId,
       original_name: file.originalname,
@@ -154,30 +153,141 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
       filename: file.filename || file.originalname // Add filename field
     });
 
-    // Return success response immediately
-    res.status(201).json({
-      success: true,
-      document: {
-        id: document.id,
-        name: document.original_name,
-        type: document.file_type,
-        size: document.file_size,
-        status: document.status
-      },
-      message: 'Document uploaded successfully. Processing has started.'
+    // Initialize document service if needed
+    await documentService.initializeServices();
+
+    // Queue document for async processing instead of blocking
+    const queueResult = await documentService.processDocumentAsync(document.id, {
+      userId,
+      sessionId: sessionId || null,
+      priority: parseInt(priority) || 0
     });
 
-    // Start document processing in the background
-    documentService.processDocument(document.id, {
-      userId,
-      sessionId: sessionId || null
-    }).catch(error => {
-      logger.error(`Background document processing failed for ${document.id}: ${error.message}`);
-      // The error is handled inside processDocument, so we just log it here
-    });
+    if (queueResult.success) {
+      // Return success response immediately with queue information
+      res.status(201).json({
+        success: true,
+        document: {
+          id: document.id,
+          name: document.original_name,
+          type: document.file_type,
+          size: document.file_size,
+          status: 'queued'
+        },
+        queue: {
+          jobId: queueResult.jobId,
+          position: queueResult.queuePosition,
+          status: queueResult.status
+        },
+        message: 'Document uploaded and queued for processing successfully.'
+      });
+    } else {
+      // If queueing failed, return error but document was still uploaded
+      res.status(202).json({
+        success: false,
+        document: {
+          id: document.id,
+          name: document.original_name,
+          type: document.file_type,
+          size: document.file_size,
+          status: 'failed'
+        },
+        error: queueResult.error,
+        message: 'Document uploaded but failed to queue for processing.'
+      });
+    }
+
   } catch (error) {
     console.error('Error uploading document:', error);
-    res.status(500).json({ error: 'Failed to upload document' });
+    res.status(500).json({ 
+      error: 'Failed to upload document',
+      details: error.message 
+    });
+  }
+});
+
+/**
+ * Get user's document processing status from queue
+ * GET /api/documents/processing-status
+ */
+router.get('/processing-status', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+
+    // Initialize document service if needed
+    await documentService.initializeServices();
+
+    // Get processing status from queue and database
+    const processingStatus = await documentService.getUserProcessingStatus(userId);
+
+    res.json({
+      success: true,
+      status: processingStatus,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error getting processing status:', error);
+    res.status(500).json({ 
+      error: 'Failed to get processing status',
+      details: error.message 
+    });
+  }
+});
+
+/**
+ * Cancel document processing
+ * DELETE /api/documents/cancel/:documentId
+ */
+router.delete('/cancel/:documentId', authenticateToken, async (req, res) => {
+  try {
+    const documentId = req.params.documentId;
+    const userId = req.session.userId;
+
+    // Initialize document service if needed
+    await documentService.initializeServices();
+
+    // Cancel document processing
+    const cancelled = await documentService.cancelDocumentProcessing(documentId, userId);
+
+    if (cancelled) {
+      res.json({
+        success: true,
+        message: 'Document processing cancelled successfully',
+        documentId: parseInt(documentId)
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: 'Failed to cancel document processing',
+        message: 'Document may not be in the processing queue or already completed',
+        documentId: parseInt(documentId)
+      });
+    }
+
+  } catch (error) {
+    console.error('Error cancelling document processing:', error);
+    
+    if (error.message.includes('not found') || error.message.includes('unauthorized')) {
+      res.status(404).json({
+        success: false,
+        error: 'Document not found or unauthorized',
+        documentId: parseInt(req.params.documentId)
+      });
+    } else if (error.message.includes('not in the processing queue')) {
+      res.status(400).json({
+        success: false,
+        error: 'Document is not in the processing queue',
+        documentId: parseInt(req.params.documentId)
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to cancel document processing',
+        details: error.message,
+        documentId: parseInt(req.params.documentId)
+      });
+    }
   }
 });
 

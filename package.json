@@ -14,7 +14,11 @@
     "install:database": "node src/scripts/install-database.js",
     "validate:database": "node src/scripts/validate-database.js",
     "db:migrate": "node src/scripts/migrate.js",
+    "db:migrate:queue": "node src/scripts/run-migration.js 024_add_document_queue_fields",
+    "db:rollback:queue": "node src/scripts/rollback-migration.js 024_add_document_queue_fields",
+    "db:verify:queue": "node src/scripts/verify-migration.js queue",
     "setup:database": "node src/scripts/setup-database.js",
+    "worker:start": "node src/workers/documentWorker.js",
     "test": "jest"
   },
   "dependencies": {
@@ -23,6 +27,7 @@
     "axios": "^1.8.4",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^9.4.3",
+    "bullmq": "^5.0.0",
     "chromadb": "^2.3.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -31,6 +36,7 @@
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "ini": "^4.1.3",
+    "ioredis": "^5.3.2",
     "langchain": "^0.3.27",
     "mammoth": "^1.9.0",
     "multer": "^1.4.5-lts.2",
