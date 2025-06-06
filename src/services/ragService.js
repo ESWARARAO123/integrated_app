@@ -102,27 +102,20 @@ class RAGService {
       // Search options with increased limit for table queries
       const searchOptions = {
         sessionId,
+        userId: options.userId, // Add userId for user isolation
         limit: isTableQuery ? 10 : topK, // Increase limit for table queries
         isTableQuery,
         tableReference
       };
 
-      // Search for relevant documents - pass sessionId as an option
-      const searchResult = await this.vectorStoreService.search(
+      // Search for relevant documents - pass sessionId and userId as options
+      const searchResults = await this.vectorStoreService.search(
         embedResult.embedding,
         searchOptions
       );
 
-      if (!searchResult.success) {
-        console.error(`RAG: Failed to retrieve relevant documents: ${searchResult.error}`);
-        return {
-          success: false,
-          error: 'Failed to retrieve relevant documents'
-        };
-      }
-
-      // If no results found, return empty context
-      if (searchResult.results.length === 0) {
+      // Handle the new return format (array of results instead of {success, results})
+      if (!searchResults || searchResults.length === 0) {
         console.log(`RAG: No relevant documents found for query`);
         return {
           success: true,
@@ -131,23 +124,23 @@ class RAGService {
         };
       }
 
-      console.log(`RAG: Found ${searchResult.results.length} relevant chunks`);
+      console.log(`RAG: Found ${searchResults.length} relevant chunks`);
 
       // Temporary debug: Log summaries of retrieved chunks to understand content
-      searchResult.results.forEach((result, index) => {
-        console.log(`RAG: Chunk ${index + 1} (Score: ${result.score.toFixed(3)}): ${result.text.substring(0, 100).replace(/\n/g, ' ')}...`);
+      searchResults.forEach((result, index) => {
+        console.log(`RAG: Chunk ${index + 1} (Score: ${result.score.toFixed(3)}): ${result.content.substring(0, 100).replace(/\n/g, ' ')}...`);
       });
 
       // For table queries, prioritize chunks that contain table markers
-      let results = searchResult.results;
+      let results = searchResults;
       if (isTableQuery) {
         // Boost scores for chunks that contain table markers
         results = results.map(result => {
           // Check if the chunk contains table markers
-          const hasTableMarker = result.text.match(/###\s+(?:Table|Extracted Table)/i);
+          const hasTableMarker = result.content.match(/###\s+(?:Table|Extracted Table)/i);
           
           // If it has a table reference and matches the one in query, boost the score significantly
-          if (tableReference && result.text.toLowerCase().includes(tableReference.toLowerCase())) {
+          if (tableReference && result.content.toLowerCase().includes(tableReference.toLowerCase())) {
             return {
               ...result,
               score: result.score * 1.5, // 50% boost
@@ -172,12 +165,12 @@ class RAGService {
 
       // Prepare context from retrieved documents
       const context = results
-        .map(result => result.text)
+        .map(result => result.content)
         .join('\n\n---\n\n');
 
       // Format sources for citation
       const sources = results.map(result => ({
-        text: result.text.substring(0, 150) + (result.text.length > 150 ? '...' : ''),
+        text: result.content.substring(0, 150) + (result.content.length > 150 ? '...' : ''),
         metadata: result.metadata,
         score: result.score,
         containsTable: result.containsTable || false,
@@ -356,56 +349,73 @@ Question: ${message}`
   }
 
   /**
-   * Check if RAG is available
-   * @returns {Promise<boolean>} - Whether RAG is available
+   * Check if RAG is available (has documents in vector store)
+   * @param {string} userId - Optional user ID for user-specific check
+   * @returns {Promise<boolean>} Whether RAG is available
    */
-  async isRagAvailable() {
+  async isRagAvailable(userId = null) {
     try {
-      // First check if the vector store is initialized
+      await this.initializeServices();
+
       if (!this.vectorStoreService) {
         console.log('RAG: Vector store service not available');
         return false;
       }
 
-      // Then check if there are any documents in the vector store
-      const stats = await this.vectorStoreService.getStats();
-      const hasDocuments = stats.success && stats.count > 0;
+      const stats = await this.vectorStoreService.getStats(userId);
+      console.log(`RAG: Availability check - Vector store has ${stats.totalChunks} chunks in ${stats.totalDocuments} documents${userId ? ` for user ${userId}` : ''}`);
 
-      console.log(`RAG: Availability check - Vector store has ${stats.count} chunks in ${stats.documents || 'unknown'} documents`);
-
-      if (!hasDocuments) {
+      const isAvailable = stats.totalChunks > 0;
+      
+      if (isAvailable) {
+        console.log('RAG: All checks passed, RAG is available');
+        
+        // Notify all users about RAG availability if this is a global check
+        if (!userId) {
+          this.notifyRagAvailability(true);
+        }
+      } else {
         console.log('RAG: No documents found in vector store');
-        return false;
-      }
-
-      // Also check if OllamaService is initialized
-      if (!this.initialized) {
-        console.log('RAG: OllamaService not initialized, initializing now...');
-        await this.initializeServices();
-
-        if (!this.initialized) {
-          console.error('RAG: Failed to initialize OllamaService');
-          return false;
+        
+        // Notify all users if RAG becomes unavailable globally
+        if (!userId) {
+          this.notifyRagAvailability(false);
         }
       }
 
-      // Verify we can generate embeddings
-      try {
-        const testEmbed = await this.ollamaService.generateEmbedding("test", this.embeddingModel);
-        if (!testEmbed.success) {
-          console.error('RAG: Embedding generation test failed');
-          return false;
-        }
-      } catch (embedError) {
-        console.error('RAG: Error testing embedding generation:', embedError);
-        return false;
-      }
-
-      console.log('RAG: All checks passed, RAG is available');
-      return true;
+      return isAvailable;
     } catch (error) {
-      console.error(`RAG: Error checking RAG availability:`, error);
+      console.error('RAG: Error checking availability:', error);
       return false;
+    }
+  }
+
+  /**
+   * Notify all users about RAG availability change via WebSocket
+   * @param {boolean} isAvailable - Whether RAG is available
+   */
+  notifyRagAvailability(isAvailable) {
+    try {
+      // Get the WebSocket server from the global app object
+      const app = global.app;
+      if (app && app.get('wsServer')) {
+        const wsServer = app.get('wsServer');
+        
+        // Broadcast to all connected users
+        if (wsServer.broadcast) {
+          wsServer.broadcast({
+            type: 'rag-availability-changed',
+            data: {
+              available: isAvailable,
+              timestamp: new Date().toISOString()
+            }
+          });
+          
+          console.log(`RAG: Notified all users about availability change: ${isAvailable}`);
+        }
+      }
+    } catch (error) {
+      console.error('RAG: Error notifying availability change:', error);
     }
   }
 }

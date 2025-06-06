@@ -7,8 +7,8 @@ const { ChromaClient } = require('chromadb');
 
 async function resetChroma() {
   try {
-    console.log('Connecting to ChromaDB at http://localhost:8000...');
-    const chromaClient = new ChromaClient({ path: 'http://localhost:8000' });
+    console.log('Connecting to ChromaDB at http://localhost:8001...');
+    const chromaClient = new ChromaClient({ path: 'http://localhost:8001' });
     
     // Create a new collection (this will replace any existing one with the same name)
     console.log('Recreating the rag_docs collection...');

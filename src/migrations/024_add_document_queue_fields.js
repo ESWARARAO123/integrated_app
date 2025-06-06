@@ -1,15 +1,19 @@
 const fs = require('fs');
 const path = require('path');
+const { pool } = require('../database');
 
 /**
  * Migration: Add document queue fields
  * Adds queue-related fields to the documents table for BullMQ integration
  */
 
-async function up(pool) {
+async function up() {
     console.log('Running migration: Add document queue fields');
     
+    const client = await pool.connect();
     try {
+        await client.query('BEGIN');
+        
         // Read the SQL migration file
         const sqlFilePath = path.join(__dirname, '..', 'scripts', 'sql', 'document_queue_schema.sql');
         const migrationSQL = fs.readFileSync(sqlFilePath, 'utf8');
@@ -17,22 +21,29 @@ async function up(pool) {
         console.log('Executing document queue schema updates...');
 
         // Execute the migration SQL
-        await pool.query(migrationSQL);
+        await client.query(migrationSQL);
 
+        await client.query('COMMIT');
         console.log('Document queue fields migration completed successfully');
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error in document queue migration:', error);
         throw error;
+    } finally {
+        client.release();
     }
 }
 
-async function down(pool) {
+async function down() {
     console.log('Running rollback: Remove document queue fields');
     
+    const client = await pool.connect();
     try {
+        await client.query('BEGIN');
+        
         // Drop the view
-        await pool.query('DROP VIEW IF EXISTS document_queue_status;');
+        await client.query('DROP VIEW IF EXISTS document_queue_status;');
         console.log('Dropped document_queue_status view');
 
         // Drop indexes
@@ -44,12 +55,12 @@ async function down(pool) {
         ];
 
         for (const dropIndex of dropIndexes) {
-            await pool.query(dropIndex);
+            await client.query(dropIndex);
         }
         console.log('Dropped document queue indexes');
 
         // Remove check constraint
-        await pool.query('ALTER TABLE documents DROP CONSTRAINT IF EXISTS chk_documents_queue_status;');
+        await client.query('ALTER TABLE documents DROP CONSTRAINT IF EXISTS chk_documents_queue_status;');
 
         // Drop columns
         const dropColumns = [
@@ -65,14 +76,18 @@ async function down(pool) {
         ];
 
         for (const dropColumn of dropColumns) {
-            await pool.query(dropColumn);
+            await client.query(dropColumn);
         }
 
+        await client.query('COMMIT');
         console.log('Document queue fields rollback completed successfully');
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error in document queue rollback:', error);
         throw error;
+    } finally {
+        client.release();
     }
 }
 

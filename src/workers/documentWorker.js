@@ -2,11 +2,11 @@ const { Worker } = require('bullmq');
 const Redis = require('ioredis');
 const winston = require('winston');
 const path = require('path');
-const config = require('../utils/configParser');
+const config = require('../utils/config');
 
 // Import existing document processing services
-const DocumentProcessor = require('../services/documentProcessor');
-const VectorStoreService = require('../services/vectorStoreService');
+const documentProcessor = require('../services/documentProcessor');
+const vectorStoreService = require('../services/vectorStoreService');
 const OllamaService = require('../services/ollamaService');
 const { getWebSocketService } = require('../services/webSocketService');
 
@@ -28,15 +28,15 @@ class DocumentWorker {
 
         // Redis connection configuration
         this.redisConfig = {
-            host: process.env.REDIS_HOST || config.redis?.host || 'localhost',
-            port: parseInt(process.env.REDIS_PORT || config.redis?.port || '6379'),
+            host: process.env.REDIS_HOST || config.get('redis.host', 'localhost'),
+            port: parseInt(process.env.REDIS_PORT || config.get('redis.port', '6379')),
             retryDelayOnFailover: 100,
             enableReadyCheck: false,
             lazyConnect: true,
-            maxRetriesPerRequest: 3
+            maxRetriesPerRequest: null
         };
 
-        this.concurrency = parseInt(process.env.DOC_WORKER_CONCURRENCY || config.document_queue?.concurrency || '3');
+        this.concurrency = parseInt(process.env.DOC_WORKER_CONCURRENCY || config.get('document_queue.concurrency', '3'));
         this.worker = null;
         this.documentProcessor = null;
         this.vectorStoreService = null;
@@ -74,18 +74,18 @@ class DocumentWorker {
 
     async initializeServices() {
         try {
-            // Initialize VectorStoreService
-            this.vectorStoreService = new VectorStoreService();
-            await this.vectorStoreService.initialize();
+            // Initialize VectorStoreService (singleton)
+            await vectorStoreService.initialize();
+            this.vectorStoreService = vectorStoreService;
             this.logger.info('VectorStoreService initialized for worker');
 
-            // Initialize OllamaService
+            // Initialize OllamaService (create new instance)
             this.ollamaService = new OllamaService();
             await this.ollamaService.initialize();
             this.logger.info('OllamaService initialized for worker');
 
             // Initialize DocumentProcessor
-            this.documentProcessor = new DocumentProcessor(this.vectorStoreService, this.ollamaService);
+            this.documentProcessor = documentProcessor;
             this.logger.info('DocumentProcessor initialized for worker');
 
             // Get WebSocket service for progress updates
@@ -133,21 +133,51 @@ class DocumentWorker {
             // Progress callback function
             const onProgress = async (progress, message, status = 'processing') => {
                 try {
-                    // Update job progress
-                    await job.updateProgress({ progress, message, status });
+                    // Handle different parameter formats
+                    let progressValue, progressMessage, progressStatus;
+                    
+                    if (typeof progress === 'object' && progress !== null) {
+                        // New format from DocumentProcessor
+                        progressValue = progress.progress;
+                        progressMessage = progress.message;
+                        progressStatus = progress.status || 'processing';
+                    } else {
+                        // Old format - individual parameters
+                        progressValue = progress;
+                        progressMessage = message;
+                        progressStatus = status;
+                    }
+
+                    // Ensure we have valid values
+                    if (typeof progressValue !== 'number' || isNaN(progressValue)) {
+                        progressValue = 0;
+                    }
+                    if (!progressMessage || typeof progressMessage !== 'string') {
+                        progressMessage = 'Processing...';
+                    }
+                    if (!progressStatus || typeof progressStatus !== 'string') {
+                        progressStatus = 'processing';
+                    }
+
+                    // Update job progress with clean data
+                    await job.updateProgress({ 
+                        progress: progressValue, 
+                        message: progressMessage, 
+                        status: progressStatus 
+                    });
 
                     // Broadcast progress to user via WebSocket
                     if (this.webSocketService && userId) {
                         this.webSocketService.emitToUser(userId, 'document-progress', {
                             documentId,
-                            progress,
-                            message,
-                            status,
+                            progress: progressValue,
+                            message: progressMessage,
+                            status: progressStatus,
                             jobId: job.id
                         });
                     }
 
-                    this.logger.info(`Document ${documentId} progress: ${progress}% - ${message}`);
+                    this.logger.info(`Document ${documentId} progress: ${progressValue}% - ${progressMessage}`);
                 } catch (error) {
                     this.logger.error('Error updating progress:', error);
                 }
@@ -164,13 +194,37 @@ class DocumentWorker {
 
             await onProgress(10, 'File validated, starting processing', 'processing');
 
-            // Process the document using existing DocumentProcessor
+            // Fetch the document object from database
+            const { pool } = require('../database');
+            const client = await pool.connect();
+            let document;
+            
+            try {
+                const result = await client.query(
+                    'SELECT * FROM documents WHERE id = $1',
+                    [documentId]
+                );
+                
+                if (result.rows.length === 0) {
+                    throw new Error(`Document ${documentId} not found in database`);
+                }
+                
+                document = result.rows[0];
+                this.logger.info(`Retrieved document ${documentId}: ${document.original_name}`);
+            } finally {
+                client.release();
+            }
+
+            // Process the document using existing DocumentProcessor with correct parameters
             const result = await this.documentProcessor.processDocument(
-                documentId,
-                filePath,
-                fileName,
-                fileType,
-                { userId, sessionId, ...processingOptions },
+                document,
+                { 
+                    userId, 
+                    sessionId, 
+                    jobId: job.id,
+                    workerId: process.pid,
+                    ...processingOptions 
+                },
                 onProgress
             );
 
@@ -191,8 +245,8 @@ class DocumentWorker {
             
             return {
                 documentId,
-                chunksProcessed: result.chunksProcessed || 0,
-                vectorsStored: result.vectorsStored || 0,
+                chunksProcessed: result.chunks || 0,
+                vectorsStored: result.embeddings || 0,
                 processingTime: result.processingTime || 0,
                 status: 'completed'
             };

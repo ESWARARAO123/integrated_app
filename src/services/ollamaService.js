@@ -16,6 +16,23 @@ const EMBEDDING_TIMEOUT = 180000; // 3 minutes for embedding generation
 // Default embedding model to use if none specified
 const DEFAULT_EMBEDDING_MODEL = 'nomic-embed-text';
 
+// Connection pool for reusing connections
+const httpAgent = new (require('http').Agent)({
+  keepAlive: true,
+  maxSockets: 10,
+  maxFreeSockets: 5,
+  timeout: 60000,
+  freeSocketTimeout: 30000
+});
+
+const httpsAgent = new (require('https').Agent)({
+  keepAlive: true,
+  maxSockets: 10,
+  maxFreeSockets: 5,
+  timeout: 60000,
+  freeSocketTimeout: 30000
+});
+
 /**
  * OllamaService manages communication with Ollama API and database operations
  * related to AI models and settings
@@ -119,7 +136,9 @@ class OllamaService {
       timeout: forStreaming ? STREAMING_TIMEOUT : DEFAULT_TIMEOUT,
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      httpAgent,
+      httpsAgent
     });
   }
 
@@ -865,6 +884,59 @@ class OllamaService {
       return {
         success: false,
         error: error.message || 'Error generating response'
+      };
+    }
+  }
+
+  /**
+   * Generate embeddings for multiple texts in batch
+   * @param {Array<string>} texts - Array of texts to embed
+   * @param {string} model - Embedding model
+   * @returns {Promise<Object>} Result with success and embeddings array
+   */
+  async generateBatchEmbeddings(texts, model = 'nomic-embed-text') {
+    try {
+      const batchSize = 20; // Increased from 10 to 20 for better throughput
+      const allEmbeddings = [];
+      
+      logger.info(`Generating embeddings for ${texts.length} texts in batches of ${batchSize} using model: ${model}`);
+      
+      for (let i = 0; i < texts.length; i += batchSize) {
+        const batch = texts.slice(i, i + batchSize);
+        const batchPromises = batch.map(text => this.generateEmbedding(text, model));
+        
+        logger.info(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(texts.length / batchSize)} (${batch.length} texts)`);
+        
+        // Process batch in parallel
+        const batchResults = await Promise.all(batchPromises);
+        
+        // Extract just the embedding vectors from the result objects
+        for (const result of batchResults) {
+          if (result.success && result.embedding) {
+            allEmbeddings.push(result.embedding);
+          } else {
+            logger.error(`Failed to generate embedding in batch: ${result.error}`);
+            throw new Error(`Embedding generation failed: ${result.error}`);
+          }
+        }
+        
+        // Reduced delay between batches from 100ms to 50ms
+        if (i + batchSize < texts.length) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      
+      logger.info(`Successfully generated ${allEmbeddings.length} embeddings`);
+      return {
+        success: true,
+        embeddings: allEmbeddings
+      };
+      
+    } catch (error) {
+      logger.error(`Error generating batch embeddings: ${error.message}`);
+      return {
+        success: false,
+        error: error.message
       };
     }
   }

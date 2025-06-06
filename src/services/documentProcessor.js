@@ -431,11 +431,21 @@ class DocumentProcessor {
       // Prepare texts for embedding
       const texts = chunks.map(chunk => chunk.text);
 
-      // Generate embeddings using Ollama
-      const result = await this.ollamaService.generateEmbeddingsBatch(texts);
+      // Report progress before starting embeddings
+      if (onProgress) {
+        await onProgress(60, `Generating embeddings for ${texts.length} chunks`);
+      }
+
+      // Generate embeddings using Ollama in batches
+      const result = await this.ollamaService.generateBatchEmbeddings(texts);
       if (!result.success) {
         console.error(`Error generating embeddings:`, result.error);
         return result;
+      }
+
+      // Report progress after embeddings are generated
+      if (onProgress) {
+        await onProgress(80, `Storing ${result.embeddings.length} embeddings`);
       }
 
       // Store embeddings in vector database if available
@@ -448,16 +458,11 @@ class DocumentProcessor {
           // Get document metadata for storage
           const document = await documentService.getDocument(documentId);
 
-          // Prepare chunks with embeddings for vector store
-          const chunksWithEmbeddings = chunks.map((chunk, index) => ({
-            text: chunk.text,
-            embedding: result.embeddings[index]
-          }));
-
           // Add chunks to vector store with session ID in metadata if available
           const vectorStoreResult = await this.vectorStoreService.addDocumentChunks(
-            chunksWithEmbeddings,
             documentId,
+            chunks.map(chunk => chunk.text),
+            result.embeddings,
             {
               fileName: document.original_name || document.file_path.split('/').pop(),
               userId: document.user_id || userId,
@@ -466,10 +471,10 @@ class DocumentProcessor {
             }
           );
 
-          if (!vectorStoreResult.success) {
-            console.error(`Error storing embeddings in vector store:`, vectorStoreResult.error);
+          if (!vectorStoreResult) {
+            console.error(`Vector store returned undefined result for document ${documentId}`);
           } else {
-            console.log(`Successfully stored ${vectorStoreResult.count} vectors in store for document ${documentId}`);
+            console.log(`Successfully stored vectors in store for document ${documentId}`);
           }
         } catch (storeError) {
           console.error(`Error storing embeddings in vector store:`, storeError);

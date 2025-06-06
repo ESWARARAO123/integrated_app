@@ -2,7 +2,7 @@ const { Queue, Worker, QueueEvents } = require('bullmq');
 const Redis = require('ioredis');
 const { v4: uuidv4 } = require('uuid');
 const winston = require('winston');
-const config = require('../utils/configParser');
+const config = require('../utils/config');
 
 class DocumentQueueService {
     constructor() {
@@ -22,19 +22,19 @@ class DocumentQueueService {
 
         // Redis connection configuration
         this.redisConfig = {
-            host: process.env.REDIS_HOST || config.redis?.host || 'localhost',
-            port: parseInt(process.env.REDIS_PORT || config.redis?.port || '6379'),
+            host: process.env.REDIS_HOST || config.get('redis.host', 'localhost'),
+            port: parseInt(process.env.REDIS_PORT || config.get('redis.port', '6379')),
             retryDelayOnFailover: 100,
             enableReadyCheck: false,
             lazyConnect: true,
-            maxRetriesPerRequest: 3
+            maxRetriesPerRequest: null
         };
 
         // Queue configuration
         this.queueConfig = {
-            concurrency: parseInt(process.env.DOC_WORKER_CONCURRENCY || config.document_queue?.concurrency || '3'),
-            maxJobs: parseInt(process.env.QUEUE_MAX_JOBS_PER_WORKER || config.document_queue?.max_jobs_per_worker || '10'),
-            retryAttempts: parseInt(process.env.QUEUE_MAX_RETRIES || config.document_queue?.retry_attempts || '3'),
+            concurrency: parseInt(process.env.DOC_WORKER_CONCURRENCY || config.get('document_queue.concurrency', '3')),
+            maxJobs: parseInt(process.env.QUEUE_MAX_JOBS_PER_WORKER || config.get('document_queue.max_jobs_per_worker', '10')),
+            retryAttempts: parseInt(process.env.QUEUE_MAX_RETRIES || config.get('document_queue.retry_attempts', '3')),
             removeOnComplete: 50,
             removeOnFail: 20
         };

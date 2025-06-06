@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>ollama_performance_analysis_and_reinstall_guide.md</title>
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+    
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+html,footer,header{
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Custom MD PDF CSS
+ */
+html,footer,header{
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+
+ }
+body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+<link rel="stylesheet" href="file:///home/yaswanth/Desktop/demo/productdemo/R%3A%5C2.Travail%5C1.Enseignement%5CCours%5C_1.Outils%5C2.Developpement%5C1.SCSS%5Cmain.css" type="text/css"><link rel="stylesheet" href="file:///home/yaswanth/Desktop/demo/productdemo/D%3A%5Crdaros%5CCours%5C_1.Outils%5C2.Developpement%5C1.SCSS%5Cmain.css" type="text/css">
+</head>
+
+<body>
+    <h1 id="%F0%9F%94%8D-ollama-performance-analysis--reinstallation-guide">🔍 Ollama Performance Analysis &amp; Reinstallation Guide</h1>
+<h2 id="%F0%9F%93%8A-performance-analysis-results-2025-06-06">📊 <strong>Performance Analysis Results (2025-06-06)</strong></h2>
+<h3 id="timeline-analysis-multi-user-upload-test"><strong>Timeline Analysis: Multi-User Upload Test</strong></h3>
+<p><strong>Test Period:</strong> 20:41 - 20:46<br>
+<strong>Users:</strong> 2 simultaneous uploads<br>
+<strong>Documents:</strong></p>
+<ul>
+<li>User 1: RAGINTEGRATION.pdf (175 chunks)</li>
+<li>User 2: aiagents.pdf (9 chunks)</li>
+</ul>
+<h4 id="performance-results"><strong>Performance Results:</strong></h4>
+<table>
+<thead>
+<tr>
+<th>User</th>
+<th>Document</th>
+<th>Chunks</th>
+<th>Expected Time</th>
+<th>Actual Time</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>User 1</td>
+<td>RAGINTEGRATION.pdf</td>
+<td>175</td>
+<td>~30 seconds</td>
+<td>6+ minutes</td>
+<td>❌ Still processing</td>
+</tr>
+<tr>
+<td>User 2</td>
+<td>aiagents.pdf</td>
+<td>9</td>
+<td>~5 seconds</td>
+<td>3+ minutes</td>
+<td>✅ Completed</td>
+</tr>
+</tbody>
+</table>
+<h4 id="single-vs-multi-user-performance"><strong>Single vs Multi-User Performance:</strong></h4>
+<ul>
+<li><strong>Single User</strong>: Fast, efficient processing</li>
+<li><strong>Multi-User</strong>: 10-12x slower, system overload</li>
+<li><strong>Root Cause</strong>: Resource contention and CPU saturation</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%9A%A8-critical-system-issues-identified">🚨 <strong>Critical System Issues Identified</strong></h2>
+<h3 id="1-cpu-overload"><strong>1. CPU Overload</strong></h3>
+<pre class="hljs"><code><div>Load Average: 43.36 (Critical - should be ≤24 <span class="hljs-keyword">for</span> 24-core system)
+CPU Usage: 98.3% sustained
+
+Ollama Processes:
+- PID 2962249: 788.9% CPU (8 cores)
+- PID 2957458: 722.2% CPU (7 cores) 
+- PID 2957956: 477.8% CPU (5 cores)
+Total: ~1988% CPU = 20 cores at 100%!
+</div></code></pre>
+<h3 id="2-multiple-runner-processes"><strong>2. Multiple Runner Processes</strong></h3>
+<ul>
+<li><strong>Problem</strong>: Ollama spawning separate runners for each model</li>
+<li><strong>Impact</strong>: Resource fragmentation and context switching overhead</li>
+<li><strong>Evidence</strong>: 3 concurrent ollama runners with different parallel settings</li>
+</ul>
+<h3 id="3-no-resource-limits"><strong>3. No Resource Limits</strong></h3>
+<ul>
+<li><strong>Threads</strong>: 12 per runner (36 total)</li>
+<li><strong>Parallel</strong>: Inconsistent settings (1, 4, 4)</li>
+<li><strong>Memory</strong>: 11.7GB for main process + ~4GB for runners</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%92%A1-root-cause-analysis">💡 <strong>Root Cause Analysis</strong></h2>
+<h3 id="why-single-user-works-vs-multi-user-fails"><strong>Why Single User Works vs Multi-User Fails:</strong></h3>
+<ol>
+<li>
+<p><strong>Single User:</strong></p>
+<ul>
+<li>One model instance</li>
+<li>Sequential embedding requests</li>
+<li>Manageable CPU load</li>
+</ul>
+</li>
+<li>
+<p><strong>Multi-User:</strong></p>
+<ul>
+<li>Multiple model instances compete</li>
+<li>Parallel requests overwhelm Ollama</li>
+<li>CPU thrashing between processes</li>
+</ul>
+</li>
+</ol>
+<h3 id="ollama-behavior-under-load"><strong>Ollama Behavior Under Load:</strong></h3>
+<ul>
+<li>✅ <strong>Designed for</strong>: Sequential requests with occasional parallelism</li>
+<li>❌ <strong>Not optimized for</strong>: High-throughput batch processing</li>
+<li>❌ <strong>Issue</strong>: No built-in request queuing or rate limiting</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%9B%A0%EF%B8%8F-complete-ollama-reinstallation-guide">🛠️ <strong>Complete Ollama Reinstallation Guide</strong></h2>
+<h3 id="phase-1-clean-removal"><strong>Phase 1: Clean Removal</strong></h3>
+<h4 id="stop-ollama-service"><strong>Stop Ollama Service:</strong></h4>
+<pre class="hljs"><code><div>sudo systemctl stop ollama
+sudo systemctl <span class="hljs-built_in">disable</span> ollama
+</div></code></pre>
+<h4 id="remove-ollama-installation"><strong>Remove Ollama Installation:</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Remove binary</span>
+sudo rm -f /usr/<span class="hljs-built_in">local</span>/bin/ollama
+
+<span class="hljs-comment"># Remove service file</span>
+sudo rm -f /etc/systemd/system/ollama.service
+
+<span class="hljs-comment"># Remove user data (WARNING: This removes all models!)</span>
+rm -rf ~/.ollama
+
+<span class="hljs-comment"># For system-wide removal (if installed for all users)</span>
+sudo rm -rf /usr/share/ollama
+sudo rm -rf /var/lib/ollama
+</div></code></pre>
+<h4 id="clean-process-tree"><strong>Clean Process Tree:</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Kill any remaining ollama processes</span>
+sudo pkill -f ollama
+
+<span class="hljs-comment"># Verify all processes are gone</span>
+ps aux | grep ollama
+</div></code></pre>
+<h3 id="phase-2-optimized-reinstallation"><strong>Phase 2: Optimized Reinstallation</strong></h3>
+<h4 id="install-ollama-with-resource-limits"><strong>Install Ollama with Resource Limits:</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Download and install Ollama</span>
+curl -fsSL https://ollama.ai/install.sh | sh
+</div></code></pre>
+<h4 id="create-optimized-service-configuration"><strong>Create Optimized Service Configuration:</strong></h4>
+<pre class="hljs"><code><div>sudo tee /etc/systemd/system/ollama.service &gt; /dev/null &lt;&lt;EOF
+[Unit]
+Description=Ollama Server
+After=network-online.target
+
+[Service]
+ExecStart=/usr/<span class="hljs-built_in">local</span>/bin/ollama serve
+User=ollama
+Group=ollama
+Restart=always
+RestartSec=3
+Environment=<span class="hljs-string">"OLLAMA_HOST=0.0.0.0:11434"</span>
+Environment=<span class="hljs-string">"OLLAMA_NUM_PARALLEL=2"</span>
+Environment=<span class="hljs-string">"OLLAMA_MAX_LOADED_MODELS=2"</span>
+Environment=<span class="hljs-string">"OLLAMA_FLASH_ATTENTION=1"</span>
+Environment=<span class="hljs-string">"OLLAMA_KEEP_ALIVE=5m"</span>
+
+<span class="hljs-comment"># Resource Limits</span>
+MemoryLimit=16G
+CPUQuota=800%
+TasksMax=50
+
+[Install]
+WantedBy=default.target
+EOF
+</div></code></pre>
+<h4 id="create-ollama-user"><strong>Create Ollama User:</strong></h4>
+<pre class="hljs"><code><div>sudo useradd -r -s /bin/<span class="hljs-literal">false</span> -d /usr/share/ollama ollama
+sudo mkdir -p /usr/share/ollama
+sudo chown ollama:ollama /usr/share/ollama
+</div></code></pre>
+<h4 id="configure-resource-limits"><strong>Configure Resource Limits:</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Create limits configuration</span>
+sudo tee /etc/security/limits.d/ollama.conf &gt; /dev/null &lt;&lt;EOF
+ollama soft nproc 50
+ollama hard nproc 100
+ollama soft nofile 65536
+ollama hard nofile 65536
+EOF
+</div></code></pre>
+<h3 id="phase-3-multi-instance-setup-optional"><strong>Phase 3: Multi-Instance Setup (Optional)</strong></h3>
+<h4 id="for-high-throughput-requirements"><strong>For High-Throughput Requirements:</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Create multiple Ollama instances</span>
+<span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> {1..3}; <span class="hljs-keyword">do</span>
+    sudo tee /etc/systemd/system/ollama-<span class="hljs-variable">$i</span>.service &gt; /dev/null &lt;&lt;EOF
+[Unit]
+Description=Ollama Server Instance <span class="hljs-variable">$i</span>
+After=network-online.target
+
+[Service]
+ExecStart=/usr/<span class="hljs-built_in">local</span>/bin/ollama serve
+User=ollama
+Group=ollama
+Restart=always
+RestartSec=3
+Environment=<span class="hljs-string">"OLLAMA_HOST=0.0.0.0:1143<span class="hljs-variable">$i</span>"</span>
+Environment=<span class="hljs-string">"OLLAMA_NUM_PARALLEL=1"</span>
+Environment=<span class="hljs-string">"OLLAMA_MAX_LOADED_MODELS=1"</span>
+MemoryLimit=8G
+CPUQuota=600%
+
+[Install]
+WantedBy=default.target
+EOF
+<span class="hljs-keyword">done</span>
+</div></code></pre>
+<h3 id="phase-4-application-integration"><strong>Phase 4: Application Integration</strong></h3>
+<h4 id="update-application-configuration"><strong>Update Application Configuration:</strong></h4>
+<ol>
+<li><strong>Single Instance Setup:</strong></li>
+</ol>
+<pre class="hljs"><code><div><span class="hljs-comment">// conf/config.ini</span>
+[Docker]
+docker-chromadb-protocol = http
+docker-chromadb-host = localhost
+docker-chromadb-port = <span class="hljs-number">8001</span>
+
+[Ollama]
+ollama-host = localhost
+ollama-port = <span class="hljs-number">11434</span>
+ollama-max-concurrent-requests = <span class="hljs-number">3</span>
+ollama-request-timeout = <span class="hljs-number">30000</span>
+</div></code></pre>
+<ol start="2">
+<li><strong>Multi-Instance Setup:</strong></li>
+</ol>
+<pre class="hljs"><code><div><span class="hljs-comment">// Enable load balancer in application</span>
+<span class="hljs-keyword">const</span> ollamaLoadBalancer = <span class="hljs-built_in">require</span>(<span class="hljs-string">'./src/services/ollamaLoadBalancer'</span>);
+
+<span class="hljs-comment">// Configure multiple instances</span>
+ollamaLoadBalancer.enableMultiInstance([
+    <span class="hljs-string">'http://localhost:11431'</span>,
+    <span class="hljs-string">'http://localhost:11432'</span>, 
+    <span class="hljs-string">'http://localhost:11433'</span>
+]);
+</div></code></pre>
+<h3 id="phase-5-performance-optimization"><strong>Phase 5: Performance Optimization</strong></h3>
+<h4 id="model-pre-loading"><strong>Model Pre-loading:</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Start service</span>
+sudo systemctl daemon-reload
+sudo systemctl <span class="hljs-built_in">enable</span> ollama
+sudo systemctl start ollama
+
+<span class="hljs-comment"># Pre-load embedding model</span>
+ollama pull nomic-embed-text
+
+<span class="hljs-comment"># Verify model is loaded and warm</span>
+curl -X POST http://localhost:11434/api/embeddings \
+  -H <span class="hljs-string">"Content-Type: application/json"</span> \
+  -d <span class="hljs-string">'{"model": "nomic-embed-text", "prompt": "test"}'</span>
+</div></code></pre>
+<h4 id="performance-tuning"><strong>Performance Tuning:</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check optimal settings for your hardware</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"Checking CPU cores:"</span>
+nproc
+
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"Checking available memory:"</span>
+free -h
+
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"Recommended Ollama settings for your system:"</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"OLLAMA_NUM_PARALLEL = <span class="hljs-variable">$(( $(nproc)</span> / 8 ))"</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"OLLAMA_MAX_LOADED_MODELS = 2"</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"CPUQuota = <span class="hljs-variable">$(( $(nproc)</span> * 50 ))%"</span>
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%8E%AF-expected-performance-improvements">🎯 <strong>Expected Performance Improvements</strong></h2>
+<h3 id="single-instance-optimized"><strong>Single Instance Optimized:</strong></h3>
+<ul>
+<li><strong>Parallel Users</strong>: 2-3 users simultaneously</li>
+<li><strong>Processing Time</strong>: 175 chunks in ~45 seconds</li>
+<li><strong>CPU Usage</strong>: ≤50% sustained</li>
+<li><strong>Memory Usage</strong>: ≤8GB</li>
+</ul>
+<h3 id="multi-instance-setup"><strong>Multi-Instance Setup:</strong></h3>
+<ul>
+<li><strong>Parallel Users</strong>: 6-9 users simultaneously</li>
+<li><strong>Processing Time</strong>: 175 chunks in ~20 seconds</li>
+<li><strong>Throughput</strong>: 3x improvement</li>
+<li><strong>Load Distribution</strong>: Balanced across instances</li>
+</ul>
+<h3 id="application-benefits"><strong>Application Benefits:</strong></h3>
+<ul>
+<li>✅ RAG toggle activates immediately after upload</li>
+<li>✅ Real-time progress updates work smoothly</li>
+<li>✅ No system freezing or timeouts</li>
+<li>✅ Predictable performance under load</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%93%8B-monitoring--maintenance">📋 <strong>Monitoring &amp; Maintenance</strong></h2>
+<h3 id="performance-monitoring"><strong>Performance Monitoring:</strong></h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Monitor Ollama service</span>
+sudo systemctl status ollama
+
+<span class="hljs-comment"># Check resource usage</span>
+top -p $(pgrep ollama)
+
+<span class="hljs-comment"># Monitor API response times</span>
+curl -w <span class="hljs-string">"@curl-format.txt"</span> -X POST http://localhost:11434/api/embeddings \
+  -H <span class="hljs-string">"Content-Type: application/json"</span> \
+  -d <span class="hljs-string">'{"model": "nomic-embed-text", "prompt": "test"}'</span>
+</div></code></pre>
+<h3 id="curl-formattxt"><strong>curl-format.txt:</strong></h3>
+<pre class="hljs"><code><div>     time_namelookup:  %{time_namelookup}\n
+        time_connect:  %{time_connect}\n
+     time_appconnect:  %{time_appconnect}\n
+    time_pretransfer:  %{time_pretransfer}\n
+       time_redirect:  %{time_redirect}\n
+  time_starttransfer:  %{time_starttransfer}\n
+                     ----------\n
+          time_total:  %{time_total}\n
+</div></code></pre>
+<h3 id="health-checks"><strong>Health Checks:</strong></h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Daily health check script</span>
+<span class="hljs-meta">#!/bin/bash</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"<span class="hljs-variable">$(date)</span>: Ollama Health Check"</span>
+curl -f http://localhost:11434/api/version || <span class="hljs-built_in">echo</span> <span class="hljs-string">"ERROR: Ollama not responding"</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"Load Average: <span class="hljs-variable">$(uptime | awk -F'load average:' '{print $2}')</span>"</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"Ollama Memory: <span class="hljs-variable">$(ps -p $(pgrep ollama)</span> -o rss= | awk '{sum+=<span class="hljs-variable">$1</span>} END {print sum/1024 "</span>MB<span class="hljs-string">"}')"</span>
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%9A%80-implementation-timeline">🚀 <strong>Implementation Timeline</strong></h2>
+<h3 id="phase-1-immediate-30-minutes"><strong>Phase 1: Immediate (30 minutes)</strong></h3>
+<ol>
+<li>Stop current Ollama service</li>
+<li>Clean removal of existing installation</li>
+<li>Kill all running processes</li>
+</ol>
+<h3 id="phase-2-installation-30-minutes"><strong>Phase 2: Installation (30 minutes)</strong></h3>
+<ol>
+<li>Fresh Ollama installation</li>
+<li>Optimized service configuration</li>
+<li>Resource limits setup</li>
+</ol>
+<h3 id="phase-3-testing-30-minutes"><strong>Phase 3: Testing (30 minutes)</strong></h3>
+<ol>
+<li>Single-user test</li>
+<li>Multi-user test</li>
+<li>Performance validation</li>
+</ol>
+<h3 id="phase-4-production-15-minutes"><strong>Phase 4: Production (15 minutes)</strong></h3>
+<ol>
+<li>Enable service</li>
+<li>Pre-load models</li>
+<li>Application integration</li>
+</ol>
+<p><strong>Total Time: ~2 hours for complete setup</strong></p>
+<hr>
+<h2 id="%E2%9A%A0%EF%B8%8F-important-notes">⚠️ <strong>Important Notes</strong></h2>
+<h3 id="before-starting"><strong>Before Starting:</strong></h3>
+<ul>
+<li>✅ Backup any important models or configurations</li>
+<li>✅ Plan for temporary service downtime (1-2 hours)</li>
+<li>✅ Test in development environment first</li>
+</ul>
+<h3 id="resource-requirements"><strong>Resource Requirements:</strong></h3>
+<ul>
+<li><strong>Minimum</strong>: 8GB RAM, 4 CPU cores</li>
+<li><strong>Recommended</strong>: 16GB RAM, 8+ CPU cores</li>
+<li><strong>Your System</strong>: 125GB RAM, 24 cores ✅ Excellent</li>
+</ul>
+<h3 id="troubleshooting"><strong>Troubleshooting:</strong></h3>
+<p>If issues persist after reinstallation:</p>
+<ol>
+<li>Check system logs: <code>journalctl -u ollama -f</code></li>
+<li>Verify resource limits: <code>systemctl show ollama</code></li>
+<li>Monitor CPU/memory: <code>top -p $(pgrep ollama)</code></li>
+<li>Test API directly: <code>curl http://localhost:11434/api/version</code></li>
+</ol>
+<p>This guide should resolve the parallel processing bottleneck and provide stable, scalable performance for your multi-user RAG application.</p>
+
+</body>
+
+</html>

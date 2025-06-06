@@ -197,6 +197,31 @@ async function startServer() {
     const webSocketService = getWebSocketService(wsServer);
     console.log('WebSocket service initialized with server instance');
 
+    // Initialize Document Workers for scalable processing
+    try {
+      const DocumentWorker = require('./workers/documentWorker');
+      const workerCount = parseInt(config.document_queue?.worker_count || '3');
+      
+      console.log(`Starting ${workerCount} document workers...`);
+      
+      // Start multiple workers for parallel processing
+      const workers = [];
+      for (let i = 0; i < workerCount; i++) {
+        const worker = new DocumentWorker();
+        await worker.initialize();
+        workers.push(worker);
+        console.log(`Document worker ${i + 1} started successfully`);
+      }
+      
+      // Store workers for graceful shutdown
+      app.set('documentWorkers', workers);
+      console.log(`All ${workerCount} document workers started successfully`);
+      
+    } catch (error) {
+      console.error('Failed to start document workers:', error);
+      console.warn('Document processing will not be available');
+    }
+
     // Register MCP WebSocket handlers
     registerMCPHandlers(wsServer);
     console.log('Registered MCP WebSocket handlers');
@@ -221,6 +246,20 @@ async function startServer() {
     // Graceful shutdown
     process.on('SIGTERM', () => {
       console.log('Received SIGTERM. Performing graceful shutdown...');
+      
+      // Shutdown document workers
+      const workers = app.get('documentWorkers');
+      if (workers && workers.length > 0) {
+        console.log('Shutting down document workers...');
+        Promise.all(workers.map(worker => worker.shutdown()))
+          .then(() => {
+            console.log('All document workers shut down successfully');
+          })
+          .catch(err => {
+            console.error('Error shutting down workers:', err);
+          });
+      }
+      
       server.close(() => {
         console.log('Server closed. Exiting process.');
         process.exit(0);
