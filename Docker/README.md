@@ -105,80 +105,214 @@ psql --version
 
 ## 🚀 Quick Start
 
-### 1. Clone the Repository
+### Step-by-Step Setup Guide
+
+#### 1. **Clone the Repository**
 ```bash
 git clone <repository-url>
-cd productdemo
+cd c2s_integrate
 ```
 
-### 2. Choose Your Database Setup
-
-#### Option A: Use Host PostgreSQL (Recommended for Production)
+#### 2. **Verify Prerequisites**
 ```bash
-# Install PostgreSQL on your system if not already installed
+# Check Docker installation
+docker --version
+docker compose version
+
+# Check Node.js installation
+node --version  # Should be 18+
+npm --version
+
+# Check if ports are available
+netstat -tulpn | grep -E "(5634|5432|6379|8001|11434)"
+```
+
+#### 3. **Choose Database Setup**
+
+**Option A: Host PostgreSQL (Production Recommended)**
+```bash
+# Install PostgreSQL (Ubuntu/Debian)
+sudo apt update && sudo apt install postgresql postgresql-contrib
+
 # Create database and user
-createdb productdemo
-createuser productdemo_user
+sudo -u postgres psql
+CREATE DATABASE copilot;
+CREATE USER postgres WITH PASSWORD 'root';
+GRANT ALL PRIVILEGES ON DATABASE copilot TO postgres;
+\q
+
+# Test connection
+psql -h localhost -U postgres -d copilot -c "SELECT 1;"
 ```
 
-#### Option B: Use Docker PostgreSQL (Easier for Development)
+**Option B: Docker PostgreSQL (Development)**
 ```bash
-# Add PostgreSQL service to docker-compose.yml (see Configuration section)
+# Add to docker-compose.yml (see Configuration section)
+# Will be started with other services in step 6
 ```
 
-### 3. Install Application Dependencies
+#### 4. **Install Application Dependencies**
 ```bash
 # Install backend dependencies
 npm install
 
-# Build frontend
+# Install frontend dependencies and build
 cd client
 npm install
 npm run build
 cd ..
+
+# Verify build was created
+ls -la client/build/
 ```
 
-### 4. Configure Environment
+#### 5. **Configure Environment Files**
 ```bash
-# Copy and edit configuration
+# Copy configuration templates
 cp conf/config.ini conf/config.local.ini
-# Edit conf/config.local.ini with your database settings
-
-# For Docker services
 cp Docker/env.docker .env
-# Edit .env if needed
+
+# Edit database configuration
+nano conf/config.local.ini
+# Update [database] section with your PostgreSQL settings
+
+# Edit Docker environment (if needed)
+nano .env
+# Adjust worker concurrency, memory limits, etc.
 ```
 
-### 5. Start Infrastructure Services
+#### 6. **Build and Start Docker Services**
 ```bash
-# Start only the containerized services (Redis, ChromaDB, Workers)
 cd Docker
+
+# Build custom images (first time only)
+docker compose build
+
+# Start all infrastructure services
 docker compose up -d
 
-# Verify services are running
+# Verify all services are running
 docker compose ps
+# Should show: redis, chromadb, doc-workers, image-processor
+
+# Check service health
+docker compose logs redis
+docker compose logs chromadb
+docker compose logs doc-workers
 ```
 
-### 6. Initialize Database
+#### 7. **Initialize Database Schema**
 ```bash
-# Run from project root
+# Return to project root
+cd ..
+
+# Run database migrations
 npm run db:migrate
 npm run db:migrate:queue
+
+# Verify tables were created
+psql -h localhost -U postgres -d copilot -c "\dt"
 ```
 
-### 7. Start the Main Application
+#### 8. **Start the Main Application**
 ```bash
-# Start the backend (which serves the frontend)
+# Start backend (serves frontend automatically)
 npm start
 
 # Or for development with auto-reload
 npm run dev
+
+# Application should start on port 5634
 ```
 
-### 8. Access the Application
-- **Complete Application**: http://localhost:5634
-- **API Endpoints**: http://localhost:5634/api/*
-- **Frontend SPA**: Served automatically by backend
+#### 9. **Verify Complete Setup**
+
+**Check Application Access:**
+```bash
+# Main application
+curl http://localhost:5634
+# Should return HTML content
+
+# API health check
+curl http://localhost:5634/api/health
+# Should return {"status": "ok"}
+
+# Frontend should load in browser
+open http://localhost:5634
+```
+
+**Check Service Connectivity:**
+```bash
+# Redis connectivity
+docker compose exec redis redis-cli ping
+# Should return: PONG
+
+# ChromaDB connectivity
+curl http://localhost:8001/api/v1/heartbeat
+# Should return: {"nanosecond heartbeat": ...}
+
+# Database connectivity
+psql -h localhost -U postgres -d copilot -c "SELECT version();"
+```
+
+**Check Worker Functionality:**
+```bash
+# View worker logs
+docker compose logs -f doc-workers
+
+# Test document processing (if you have a test PDF)
+# Upload a document through the web interface
+# Check logs for processing activity
+```
+
+#### 10. **Optional: Setup Ollama (AI Models)**
+```bash
+# Install Ollama on host (recommended)
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Start Ollama service
+ollama serve &
+
+# Pull required models
+ollama pull llama2
+ollama pull codellama
+
+# Test Ollama connectivity
+curl http://localhost:11434/api/tags
+```
+
+### 🎯 Access Points Summary
+
+After successful setup, you can access:
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| **Main Application** | http://localhost:5634 | Complete web interface |
+| **API Endpoints** | http://localhost:5634/api/* | REST API access |
+| **ChromaDB Admin** | http://localhost:8001 | Vector database interface |
+| **Redis CLI** | `docker compose exec redis redis-cli` | Queue management |
+| **Database** | `psql -h localhost -U postgres copilot` | Direct database access |
+| **Ollama API** | http://localhost:11434 | AI model interface |
+
+### ⚡ Quick Commands Reference
+
+```bash
+# === DAILY OPERATIONS ===
+cd Docker && docker compose up -d    # Start all services
+npm start                           # Start main application
+docker compose ps                   # Check service status
+docker compose logs -f doc-workers  # Monitor workers
+
+# === DEVELOPMENT ===
+cd client && npm run build && cd .. # Rebuild frontend
+npm run dev                         # Development mode
+docker compose restart doc-workers  # Restart workers after code changes
+
+# === MAINTENANCE ===
+docker compose down                 # Stop all services
+docker compose pull                # Update pre-built images
+docker compose build --no-cache    # Rebuild custom images
+```
 
 ---
 
@@ -287,45 +421,390 @@ serve_static = true
 
 ---
 
-## 🔧 Services Overview
+## 🔧 Services Overview & Docker Images
 
-### 1. Main Application (Host)
-- **Port**: 5634 (configurable)
-- **Components**: 
-  - Node.js Backend (API server, WebSocket)
-  - React Frontend (served as static files)
-- **Purpose**: Main application logic, user interface
+### 📊 Port Mapping Summary
+| Service | Host Port | Container Port | Purpose | Access URL |
+|---------|-----------|----------------|---------|------------|
+| **Main Application** | 5634 | N/A (Host) | Backend + Frontend | http://localhost:5634 |
+| **Redis** | 6379 | 6379 | Queue Management | redis://localhost:6379 |
+| **ChromaDB** | 8001 | 8000 | Vector Database | http://localhost:8001 |
+| **PostgreSQL** | 5432 | 5432 | Primary Database | postgresql://localhost:5432 |
+| **Ollama/LLM** | 11434 | N/A (Host) | AI Model Inference | http://localhost:11434 |
+
+---
+
+### 🐳 Docker Images & Services
+
+#### 1. **Main Application (Host System)**
+```yaml
+# Not containerized - runs directly on host
+Type: Host Application
+Port: 5634 (configurable)
+```
+- **Components**:
+  - Node.js Backend (API server, WebSocket, static file serving)
+  - React Frontend (served as static build files)
+- **Purpose**: Main application logic, user interface, API endpoints
 - **Access**: http://localhost:5634
+- **Why Host**: Better performance, easier development, single port access
+- **Build Process**: `npm install` → `cd client && npm run build` → `npm start`
 
-### 2. Redis (Containerized)
-- **Port**: 6379
-- **Purpose**: Queue management for BullMQ, session storage
-- **Container**: `productdemo-redis`
-- **Scaling**: Single instance sufficient
+#### 2. **Redis (Pre-built Image)**
+```yaml
+# docker-compose.yml
+redis:
+  image: redis:7-alpine
+  container_name: productdemo-redis
+  ports: ["6379:6379"]
+```
+- **Image Source**: Official Redis Alpine image from Docker Hub
+- **Purpose**: Queue management for BullMQ, session storage, caching
+- **Configuration**:
+  - Memory limit: 512MB
+  - Persistence: AOF enabled
+  - Policy: allkeys-lru
+- **Data Storage**: Named volume `redis_data`
+- **Health Check**: `redis-cli ping` every 30s
+- **Scaling**: Single instance sufficient for most workloads
 
-### 3. ChromaDB (Containerized)
-- **Port**: 8000
-- **Purpose**: Vector database for document embeddings
-- **Container**: `productdemo-chromadb`
-- **Data**: Persistent storage in `./DATA/chroma_data`
+#### 3. **ChromaDB (Pre-built Image)**
+```yaml
+# docker-compose.yml
+chromadb:
+  image: chromadb/chroma:latest
+  container_name: productdemo-chromadb
+  ports: ["8001:8000"]
+```
+- **Image Source**: Official ChromaDB image from Docker Hub
+- **Purpose**: Vector database for document embeddings and similarity search
+- **Port Mapping**: Host 8001 → Container 8000 (to avoid conflicts)
+- **Configuration**:
+  - CORS enabled for all origins
+  - Reset functionality enabled
+  - Host binding: 0.0.0.0:8000
+- **Data Storage**: Bind mount `./DATA/chroma_data:/chroma/chroma`
+- **API Access**: http://localhost:8001/api/v1/heartbeat
 
-### 4. Document Workers (Containerized)
-- **Purpose**: Asynchronous document processing
-- **Container**: `productdemo-doc-workers`
-- **Scaling**: Horizontal scaling supported (1-10 instances)
-- **Features**: PDF/DOCX parsing, embedding generation
+#### 4. **Document Workers (Custom Built Image)**
+```yaml
+# docker-compose.yml
+doc-workers:
+  build:
+    context: ..
+    dockerfile: Docker/Dockerfile.workers
+  container_name: productdemo-doc-workers
+```
+- **Base Image**: `node:18-alpine3.16`
+- **Build Context**: Project root directory
+- **Dockerfile**: `Docker/Dockerfile.workers`
+- **Purpose**: Asynchronous document processing (PDF/DOCX parsing, embedding generation)
+- **Features**:
+  - BullMQ worker implementation
+  - Python virtual environment for document processing
+  - ImageMagick and Poppler for PDF handling
+  - Horizontal scaling support (1-10 instances)
+- **Resource Limits**: 1GB RAM, 1 CPU core
+- **Dependencies**: Redis (queue), ChromaDB (storage)
+- **Scaling**: `docker compose up -d --scale doc-workers=5`
 
-### 5. PostgreSQL (Host or Container)
-- **Port**: 5432
+#### 5. **Image Processor (Custom Built Image)**
+```yaml
+# docker-compose.yml
+image-processor:
+  build:
+    context: ..
+    dockerfile: Docker/Dockerfile.image-processor
+  container_name: productdemo-image-processor
+```
+- **Base Image**: `python:3.9-slim`
+- **Build Context**: Project root directory
+- **Dockerfile**: `Docker/Dockerfile.image-processor`
+- **Purpose**: OCR-based image processing for RAG system
+- **Features**:
+  - Tesseract OCR with multiple language support
+  - PDF image extraction
+  - User-isolated image collections
+  - ChromaDB integration for image metadata
+- **OCR Languages**: English, French, German, Spanish, Italian, Portuguese
+- **Resource Limits**: 2GB RAM, 1.5 CPU cores
+- **Data Storage**: Bind mounts for input/output and collections
+
+#### 6. **PostgreSQL (Host or Container)**
+```yaml
+# Optional - can be added to docker-compose.yml
+postgres:
+  image: postgres:15-alpine
+  container_name: productdemo-postgres
+  ports: ["5432:5432"]
+```
+- **Image Source**: Official PostgreSQL Alpine image
 - **Purpose**: Primary application database
-- **Options**: Host installation (recommended) or containerized
+- **Recommendation**: Host installation for production
 - **Data**: User accounts, chat sessions, document metadata
+- **Configuration**: Database name, user, and password via environment variables
+- **Data Storage**: Named volume `postgres_data` (if containerized)
 
-### 6. Ollama/LLM (Host Recommended)
-- **Port**: 11434
+#### 7. **Ollama/LLM (Host Recommended)**
+```yaml
+# Optional - can be added to docker-compose.yml
+ollama:
+  image: ollama/ollama:latest
+  container_name: productdemo-ollama
+  ports: ["11434:11434"]
+```
+- **Image Source**: Official Ollama image
 - **Purpose**: Large Language Model inference
-- **Recommendation**: Host installation for better performance
-- **Models**: Configurable (llama2, codellama, etc.)
+- **Recommendation**: Host installation for better GPU access and performance
+- **Models**: Configurable (llama2, codellama, mistral, etc.)
+- **GPU Support**: Better on host system
+- **Data Storage**: Named volume `ollama_data` for models
+
+---
+
+## 🏗️ Building Custom Docker Images
+
+### Overview of Custom Images
+
+The system uses **2 custom-built Docker images** and **3 pre-built images**:
+
+**Custom Built Images:**
+1. **Document Workers** (`Dockerfile.workers`) - Node.js + Python for document processing
+2. **Image Processor** (`Dockerfile.image-processor`) - Python + OCR for image extraction
+
+**Pre-built Images:**
+1. **Redis** (`redis:7-alpine`) - Queue management
+2. **ChromaDB** (`chromadb/chroma:latest`) - Vector database
+3. **PostgreSQL** (`postgres:15-alpine`) - Optional database container
+
+### Building Document Workers Image
+
+#### Dockerfile.workers Analysis
+```dockerfile
+FROM node:18-alpine3.16
+
+# System dependencies for document processing
+RUN apk add --no-cache \
+    bash curl imagemagick poppler-utils \
+    build-base libffi-dev openssl-dev \
+    python3 python3-dev py3-pip
+
+# Python virtual environment setup
+RUN python3 -m venv /app/python/.venv
+COPY python/requirements.txt /app/python/requirements.txt
+RUN /app/python/.venv/bin/pip install -r /app/python/requirements.txt
+
+# Node.js dependencies
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Application code
+COPY src ./src
+COPY conf ./conf
+
+# Security: non-root user
+USER node
+```
+
+#### Build Commands
+```bash
+# Build document workers image
+cd Docker
+docker build -f Dockerfile.workers -t productdemo-doc-workers ..
+
+# Or build via docker-compose
+docker compose build doc-workers
+
+# Build with no cache (force rebuild)
+docker compose build --no-cache doc-workers
+
+# View build logs
+docker compose build doc-workers --progress=plain
+```
+
+#### Image Features
+- **Base**: Alpine Linux (lightweight)
+- **Runtime**: Node.js 18 + Python 3.9
+- **Document Processing**: ImageMagick, Poppler (PDF tools)
+- **Python Libraries**: PyMuPDF, langchain, chromadb
+- **Security**: Runs as non-root user
+- **Size**: ~800MB (optimized)
+
+### Building Image Processor Image
+
+#### Dockerfile.image-processor Analysis
+```dockerfile
+FROM python:3.9-slim
+
+# OCR and image processing dependencies
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra \
+    tesseract-ocr-deu tesseract-ocr-spa tesseract-ocr-ita \
+    tesseract-ocr-por libtesseract-dev libleptonica-dev \
+    libpoppler-cpp-dev libmagic1 build-essential
+
+# Python dependencies
+COPY python/RAG-MODULE/image-processing/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Application scripts
+COPY python/RAG-MODULE/image-processing/ /app/image-processing/
+
+# Security: non-root user
+USER imageprocessor
+```
+
+#### Build Commands
+```bash
+# Build image processor
+cd Docker
+docker build -f Dockerfile.image-processor -t productdemo-image-processor ..
+
+# Or build via docker-compose
+docker compose build image-processor
+
+# Test the build
+./test-image-processing.sh
+
+# Build with specific tag
+docker build -f Dockerfile.image-processor -t productdemo-image-processor:v1.0 ..
+```
+
+#### Image Features
+- **Base**: Debian Slim (better OCR support)
+- **OCR**: Tesseract with 6 language packs
+- **Image Processing**: PIL, PyMuPDF, OpenCV
+- **Languages**: EN, FR, DE, ES, IT, PT
+- **Security**: Runs as non-root user
+- **Size**: ~1.2GB (includes OCR data)
+
+### Image Management Commands
+
+#### Building All Images
+```bash
+# Build all custom images
+cd Docker
+docker compose build
+
+# Build specific image
+docker compose build doc-workers
+docker compose build image-processor
+
+# Force rebuild (no cache)
+docker compose build --no-cache
+
+# Build with parallel processing
+docker compose build --parallel
+```
+
+#### Image Information
+```bash
+# List all images
+docker images | grep productdemo
+
+# Image details
+docker inspect productdemo-doc-workers
+docker inspect productdemo-image-processor
+
+# Image size and layers
+docker history productdemo-doc-workers
+docker history productdemo-image-processor
+
+# Remove images
+docker rmi productdemo-doc-workers
+docker rmi productdemo-image-processor
+```
+
+#### Testing Built Images
+
+**Test Document Workers:**
+```bash
+# Test worker connectivity
+docker run --rm --network productdemo-network \
+  -e REDIS_HOST=redis -e CHROMADB_HOST=chromadb \
+  productdemo-doc-workers node -e "console.log('Worker test OK')"
+
+# Test Python environment
+docker run --rm productdemo-doc-workers \
+  /app/python/.venv/bin/python -c "import fitz, chromadb; print('Dependencies OK')"
+```
+
+**Test Image Processor:**
+```bash
+# Run comprehensive test
+cd Docker
+./test-image-processing.sh
+
+# Test OCR manually
+docker run --rm productdemo-image-processor tesseract --version
+
+# Test Python dependencies
+docker run --rm productdemo-image-processor \
+  python -c "import pytesseract, fitz, PIL; print('OCR dependencies OK')"
+```
+
+### Troubleshooting Image Builds
+
+#### Common Build Issues
+
+**1. Docker Build Context Too Large**
+```bash
+# Problem: Build context includes large files
+# Solution: Use .dockerignore file
+echo "node_modules/
+DATA/
+logs/
+*.log" > .dockerignore
+```
+
+**2. Python Dependencies Fail**
+```bash
+# Problem: Missing system dependencies
+# Solution: Check Dockerfile system packages
+docker build --no-cache -f Dockerfile.workers ..
+```
+
+**3. Permission Issues**
+```bash
+# Problem: File permissions in container
+# Solution: Check user/group settings
+docker run --rm -it productdemo-doc-workers ls -la /app
+```
+
+**4. Network Issues During Build**
+```bash
+# Problem: Cannot download packages
+# Solution: Check network and proxy settings
+docker build --network=host -f Dockerfile.workers ..
+```
+
+#### Build Optimization Tips
+
+**1. Layer Caching**
+```dockerfile
+# Copy requirements first (better caching)
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+# Then copy application code
+COPY . .
+```
+
+**2. Multi-stage Builds**
+```dockerfile
+# Use multi-stage for smaller final image
+FROM node:18-alpine as builder
+# Build steps...
+
+FROM node:18-alpine as runtime
+COPY --from=builder /app/dist /app
+```
+
+**3. Minimize Image Size**
+```dockerfile
+# Clean up after package installation
+RUN apt-get update && apt-get install -y packages \
+    && rm -rf /var/lib/apt/lists/*
+```
 
 ---
 
@@ -598,84 +1077,299 @@ SELECT count(*) FROM pg_stat_activity;
 
 ## 🔍 Troubleshooting
 
-### Common Issues
+### Service-Specific Troubleshooting
 
-#### 1. Frontend Not Loading
+#### 1. **Main Application Issues**
+
+**Frontend Not Loading:**
 ```bash
-# Check if build exists
+# Check if build exists and is recent
 ls -la client/build/
+stat client/build/index.html
 
 # Rebuild frontend
 cd client && npm run build && cd ..
 
 # Check backend static file serving
-curl http://localhost:5634/
+curl -I http://localhost:5634/
+curl http://localhost:5634/ | head -20
+
+# Check backend configuration
+grep -A 5 "static_root_path" conf/config.ini
 ```
 
-#### 2. API Routes Not Working
+**API Routes Not Working:**
 ```bash
-# Check if backend is running
-curl http://localhost:5634/api/health
+# Test API health endpoint
+curl -v http://localhost:5634/api/health
 
 # Check backend logs
 tail -f logs/app.log
 
-# Verify API prefix
+# Test specific API endpoints
 curl http://localhost:5634/api/users/me
+curl http://localhost:5634/api/documents/
+
+# Check if backend is binding to correct port
+netstat -tulpn | grep 5634
 ```
 
-#### 3. Database Connection Issues
-```bash
-# Test PostgreSQL connection
-psql -h localhost -U productdemo_user -d productdemo -c "SELECT 1;"
+#### 2. **Database Connection Issues**
 
-# Check database configuration
+**PostgreSQL Connection Problems:**
+```bash
+# Test direct connection
+psql -h localhost -U postgres -d copilot -c "SELECT version();"
+
+# Check if PostgreSQL is running
+sudo systemctl status postgresql
+# or for Docker: docker compose ps postgres
+
+# Verify database configuration
 cat conf/config.ini | grep -A 10 "\[database\]"
 
-# Verify database exists
-psql -h localhost -U productdemo_user -l
+# Check database exists and user has permissions
+psql -h localhost -U postgres -l
+psql -h localhost -U postgres -d copilot -c "\dt"
+
+# Test connection with application config
+node -e "
+const config = require('./src/config/database');
+console.log('DB Config:', config);
+"
 ```
 
-#### 4. Document Processing Not Working
-```bash
-# Check workers are running
-cd Docker && docker compose ps
+#### 3. **Docker Services Issues**
 
-# Check Redis connection
+**Redis Problems:**
+```bash
+# Check Redis container status
+docker compose ps redis
+docker compose logs redis
+
+# Test Redis connectivity
 docker compose exec redis redis-cli ping
+docker compose exec redis redis-cli info
 
-# Check ChromaDB connection
-curl http://localhost:8000/api/v1/heartbeat
+# Check Redis memory usage
+docker compose exec redis redis-cli info memory
 
-# View worker logs
-docker compose logs doc-workers
+# Test from application
+node -e "
+const Redis = require('ioredis');
+const redis = new Redis('localhost', 6379);
+redis.ping().then(console.log).catch(console.error);
+"
 ```
 
-#### 5. Ollama/LLM Integration Issues
+**ChromaDB Issues:**
 ```bash
-# Check Ollama is running
+# Check ChromaDB container status
+docker compose ps chromadb
+docker compose logs chromadb
+
+# Test ChromaDB API
+curl http://localhost:8001/api/v1/heartbeat
+curl http://localhost:8001/api/v1/version
+
+# Check ChromaDB collections
+curl http://localhost:8001/api/v1/collections
+
+# Verify data directory
+ls -la Docker/DATA/chroma_data/
+
+# Test from application
+node -e "
+const { ChromaClient } = require('chromadb');
+const client = new ChromaClient('http://localhost:8001');
+client.heartbeat().then(console.log).catch(console.error);
+"
+```
+
+#### 4. **Document Workers Issues**
+
+**Worker Not Processing Documents:**
+```bash
+# Check worker container status
+docker compose ps doc-workers
+docker compose logs -f doc-workers
+
+# Check worker resource usage
+docker stats productdemo-doc-workers
+
+# Test worker dependencies
+docker compose exec doc-workers node -e "
+const Redis = require('ioredis');
+const redis = new Redis('redis', 6379);
+redis.ping().then(() => console.log('Redis OK')).catch(console.error);
+"
+
+# Test Python environment in worker
+docker compose exec doc-workers /app/python/.venv/bin/python -c "
+import fitz, chromadb
+print('Python dependencies OK')
+"
+
+# Check queue status
+docker compose exec redis redis-cli KEYS "bull:*"
+docker compose exec redis redis-cli LLEN "bull:document-processing:waiting"
+```
+
+**Scale Workers for Better Performance:**
+```bash
+# Scale up workers
+docker compose up -d --scale doc-workers=3
+
+# Check all worker instances
+docker ps | grep doc-workers
+
+# Monitor worker distribution
+docker compose logs -f doc-workers | grep "Processing job"
+```
+
+#### 5. **Image Processor Issues**
+
+**OCR Not Working:**
+```bash
+# Check image processor status
+docker compose ps image-processor
+docker compose logs image-processor
+
+# Test Tesseract installation
+docker compose exec image-processor tesseract --version
+
+# Test OCR functionality
+docker compose exec image-processor python -c "
+import pytesseract
+from PIL import Image, ImageDraw
+img = Image.new('RGB', (200, 50), 'white')
+draw = ImageDraw.Draw(img)
+draw.text((10, 10), 'Test OCR', fill='black')
+img.save('/tmp/test.png')
+text = pytesseract.image_to_string('/tmp/test.png')
+print(f'OCR Result: {text.strip()}')
+"
+
+# Run comprehensive test
+cd Docker && ./test-image-processing.sh
+```
+
+#### 6. **Ollama/LLM Integration Issues**
+
+**Ollama Connection Problems:**
+```bash
+# Check if Ollama is running
 curl http://localhost:11434/api/tags
+ps aux | grep ollama
 
-# Test Ollama connection
+# Start Ollama if not running
+ollama serve &
+
+# Test Ollama models
 ollama list
+ollama pull llama2  # if no models installed
 
-# Check configuration
+# Check application configuration
 cat conf/config.ini | grep -A 5 "\[ai\]"
+
+# Test from application
+node -e "
+const axios = require('axios');
+axios.get('http://localhost:11434/api/tags')
+  .then(res => console.log('Ollama OK:', res.data))
+  .catch(err => console.error('Ollama Error:', err.message));
+"
 ```
 
-### Debug Commands
+### 🔧 Advanced Debugging
+
+#### Container Deep Dive
 ```bash
-# Check all processes
-ps aux | grep -E "(node|postgres|redis|ollama)"
+# Enter container for debugging
+docker compose exec doc-workers sh
+docker compose exec image-processor bash
 
-# Check port usage
-netstat -tulpn | grep -E "(5634|5432|6379|8000|11434)"
+# Check container resource usage
+docker stats --no-stream
 
-# Check Docker services
-cd Docker && docker compose ps
+# Inspect container configuration
+docker inspect productdemo-doc-workers
+docker inspect productdemo-image-processor
 
-# Test database migrations
-npm run db:migrate -- --dry-run
+# Check container logs with timestamps
+docker compose logs -t doc-workers
+docker compose logs -t image-processor
+```
+
+#### Network Debugging
+```bash
+# Check Docker network
+docker network ls
+docker network inspect docker_productdemo-network
+
+# Test inter-container connectivity
+docker compose exec doc-workers ping redis
+docker compose exec doc-workers ping chromadb
+
+# Check port bindings
+docker port productdemo-redis
+docker port productdemo-chromadb
+```
+
+#### Performance Debugging
+```bash
+# Monitor system resources
+htop
+docker stats
+
+# Check disk usage
+df -h
+du -sh Docker/DATA/
+
+# Monitor application performance
+curl -w "@curl-format.txt" -o /dev/null -s http://localhost:5634/api/health
+
+# Database performance
+psql -h localhost -U postgres -d copilot -c "
+SELECT query, calls, total_time, mean_time
+FROM pg_stat_statements
+ORDER BY total_time DESC LIMIT 10;
+"
+```
+
+### 🚨 Emergency Recovery
+
+#### Complete System Reset
+```bash
+# Stop all services
+docker compose down
+
+# Remove all containers and volumes
+docker compose down -v
+docker system prune -a
+
+# Rebuild everything
+docker compose build --no-cache
+docker compose up -d
+
+# Reinitialize database
+npm run db:migrate
+npm run db:migrate:queue
+```
+
+#### Data Recovery
+```bash
+# Backup current data
+cp -r Docker/DATA/ Docker/DATA.backup.$(date +%Y%m%d)
+
+# Restore from backup
+cp -r Docker/DATA.backup.YYYYMMDD/ Docker/DATA/
+
+# Reset ChromaDB collections
+curl -X POST http://localhost:8001/api/v1/reset
+
+# Reset Redis queues
+docker compose exec redis redis-cli FLUSHALL
 ```
 
 ---
@@ -860,30 +1554,231 @@ deploy:
 - **Flexibility**: Easy to scale workers independently
 - **Development**: Faster iteration on main application code
 
+## 🛠️ Docker Image Management
+
+### Image Lifecycle Management
+
+#### Building Images
+```bash
+# Build all custom images
+cd Docker
+docker compose build
+
+# Build specific images
+docker compose build doc-workers
+docker compose build image-processor
+
+# Force rebuild (ignore cache)
+docker compose build --no-cache
+
+# Build with specific tag
+docker build -f Dockerfile.workers -t productdemo-doc-workers:v1.0 ..
+docker build -f Dockerfile.image-processor -t productdemo-image-processor:v1.0 ..
+```
+
+#### Image Information & Inspection
+```bash
+# List all project images
+docker images | grep productdemo
+
+# Detailed image information
+docker inspect productdemo-doc-workers
+docker inspect productdemo-image-processor
+
+# Image layer history and size
+docker history productdemo-doc-workers
+docker history productdemo-image-processor
+
+# Image vulnerability scanning (if available)
+docker scout cves productdemo-doc-workers
+docker scout cves productdemo-image-processor
+```
+
+#### Image Updates & Maintenance
+```bash
+# Update base images
+docker pull node:18-alpine3.16
+docker pull python:3.9-slim
+docker pull redis:7-alpine
+docker pull chromadb/chroma:latest
+
+# Rebuild after base image updates
+docker compose build --pull
+
+# Clean up old images
+docker image prune
+docker image prune -a  # Remove all unused images
+
+# Remove specific images
+docker rmi productdemo-doc-workers:old-tag
+docker rmi productdemo-image-processor:old-tag
+```
+
+#### Image Registry Operations
+```bash
+# Tag images for registry
+docker tag productdemo-doc-workers:latest your-registry.com/productdemo-doc-workers:v1.0
+docker tag productdemo-image-processor:latest your-registry.com/productdemo-image-processor:v1.0
+
+# Push to registry
+docker push your-registry.com/productdemo-doc-workers:v1.0
+docker push your-registry.com/productdemo-image-processor:v1.0
+
+# Pull from registry
+docker pull your-registry.com/productdemo-doc-workers:v1.0
+docker pull your-registry.com/productdemo-image-processor:v1.0
+```
+
+### Container Management
+
+#### Container Operations
+```bash
+# Start/stop specific services
+docker compose up -d redis chromadb
+docker compose stop doc-workers
+docker compose restart image-processor
+
+# Scale services
+docker compose up -d --scale doc-workers=3
+
+# View container details
+docker compose ps
+docker compose top doc-workers
+
+# Container resource usage
+docker stats productdemo-doc-workers
+docker stats productdemo-image-processor
+```
+
+#### Container Debugging
+```bash
+# Execute commands in running containers
+docker compose exec doc-workers sh
+docker compose exec image-processor bash
+
+# Run one-off commands
+docker compose run --rm doc-workers node --version
+docker compose run --rm image-processor python --version
+
+# Copy files to/from containers
+docker cp local-file.txt productdemo-doc-workers:/app/
+docker cp productdemo-image-processor:/app/output.txt ./
+```
+
+#### Container Logs & Monitoring
+```bash
+# View logs
+docker compose logs doc-workers
+docker compose logs image-processor
+docker compose logs -f --tail=100 doc-workers
+
+# Follow logs from multiple services
+docker compose logs -f doc-workers image-processor
+
+# Export logs
+docker compose logs doc-workers > worker-logs.txt
+docker compose logs image-processor > processor-logs.txt
+```
+
+### Volume & Data Management
+
+#### Volume Operations
+```bash
+# List volumes
+docker volume ls | grep docker
+
+# Inspect volume details
+docker volume inspect docker_redis_data
+docker volume inspect docker_image_collections
+
+# Backup volumes
+docker run --rm -v docker_redis_data:/data -v $(pwd):/backup alpine tar czf /backup/redis-backup.tar.gz -C /data .
+docker run --rm -v docker_image_collections:/data -v $(pwd):/backup alpine tar czf /backup/collections-backup.tar.gz -C /data .
+
+# Restore volumes
+docker run --rm -v docker_redis_data:/data -v $(pwd):/backup alpine tar xzf /backup/redis-backup.tar.gz -C /data
+```
+
+#### Data Directory Management
+```bash
+# Check data directory sizes
+du -sh Docker/DATA/chroma_data/
+du -sh Docker/DATA/documents/
+du -sh Docker/DATA/embeddings/
+
+# Backup data directories
+tar czf data-backup-$(date +%Y%m%d).tar.gz Docker/DATA/
+
+# Clean up old data (be careful!)
+find Docker/DATA/documents/ -name "*.pdf" -mtime +30 -delete
+find Docker/DATA/embeddings/ -name "*.json" -mtime +30 -delete
+```
+
+### Performance Optimization
+
+#### Resource Limits
+```yaml
+# In docker-compose.yml
+services:
+  doc-workers:
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+```
+
+#### Scaling Strategies
+```bash
+# Horizontal scaling for workers
+docker compose up -d --scale doc-workers=5
+
+# Monitor scaling effectiveness
+docker stats $(docker ps -q --filter "name=doc-workers")
+
+# Adjust based on load
+docker compose up -d --scale doc-workers=2  # Scale down
+```
+
 ### Quick Reference Commands
 
 ```bash
 # === APPLICATION MANAGEMENT ===
 npm start                        # Start main application
 npm run dev                      # Development mode with auto-reload
-npm run build                    # Build frontend only
 cd client && npm run build       # Build frontend from client directory
 
 # === DOCKER SERVICES ===
-cd Docker && docker compose up -d              # Start infrastructure
+cd Docker && docker compose up -d              # Start all infrastructure
 docker compose ps                              # Check service status
 docker compose logs -f doc-workers            # View worker logs
 docker compose up -d --scale doc-workers=5    # Scale workers
+docker compose build --no-cache               # Rebuild all images
+
+# === IMAGE MANAGEMENT ===
+docker images | grep productdemo              # List project images
+docker compose build doc-workers              # Build specific image
+docker system prune -a                        # Clean up unused images
+docker stats                                  # Monitor container resources
 
 # === DATABASE MANAGEMENT ===
 npm run db:migrate               # Run database migrations
 npm run db:migrate:queue         # Apply queue schema
-psql -h localhost -U productdemo_user productdemo  # Connect to database
+psql -h localhost -U postgres copilot         # Connect to database
 
-# === MONITORING ===
+# === MONITORING & HEALTH CHECKS ===
 curl http://localhost:5634/api/health          # Application health
 docker compose exec redis redis-cli ping       # Redis health
-curl http://localhost:8000/api/v1/heartbeat   # ChromaDB health
+curl http://localhost:8001/api/v1/heartbeat   # ChromaDB health
+docker compose logs -f doc-workers            # Monitor worker activity
+
+# === TROUBLESHOOTING ===
+docker compose down && docker compose up -d   # Restart all services
+docker compose build --no-cache && docker compose up -d  # Full rebuild
+./Docker/test-image-processing.sh             # Test image processor
 ```
 
 ### Getting Help
@@ -911,14 +1806,173 @@ After successful setup:
 
 ---
 
+---
+
+## 📋 Complete Setup Summary
+
+### 🏗️ Architecture Overview
+This system uses a **hybrid containerization approach** with:
+
+**Containerized Services (Docker):**
+- ✅ **Redis** (`redis:7-alpine`) - Queue management on port 6379
+- ✅ **ChromaDB** (`chromadb/chroma:latest`) - Vector database on port 8001
+- ✅ **Document Workers** (Custom built) - Scalable document processing
+- ✅ **Image Processor** (Custom built) - OCR and image extraction
+
+**Host Services:**
+- ✅ **Main Application** (Node.js + React) - Single port 5634
+- ✅ **PostgreSQL** - Primary database on port 5432
+- ✅ **Ollama/LLM** - AI model inference on port 11434
+
+### 🐳 Docker Images Details
+
+| Image | Type | Base | Size | Purpose |
+|-------|------|------|------|---------|
+| `productdemo-doc-workers` | Custom | `node:18-alpine` | ~800MB | Document processing, PDF parsing |
+| `productdemo-image-processor` | Custom | `python:3.9-slim` | ~1.2GB | OCR, image extraction, multi-language |
+| `redis:7-alpine` | Pre-built | Alpine Linux | ~30MB | Queue management, caching |
+| `chromadb/chroma:latest` | Pre-built | Python | ~500MB | Vector database, embeddings |
+| `postgres:15-alpine` | Pre-built | Alpine Linux | ~200MB | Optional database container |
+
+### 🔧 Key Features
+
+**Document Workers:**
+- BullMQ-based queue processing
+- PDF/DOCX parsing with PyMuPDF
+- Embedding generation for RAG
+- Horizontal scaling (1-10 instances)
+- Python + Node.js hybrid environment
+
+**Image Processor:**
+- Tesseract OCR with 6 languages (EN, FR, DE, ES, IT, PT)
+- PDF image extraction
+- User-isolated collections
+- ChromaDB integration
+- Keyword-based image retrieval
+
+**Infrastructure:**
+- Redis with persistence and memory management
+- ChromaDB with CORS and reset capabilities
+- Automatic health checks and restart policies
+- Resource limits and reservations
+
+### 🚀 Quick Start Checklist
+
+- [ ] **Prerequisites**: Docker, Node.js 18+, PostgreSQL
+- [ ] **Clone Repository**: `git clone <repo> && cd c2s_integrate`
+- [ ] **Install Dependencies**: `npm install && cd client && npm install && npm run build`
+- [ ] **Configure Environment**: Copy and edit `conf/config.ini` and `.env`
+- [ ] **Build Images**: `cd Docker && docker compose build`
+- [ ] **Start Services**: `docker compose up -d`
+- [ ] **Initialize Database**: `npm run db:migrate && npm run db:migrate:queue`
+- [ ] **Start Application**: `npm start`
+- [ ] **Verify Setup**: Access http://localhost:5634
+
+### 🔍 Health Check URLs
+
+| Service | Health Check | Expected Response |
+|---------|-------------|-------------------|
+| Main App | `curl http://localhost:5634/api/health` | `{"status": "ok"}` |
+| Redis | `docker compose exec redis redis-cli ping` | `PONG` |
+| ChromaDB | `curl http://localhost:8001/api/v1/heartbeat` | `{"nanosecond heartbeat": ...}` |
+| Database | `psql -h localhost -U postgres -d copilot -c "SELECT 1;"` | `1` |
+| Ollama | `curl http://localhost:11434/api/tags` | `{"models": [...]}` |
+
+### 🛠️ Maintenance Commands
+
+```bash
+# Daily operations
+docker compose up -d                    # Start services
+npm start                              # Start main app
+docker compose ps                      # Check status
+
+# Updates and maintenance
+docker compose pull                    # Update pre-built images
+docker compose build --no-cache       # Rebuild custom images
+docker system prune                   # Clean up unused resources
+
+# Scaling and performance
+docker compose up -d --scale doc-workers=3  # Scale workers
+docker stats                               # Monitor resources
+docker compose logs -f doc-workers        # Monitor activity
+
+# Troubleshooting
+./Docker/test-image-processing.sh      # Test image processor
+docker compose down && docker compose up -d  # Restart all
+```
+
+### 📞 Support & Resources
+
+**Documentation:**
+- Main README: Project root directory
+- Docker Setup: This file (`Docker/README.md`)
+- API Documentation: Check `/api/docs` endpoint
+
+**Troubleshooting:**
+- Check service logs: `docker compose logs <service>`
+- Verify connectivity: Use health check URLs above
+- Test individual components: Use commands in troubleshooting section
+- Reset system: `docker compose down -v && docker compose up -d`
+
+---
+
 *Last Updated: 2025-01-27*
-*Version: 2.0.0 (Hybrid Architecture with BullMQ Queue System)*
+*Version: 3.0.0 (Enhanced Docker Setup with Detailed Image Management)*
 
-**Key Architecture Points:**
-- 🎯 **Single Port Access**: Everything via port 5634
-- 🏗️ **Backend Serves Frontend**: No separate frontend server needed
-- 🐳 **Selective Containerization**: Only infrastructure and workers
-- 🚀 **Host Performance**: Main app and database on host for speed
-- 📈 **Scalable Workers**: Docker containers for document processing
+**Key Architecture Benefits:**
+- 🎯 **Single Port Access**: Complete application via port 5634
+- 🏗️ **Hybrid Approach**: Optimal performance with selective containerization
+- 🐳 **Custom Images**: Tailored for document processing and OCR
+- 🚀 **Scalable Design**: Independent scaling of processing components
+- 📈 **Production Ready**: Comprehensive monitoring and maintenance tools
+- 🔧 **Developer Friendly**: Easy setup, debugging, and iteration
 
-For additional support, please check the project documentation or create an issue in the repository. 
+For additional support, please check the project documentation or create an issue in the repository.
+
+---
+
+## 🗑️ Automatic File Cleanup
+
+### Overview
+
+The system automatically deletes uploaded PDF/DOC files after successful processing to save storage space. This feature:
+
+- ✅ **Cross-platform compatible** (Windows, Linux, macOS)
+- ✅ **Configurable** via settings
+- ✅ **Safe** - only deletes after successful processing
+- ✅ **Logged** for audit trails
+- ✅ **Error-resistant** - cleanup failures don't affect processing
+
+### Configuration
+
+```ini
+# conf/config.ini
+[document_processing]
+auto_cleanup_files = true          # Enable/disable automatic cleanup
+cleanup_delay_seconds = 30         # Wait time before deletion (safety buffer)
+keep_failed_files = true           # Keep files if processing failed
+cleanup_log_level = info           # Logging level for cleanup operations
+```
+
+### How It Works
+
+1. **Document Upload** → File stored in `DATA/documents/{userId}/`
+2. **Processing** → Text extraction, chunking, embedding generation
+3. **Success** → Wait 30 seconds, then delete original file
+4. **Failure** → Keep file for debugging (configurable)
+
+### Manual Cleanup Commands
+
+```bash
+# Clean up old processed files (older than 7 days)
+node src/scripts/cleanup-processed-files.js --days=7
+
+# Clean up specific user's files
+node src/scripts/cleanup-processed-files.js --user-id=<userId>
+
+# Clean up failed processing files
+node src/scripts/cleanup-processed-files.js --failed-only
+
+# Dry run (show what would be deleted)
+node src/scripts/cleanup-processed-files.js --dry-run
+```

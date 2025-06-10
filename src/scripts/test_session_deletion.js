@@ -9,7 +9,7 @@
  */
 
 const { ChromaClient } = require('chromadb');
-const config = require('../src/utils/config');
+const config = require('../utils/config');
 
 class SessionDeletionTester {
   constructor() {
@@ -79,7 +79,7 @@ class SessionDeletionTester {
       console.log(`\n🧪 Testing session deletion for user ${userId}, session ${sessionId}`);
       
       // Import the vector store service
-      const vectorStoreService = require('../src/services/vectorStoreService');
+      const vectorStoreService = require('../services/vectorStoreService');
       
       // Check initial state
       console.log('📊 Checking initial state...');
@@ -118,7 +118,7 @@ class SessionDeletionTester {
     try {
       console.log(`\n🧹 Testing complete collection wipe for user ${userId}`);
       
-      const vectorStoreService = require('../src/services/vectorStoreService');
+      const vectorStoreService = require('../services/vectorStoreService');
       
       // Check initial state
       const initialData = await vectorStoreService.userHasData(userId);

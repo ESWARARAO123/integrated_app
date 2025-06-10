@@ -28,6 +28,7 @@ const { pool } = require('../database');
 const documentService = require('../services/documentService');
 const vectorStoreService = require('../services/vectorStoreService');
 const { logger } = require('../utils/logger');
+const FileCleanupService = require('../services/fileCleanupService');
 
 // Middleware to check if user is authenticated (similar to chatbot.js)
 const authenticateToken = (req, res, next) => {
@@ -378,6 +379,70 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Document not found' });
     }
     res.status(500).json({ error: 'Failed to delete document' });
+  }
+});
+
+/**
+ * Get file cleanup statistics
+ * GET /api/documents/cleanup-stats
+ */
+router.get('/cleanup-stats', authenticateToken, async (req, res) => {
+  try {
+    const fileCleanupService = new FileCleanupService();
+    const stats = await fileCleanupService.getCleanupStats();
+
+    res.json({
+      success: true,
+      stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting cleanup stats:', error);
+    res.status(500).json({
+      error: 'Failed to get cleanup statistics',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Trigger manual cleanup for specific files
+ * POST /api/documents/cleanup
+ */
+router.post('/cleanup', authenticateToken, async (req, res) => {
+  try {
+    const { filePaths, force = false } = req.body;
+
+    if (!filePaths || !Array.isArray(filePaths)) {
+      return res.status(400).json({
+        error: 'Invalid request. filePaths array is required.'
+      });
+    }
+
+    const fileCleanupService = new FileCleanupService();
+    const results = await fileCleanupService.cleanupNow(filePaths);
+
+    const summary = {
+      total: results.length,
+      successful: results.filter(r => r.success).length,
+      failed: results.filter(r => !r.success).length,
+      totalSpaceFreed: results
+        .filter(r => r.success && r.fileSizeKB)
+        .reduce((sum, r) => sum + r.fileSizeKB, 0)
+    };
+
+    res.json({
+      success: true,
+      summary,
+      results,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error performing manual cleanup:', error);
+    res.status(500).json({
+      error: 'Failed to perform cleanup',
+      details: error.message
+    });
   }
 });
 

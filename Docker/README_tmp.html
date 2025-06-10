@@ -1,0 +1,2261 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>README.md</title>
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+    
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+html,footer,header{
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Custom MD PDF CSS
+ */
+html,footer,header{
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+
+ }
+body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+<link rel="stylesheet" href="file:///home/yaswanth/Desktop/c2s_integrate/R%3A%5C2.Travail%5C1.Enseignement%5CCours%5C_1.Outils%5C2.Developpement%5C1.SCSS%5Cmain.css" type="text/css"><link rel="stylesheet" href="file:///home/yaswanth/Desktop/c2s_integrate/D%3A%5Crdaros%5CCours%5C_1.Outils%5C2.Developpement%5C1.SCSS%5Cmain.css" type="text/css">
+</head>
+
+<body>
+    <h1 id="%F0%9F%90%B3-docker-setup-guide---product-demo-platform">🐳 Docker Setup Guide - Product Demo Platform</h1>
+<p>This guide provides complete instructions for setting up and running the Product Demo Platform using Docker, including the new <strong>BullMQ-based document processing queue system</strong>.</p>
+<h2 id="%F0%9F%93%8B-table-of-contents">📋 Table of Contents</h2>
+<ul>
+<li><a href="#%EF%B8%8F-system-architecture">🏗️ System Architecture</a></li>
+<li><a href="#-prerequisites">📦 Prerequisites</a></li>
+<li><a href="#-quick-start">🚀 Quick Start</a></li>
+<li><a href="#%EF%B8%8F-configuration">⚙️ Configuration</a></li>
+<li><a href="#-services-overview">🔧 Services Overview</a></li>
+<li><a href="#-database-setup">📊 Database Setup</a></li>
+<li><a href="#-document-queue-system">🔄 Document Queue System</a></li>
+<li><a href="#-environment-variables">🌐 Environment Variables</a></li>
+<li><a href="#%EF%B8%8F-development-setup">🛠️ Development Setup</a></li>
+<li><a href="#-monitoring--logs">📈 Monitoring &amp; Logs</a></li>
+<li><a href="#-troubleshooting">🔍 Troubleshooting</a></li>
+<li><a href="#-production-deployment">🚀 Production Deployment</a></li>
+</ul>
+<hr>
+<h2 id="%F0%9F%8F%97%EF%B8%8F-system-architecture">🏗️ System Architecture</h2>
+<h3 id="hybrid-containerization-approach"><strong>Hybrid Containerization Approach</strong></h3>
+<p>This application uses a <strong>hybrid containerization strategy</strong> where:</p>
+<ul>
+<li><strong>Core infrastructure services</strong> (Redis, ChromaDB) are containerized</li>
+<li><strong>Document processing workers</strong> are containerized for scalability</li>
+<li><strong>Main application</strong> (Backend + Frontend) runs on the host system</li>
+<li><strong>Database</strong> can be either containerized or use host PostgreSQL</li>
+</ul>
+<pre class="hljs"><code><div>┌─────────────────────────────────────────────────────────────┐
+│                    HOST SYSTEM                              │
+│  ┌─────────────────┐    ┌─────────────────┐                │
+│  │   Backend       │    │   PostgreSQL    │                │
+│  │   (Node.js)     │◄──►│   (Host/Docker) │                │
+│  │   Port: 5634    │    │   Port: 5432    │                │
+│  │                 │    └─────────────────┘                │
+│  │  Serves Frontend│                                        │
+│  │  Build Files    │    ┌─────────────────┐                │
+│  │  (React SPA)    │    │   Ollama/LLM    │                │
+│  └─────────────────┘    │   (Host System) │                │
+│           │              │   Port: 11434   │                │
+│           │              └─────────────────┘                │
+│           │                                                 │
+│  ┌────────▼────────────────────────────────────────────────┤
+│  │              DOCKER CONTAINERS                          │
+│  │  ┌─────────────────┐    ┌─────────────────┐            │
+│  │  │     Redis       │    │    ChromaDB     │            │
+│  │  │   (Queue)       │    │  (Vector Store) │            │
+│  │  │   Port: 6379    │    │   Port: 8000    │            │
+│  │  └─────────────────┘    └─────────────────┘            │
+│  │           │                       │                     │
+│  │  ┌─────────▼───────────────────────▼─────┐              │
+│  │  │        Document Workers               │              │
+│  │  │        (BullMQ Workers)               │              │
+│  │  │        3-5 Scalable Instances         │              │
+│  │  └───────────────────────────────────────┘              │
+│  └─────────────────────────────────────────────────────────┤
+└─────────────────────────────────────────────────────────────┘
+</div></code></pre>
+<h3 id="key-architectural-points"><strong>Key Architectural Points</strong></h3>
+<ol>
+<li><strong>Single Port Access</strong>: The entire application is accessible via <strong>one port</strong> (5634)</li>
+<li><strong>Backend Serves Frontend</strong>: Node.js backend serves the React build files as static content</li>
+<li><strong>API + SPA</strong>: All API routes are under <code>/api/*</code>, frontend routes handled by React Router</li>
+<li><strong>Containerized Workers</strong>: Only the document processing workers are containerized for scalability</li>
+<li><strong>External LLM Integration</strong>: Ollama/LLM services run on the host system, not in containers</li>
+</ol>
+<hr>
+<h2 id="%F0%9F%93%A6-prerequisites">📦 Prerequisites</h2>
+<h3 id="required-software">Required Software</h3>
+<ul>
+<li><strong>Docker</strong>: Version 20.0+ (<a href="https://docs.docker.com/get-docker/">Download</a>)</li>
+<li><strong>Docker Compose</strong>: Version 2.0+ (included with Docker Desktop)</li>
+<li><strong>Node.js</strong>: Version 18+ (for running the main application)</li>
+<li><strong>PostgreSQL</strong>: Either host installation or Docker container</li>
+<li><strong>Ollama</strong>: For LLM integration (host installation recommended)</li>
+</ul>
+<h3 id="system-requirements">System Requirements</h3>
+<ul>
+<li><strong>RAM</strong>: Minimum 8GB (16GB recommended)</li>
+<li><strong>Storage</strong>: 10GB free space</li>
+<li><strong>CPU</strong>: 4+ cores recommended</li>
+<li><strong>Network</strong>: Internet connection for downloading dependencies</li>
+</ul>
+<h3 id="verify-installation">Verify Installation</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check Docker version</span>
+docker --version
+<span class="hljs-comment"># Should output: Docker version 20.x.x or higher</span>
+
+<span class="hljs-comment"># Check Node.js version</span>
+node --version
+<span class="hljs-comment"># Should output: v18.x.x or higher</span>
+
+<span class="hljs-comment"># Check PostgreSQL (if using host installation)</span>
+psql --version
+<span class="hljs-comment"># Should output: psql (PostgreSQL) 12.x or higher</span>
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%9A%80-quick-start">🚀 Quick Start</h2>
+<h3 id="step-by-step-setup-guide">Step-by-Step Setup Guide</h3>
+<h4 id="1-clone-the-repository">1. <strong>Clone the Repository</strong></h4>
+<pre class="hljs"><code><div>git <span class="hljs-built_in">clone</span> &lt;repository-url&gt;
+<span class="hljs-built_in">cd</span> c2s_integrate
+</div></code></pre>
+<h4 id="2-verify-prerequisites">2. <strong>Verify Prerequisites</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check Docker installation</span>
+docker --version
+docker compose version
+
+<span class="hljs-comment"># Check Node.js installation</span>
+node --version  <span class="hljs-comment"># Should be 18+</span>
+npm --version
+
+<span class="hljs-comment"># Check if ports are available</span>
+netstat -tulpn | grep -E <span class="hljs-string">"(5634|5432|6379|8001|11434)"</span>
+</div></code></pre>
+<h4 id="3-choose-database-setup">3. <strong>Choose Database Setup</strong></h4>
+<p><strong>Option A: Host PostgreSQL (Production Recommended)</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Install PostgreSQL (Ubuntu/Debian)</span>
+sudo apt update &amp;&amp; sudo apt install postgresql postgresql-contrib
+
+<span class="hljs-comment"># Create database and user</span>
+sudo -u postgres psql
+CREATE DATABASE copilot;
+CREATE USER postgres WITH PASSWORD <span class="hljs-string">'root'</span>;
+GRANT ALL PRIVILEGES ON DATABASE copilot TO postgres;
+\q
+
+<span class="hljs-comment"># Test connection</span>
+psql -h localhost -U postgres -d copilot -c <span class="hljs-string">"SELECT 1;"</span>
+</div></code></pre>
+<p><strong>Option B: Docker PostgreSQL (Development)</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Add to docker-compose.yml (see Configuration section)</span>
+<span class="hljs-comment"># Will be started with other services in step 6</span>
+</div></code></pre>
+<h4 id="4-install-application-dependencies">4. <strong>Install Application Dependencies</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Install backend dependencies</span>
+npm install
+
+<span class="hljs-comment"># Install frontend dependencies and build</span>
+<span class="hljs-built_in">cd</span> client
+npm install
+npm run build
+<span class="hljs-built_in">cd</span> ..
+
+<span class="hljs-comment"># Verify build was created</span>
+ls -la client/build/
+</div></code></pre>
+<h4 id="5-configure-environment-files">5. <strong>Configure Environment Files</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Copy configuration templates</span>
+cp conf/config.ini conf/config.local.ini
+cp Docker/env.docker .env
+
+<span class="hljs-comment"># Edit database configuration</span>
+nano conf/config.local.ini
+<span class="hljs-comment"># Update [database] section with your PostgreSQL settings</span>
+
+<span class="hljs-comment"># Edit Docker environment (if needed)</span>
+nano .env
+<span class="hljs-comment"># Adjust worker concurrency, memory limits, etc.</span>
+</div></code></pre>
+<h4 id="6-build-and-start-docker-services">6. <strong>Build and Start Docker Services</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-built_in">cd</span> Docker
+
+<span class="hljs-comment"># Build custom images (first time only)</span>
+docker compose build
+
+<span class="hljs-comment"># Start all infrastructure services</span>
+docker compose up -d
+
+<span class="hljs-comment"># Verify all services are running</span>
+docker compose ps
+<span class="hljs-comment"># Should show: redis, chromadb, doc-workers, image-processor</span>
+
+<span class="hljs-comment"># Check service health</span>
+docker compose logs redis
+docker compose logs chromadb
+docker compose logs doc-workers
+</div></code></pre>
+<h4 id="7-initialize-database-schema">7. <strong>Initialize Database Schema</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Return to project root</span>
+<span class="hljs-built_in">cd</span> ..
+
+<span class="hljs-comment"># Run database migrations</span>
+npm run db:migrate
+npm run db:migrate:queue
+
+<span class="hljs-comment"># Verify tables were created</span>
+psql -h localhost -U postgres -d copilot -c <span class="hljs-string">"\dt"</span>
+</div></code></pre>
+<h4 id="8-start-the-main-application">8. <strong>Start the Main Application</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Start backend (serves frontend automatically)</span>
+npm start
+
+<span class="hljs-comment"># Or for development with auto-reload</span>
+npm run dev
+
+<span class="hljs-comment"># Application should start on port 5634</span>
+</div></code></pre>
+<h4 id="9-verify-complete-setup">9. <strong>Verify Complete Setup</strong></h4>
+<p><strong>Check Application Access:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Main application</span>
+curl http://localhost:5634
+<span class="hljs-comment"># Should return HTML content</span>
+
+<span class="hljs-comment"># API health check</span>
+curl http://localhost:5634/api/health
+<span class="hljs-comment"># Should return {"status": "ok"}</span>
+
+<span class="hljs-comment"># Frontend should load in browser</span>
+open http://localhost:5634
+</div></code></pre>
+<p><strong>Check Service Connectivity:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Redis connectivity</span>
+docker compose <span class="hljs-built_in">exec</span> redis redis-cli ping
+<span class="hljs-comment"># Should return: PONG</span>
+
+<span class="hljs-comment"># ChromaDB connectivity</span>
+curl http://localhost:8001/api/v1/heartbeat
+<span class="hljs-comment"># Should return: {"nanosecond heartbeat": ...}</span>
+
+<span class="hljs-comment"># Database connectivity</span>
+psql -h localhost -U postgres -d copilot -c <span class="hljs-string">"SELECT version();"</span>
+</div></code></pre>
+<p><strong>Check Worker Functionality:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># View worker logs</span>
+docker compose logs -f doc-workers
+
+<span class="hljs-comment"># Test document processing (if you have a test PDF)</span>
+<span class="hljs-comment"># Upload a document through the web interface</span>
+<span class="hljs-comment"># Check logs for processing activity</span>
+</div></code></pre>
+<h4 id="10-optional-setup-ollama-ai-models">10. <strong>Optional: Setup Ollama (AI Models)</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Install Ollama on host (recommended)</span>
+curl -fsSL https://ollama.ai/install.sh | sh
+
+<span class="hljs-comment"># Start Ollama service</span>
+ollama serve &amp;
+
+<span class="hljs-comment"># Pull required models</span>
+ollama pull llama2
+ollama pull codellama
+
+<span class="hljs-comment"># Test Ollama connectivity</span>
+curl http://localhost:11434/api/tags
+</div></code></pre>
+<h3 id="%F0%9F%8E%AF-access-points-summary">🎯 Access Points Summary</h3>
+<p>After successful setup, you can access:</p>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>URL</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Main Application</strong></td>
+<td>http://localhost:5634</td>
+<td>Complete web interface</td>
+</tr>
+<tr>
+<td><strong>API Endpoints</strong></td>
+<td>http://localhost:5634/api/*</td>
+<td>REST API access</td>
+</tr>
+<tr>
+<td><strong>ChromaDB Admin</strong></td>
+<td>http://localhost:8001</td>
+<td>Vector database interface</td>
+</tr>
+<tr>
+<td><strong>Redis CLI</strong></td>
+<td><code>docker compose exec redis redis-cli</code></td>
+<td>Queue management</td>
+</tr>
+<tr>
+<td><strong>Database</strong></td>
+<td><code>psql -h localhost -U postgres copilot</code></td>
+<td>Direct database access</td>
+</tr>
+<tr>
+<td><strong>Ollama API</strong></td>
+<td>http://localhost:11434</td>
+<td>AI model interface</td>
+</tr>
+</tbody>
+</table>
+<h3 id="%E2%9A%A1-quick-commands-reference">⚡ Quick Commands Reference</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># === DAILY OPERATIONS ===</span>
+<span class="hljs-built_in">cd</span> Docker &amp;&amp; docker compose up -d    <span class="hljs-comment"># Start all services</span>
+npm start                           <span class="hljs-comment"># Start main application</span>
+docker compose ps                   <span class="hljs-comment"># Check service status</span>
+docker compose logs -f doc-workers  <span class="hljs-comment"># Monitor workers</span>
+
+<span class="hljs-comment"># === DEVELOPMENT ===</span>
+<span class="hljs-built_in">cd</span> client &amp;&amp; npm run build &amp;&amp; <span class="hljs-built_in">cd</span> .. <span class="hljs-comment"># Rebuild frontend</span>
+npm run dev                         <span class="hljs-comment"># Development mode</span>
+docker compose restart doc-workers  <span class="hljs-comment"># Restart workers after code changes</span>
+
+<span class="hljs-comment"># === MAINTENANCE ===</span>
+docker compose down                 <span class="hljs-comment"># Stop all services</span>
+docker compose pull                <span class="hljs-comment"># Update pre-built images</span>
+docker compose build --no-cache    <span class="hljs-comment"># Rebuild custom images</span>
+</div></code></pre>
+<hr>
+<h2 id="%E2%9A%99%EF%B8%8F-configuration">⚙️ Configuration</h2>
+<h3 id="database-configuration-options">Database Configuration Options</h3>
+<h4 id="option-1-host-postgresql-production-recommended">Option 1: Host PostgreSQL (Production Recommended)</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># conf/config.ini</span>
+<span class="hljs-section">[database]</span>
+<span class="hljs-attr">database-type</span> = postgres
+<span class="hljs-attr">database-host</span> = localhost
+<span class="hljs-attr">database-port</span> = <span class="hljs-number">5432</span>
+<span class="hljs-attr">database-user</span> = productdemo_user
+<span class="hljs-attr">database-password</span> = your_secure_password
+<span class="hljs-attr">database-name</span> = productdemo
+</div></code></pre>
+<h4 id="option-2-docker-postgresql-development">Option 2: Docker PostgreSQL (Development)</h4>
+<p>Add to <code>Docker/docker-compose.yml</code>:</p>
+<pre class="hljs"><code><div><span class="hljs-attr">services:</span>
+  <span class="hljs-attr">postgres:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">postgres:15-alpine</span>
+    <span class="hljs-attr">container_name:</span> <span class="hljs-string">productdemo-postgres</span>
+    <span class="hljs-attr">ports:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">"5432:5432"</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-attr">POSTGRES_DB:</span> <span class="hljs-string">productdemo</span>
+      <span class="hljs-attr">POSTGRES_USER:</span> <span class="hljs-string">productdemo_user</span>
+      <span class="hljs-attr">POSTGRES_PASSWORD:</span> <span class="hljs-string">your_secure_password</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">postgres_data:/var/lib/postgresql/data</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">networks:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">productdemo-network</span>
+
+<span class="hljs-attr">volumes:</span>
+  <span class="hljs-attr">postgres_data:</span>
+    <span class="hljs-attr">driver:</span> <span class="hljs-string">local</span>
+</div></code></pre>
+<p>Then update config:</p>
+<pre class="hljs"><code><div><span class="hljs-section">[database]</span>
+<span class="hljs-attr">database-host</span> = localhost  <span class="hljs-comment"># Still localhost since port is exposed</span>
+</div></code></pre>
+<h3 id="llmollama-integration">LLM/Ollama Integration</h3>
+<h4 id="host-ollama-setup-recommended">Host Ollama Setup (Recommended)</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Install Ollama on your host system</span>
+curl -fsSL https://ollama.ai/install.sh | sh
+
+<span class="hljs-comment"># Start Ollama service</span>
+ollama serve
+
+<span class="hljs-comment"># Pull required models</span>
+ollama pull llama2
+ollama pull codellama
+</div></code></pre>
+<p>Configuration:</p>
+<pre class="hljs"><code><div><span class="hljs-comment"># conf/config.ini</span>
+<span class="hljs-section">[ai]</span>
+<span class="hljs-attr">ollama_host</span> = http://localhost:<span class="hljs-number">11434</span>  <span class="hljs-comment"># Host system Ollama</span>
+</div></code></pre>
+<h4 id="docker-ollama-setup-alternative">Docker Ollama Setup (Alternative)</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Add to docker-compose.yml</span>
+<span class="hljs-attr">services:</span>
+  <span class="hljs-attr">ollama:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">ollama/ollama:latest</span>
+    <span class="hljs-attr">container_name:</span> <span class="hljs-string">productdemo-ollama</span>
+    <span class="hljs-attr">ports:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">"11434:11434"</span>
+    <span class="hljs-attr">volumes:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">ollama_data:/root/.ollama</span>
+    <span class="hljs-attr">restart:</span> <span class="hljs-string">unless-stopped</span>
+    <span class="hljs-attr">networks:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">productdemo-network</span>
+</div></code></pre>
+<p>Configuration:</p>
+<pre class="hljs"><code><div><span class="hljs-section">[ai]</span>
+<span class="hljs-attr">ollama_host</span> = http://localhost:<span class="hljs-number">11434</span>  <span class="hljs-comment"># Docker Ollama via exposed port</span>
+</div></code></pre>
+<h3 id="frontend-build-configuration">Frontend Build Configuration</h3>
+<p>The backend automatically serves the frontend build files:</p>
+<pre class="hljs"><code><div><span class="hljs-comment"># conf/config.ini</span>
+<span class="hljs-section">[server]</span>
+<span class="hljs-attr">static_root_path</span> = ./client/build  <span class="hljs-comment"># Path to React build files</span>
+<span class="hljs-attr">serve_static</span> = <span class="hljs-literal">true</span>
+</div></code></pre>
+<p><strong>Important</strong>: Always run <code>npm run build</code> in the client directory after frontend changes!</p>
+<hr>
+<h2 id="%F0%9F%94%A7-services-overview--docker-images">🔧 Services Overview &amp; Docker Images</h2>
+<h3 id="%F0%9F%93%8A-port-mapping-summary">📊 Port Mapping Summary</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Host Port</th>
+<th>Container Port</th>
+<th>Purpose</th>
+<th>Access URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Main Application</strong></td>
+<td>5634</td>
+<td>N/A (Host)</td>
+<td>Backend + Frontend</td>
+<td>http://localhost:5634</td>
+</tr>
+<tr>
+<td><strong>Redis</strong></td>
+<td>6379</td>
+<td>6379</td>
+<td>Queue Management</td>
+<td>redis://localhost:6379</td>
+</tr>
+<tr>
+<td><strong>ChromaDB</strong></td>
+<td>8001</td>
+<td>8000</td>
+<td>Vector Database</td>
+<td>http://localhost:8001</td>
+</tr>
+<tr>
+<td><strong>PostgreSQL</strong></td>
+<td>5432</td>
+<td>5432</td>
+<td>Primary Database</td>
+<td>postgresql://localhost:5432</td>
+</tr>
+<tr>
+<td><strong>Ollama/LLM</strong></td>
+<td>11434</td>
+<td>N/A (Host)</td>
+<td>AI Model Inference</td>
+<td>http://localhost:11434</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3 id="%F0%9F%90%B3-docker-images--services">🐳 Docker Images &amp; Services</h3>
+<h4 id="1-main-application-host-system">1. <strong>Main Application (Host System)</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Not containerized - runs directly on host</span>
+<span class="hljs-attr">Type:</span> <span class="hljs-string">Host</span> <span class="hljs-string">Application</span>
+<span class="hljs-attr">Port:</span> <span class="hljs-number">5634</span> <span class="hljs-string">(configurable)</span>
+</div></code></pre>
+<ul>
+<li><strong>Components</strong>:
+<ul>
+<li>Node.js Backend (API server, WebSocket, static file serving)</li>
+<li>React Frontend (served as static build files)</li>
+</ul>
+</li>
+<li><strong>Purpose</strong>: Main application logic, user interface, API endpoints</li>
+<li><strong>Access</strong>: http://localhost:5634</li>
+<li><strong>Why Host</strong>: Better performance, easier development, single port access</li>
+<li><strong>Build Process</strong>: <code>npm install</code> → <code>cd client &amp;&amp; npm run build</code> → <code>npm start</code></li>
+</ul>
+<h4 id="2-redis-pre-built-image">2. <strong>Redis (Pre-built Image)</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># docker-compose.yml</span>
+<span class="hljs-attr">redis:</span>
+  <span class="hljs-attr">image:</span> <span class="hljs-string">redis:7-alpine</span>
+  <span class="hljs-attr">container_name:</span> <span class="hljs-string">productdemo-redis</span>
+  <span class="hljs-attr">ports:</span> <span class="hljs-string">["6379:6379"]</span>
+</div></code></pre>
+<ul>
+<li><strong>Image Source</strong>: Official Redis Alpine image from Docker Hub</li>
+<li><strong>Purpose</strong>: Queue management for BullMQ, session storage, caching</li>
+<li><strong>Configuration</strong>:
+<ul>
+<li>Memory limit: 512MB</li>
+<li>Persistence: AOF enabled</li>
+<li>Policy: allkeys-lru</li>
+</ul>
+</li>
+<li><strong>Data Storage</strong>: Named volume <code>redis_data</code></li>
+<li><strong>Health Check</strong>: <code>redis-cli ping</code> every 30s</li>
+<li><strong>Scaling</strong>: Single instance sufficient for most workloads</li>
+</ul>
+<h4 id="3-chromadb-pre-built-image">3. <strong>ChromaDB (Pre-built Image)</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># docker-compose.yml</span>
+<span class="hljs-attr">chromadb:</span>
+  <span class="hljs-attr">image:</span> <span class="hljs-string">chromadb/chroma:latest</span>
+  <span class="hljs-attr">container_name:</span> <span class="hljs-string">productdemo-chromadb</span>
+  <span class="hljs-attr">ports:</span> <span class="hljs-string">["8001:8000"]</span>
+</div></code></pre>
+<ul>
+<li><strong>Image Source</strong>: Official ChromaDB image from Docker Hub</li>
+<li><strong>Purpose</strong>: Vector database for document embeddings and similarity search</li>
+<li><strong>Port Mapping</strong>: Host 8001 → Container 8000 (to avoid conflicts)</li>
+<li><strong>Configuration</strong>:
+<ul>
+<li>CORS enabled for all origins</li>
+<li>Reset functionality enabled</li>
+<li>Host binding: 0.0.0.0:8000</li>
+</ul>
+</li>
+<li><strong>Data Storage</strong>: Bind mount <code>./DATA/chroma_data:/chroma/chroma</code></li>
+<li><strong>API Access</strong>: http://localhost:8001/api/v1/heartbeat</li>
+</ul>
+<h4 id="4-document-workers-custom-built-image">4. <strong>Document Workers (Custom Built Image)</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># docker-compose.yml</span>
+<span class="hljs-attr">doc-workers:</span>
+  <span class="hljs-attr">build:</span>
+    <span class="hljs-attr">context:</span> <span class="hljs-string">..</span>
+    <span class="hljs-attr">dockerfile:</span> <span class="hljs-string">Docker/Dockerfile.workers</span>
+  <span class="hljs-attr">container_name:</span> <span class="hljs-string">productdemo-doc-workers</span>
+</div></code></pre>
+<ul>
+<li><strong>Base Image</strong>: <code>node:18-alpine3.16</code></li>
+<li><strong>Build Context</strong>: Project root directory</li>
+<li><strong>Dockerfile</strong>: <code>Docker/Dockerfile.workers</code></li>
+<li><strong>Purpose</strong>: Asynchronous document processing (PDF/DOCX parsing, embedding generation)</li>
+<li><strong>Features</strong>:
+<ul>
+<li>BullMQ worker implementation</li>
+<li>Python virtual environment for document processing</li>
+<li>ImageMagick and Poppler for PDF handling</li>
+<li>Horizontal scaling support (1-10 instances)</li>
+</ul>
+</li>
+<li><strong>Resource Limits</strong>: 1GB RAM, 1 CPU core</li>
+<li><strong>Dependencies</strong>: Redis (queue), ChromaDB (storage)</li>
+<li><strong>Scaling</strong>: <code>docker compose up -d --scale doc-workers=5</code></li>
+</ul>
+<h4 id="5-image-processor-custom-built-image">5. <strong>Image Processor (Custom Built Image)</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># docker-compose.yml</span>
+<span class="hljs-attr">image-processor:</span>
+  <span class="hljs-attr">build:</span>
+    <span class="hljs-attr">context:</span> <span class="hljs-string">..</span>
+    <span class="hljs-attr">dockerfile:</span> <span class="hljs-string">Docker/Dockerfile.image-processor</span>
+  <span class="hljs-attr">container_name:</span> <span class="hljs-string">productdemo-image-processor</span>
+</div></code></pre>
+<ul>
+<li><strong>Base Image</strong>: <code>python:3.9-slim</code></li>
+<li><strong>Build Context</strong>: Project root directory</li>
+<li><strong>Dockerfile</strong>: <code>Docker/Dockerfile.image-processor</code></li>
+<li><strong>Purpose</strong>: OCR-based image processing for RAG system</li>
+<li><strong>Features</strong>:
+<ul>
+<li>Tesseract OCR with multiple language support</li>
+<li>PDF image extraction</li>
+<li>User-isolated image collections</li>
+<li>ChromaDB integration for image metadata</li>
+</ul>
+</li>
+<li><strong>OCR Languages</strong>: English, French, German, Spanish, Italian, Portuguese</li>
+<li><strong>Resource Limits</strong>: 2GB RAM, 1.5 CPU cores</li>
+<li><strong>Data Storage</strong>: Bind mounts for input/output and collections</li>
+</ul>
+<h4 id="6-postgresql-host-or-container">6. <strong>PostgreSQL (Host or Container)</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Optional - can be added to docker-compose.yml</span>
+<span class="hljs-attr">postgres:</span>
+  <span class="hljs-attr">image:</span> <span class="hljs-string">postgres:15-alpine</span>
+  <span class="hljs-attr">container_name:</span> <span class="hljs-string">productdemo-postgres</span>
+  <span class="hljs-attr">ports:</span> <span class="hljs-string">["5432:5432"]</span>
+</div></code></pre>
+<ul>
+<li><strong>Image Source</strong>: Official PostgreSQL Alpine image</li>
+<li><strong>Purpose</strong>: Primary application database</li>
+<li><strong>Recommendation</strong>: Host installation for production</li>
+<li><strong>Data</strong>: User accounts, chat sessions, document metadata</li>
+<li><strong>Configuration</strong>: Database name, user, and password via environment variables</li>
+<li><strong>Data Storage</strong>: Named volume <code>postgres_data</code> (if containerized)</li>
+</ul>
+<h4 id="7-ollamallm-host-recommended">7. <strong>Ollama/LLM (Host Recommended)</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Optional - can be added to docker-compose.yml</span>
+<span class="hljs-attr">ollama:</span>
+  <span class="hljs-attr">image:</span> <span class="hljs-string">ollama/ollama:latest</span>
+  <span class="hljs-attr">container_name:</span> <span class="hljs-string">productdemo-ollama</span>
+  <span class="hljs-attr">ports:</span> <span class="hljs-string">["11434:11434"]</span>
+</div></code></pre>
+<ul>
+<li><strong>Image Source</strong>: Official Ollama image</li>
+<li><strong>Purpose</strong>: Large Language Model inference</li>
+<li><strong>Recommendation</strong>: Host installation for better GPU access and performance</li>
+<li><strong>Models</strong>: Configurable (llama2, codellama, mistral, etc.)</li>
+<li><strong>GPU Support</strong>: Better on host system</li>
+<li><strong>Data Storage</strong>: Named volume <code>ollama_data</code> for models</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%8F%97%EF%B8%8F-building-custom-docker-images">🏗️ Building Custom Docker Images</h2>
+<h3 id="overview-of-custom-images">Overview of Custom Images</h3>
+<p>The system uses <strong>2 custom-built Docker images</strong> and <strong>3 pre-built images</strong>:</p>
+<p><strong>Custom Built Images:</strong></p>
+<ol>
+<li><strong>Document Workers</strong> (<code>Dockerfile.workers</code>) - Node.js + Python for document processing</li>
+<li><strong>Image Processor</strong> (<code>Dockerfile.image-processor</code>) - Python + OCR for image extraction</li>
+</ol>
+<p><strong>Pre-built Images:</strong></p>
+<ol>
+<li><strong>Redis</strong> (<code>redis:7-alpine</code>) - Queue management</li>
+<li><strong>ChromaDB</strong> (<code>chromadb/chroma:latest</code>) - Vector database</li>
+<li><strong>PostgreSQL</strong> (<code>postgres:15-alpine</code>) - Optional database container</li>
+</ol>
+<h3 id="building-document-workers-image">Building Document Workers Image</h3>
+<h4 id="dockerfileworkers-analysis">Dockerfile.workers Analysis</h4>
+<pre class="hljs"><code><div><span class="hljs-keyword">FROM</span> node:<span class="hljs-number">18</span>-alpine3.<span class="hljs-number">16</span>
+
+<span class="hljs-comment"># System dependencies for document processing</span>
+<span class="hljs-keyword">RUN</span><span class="bash"> apk add --no-cache \
+    bash curl imagemagick poppler-utils \
+    build-base libffi-dev openssl-dev \
+    python3 python3-dev py3-pip</span>
+
+<span class="hljs-comment"># Python virtual environment setup</span>
+<span class="hljs-keyword">RUN</span><span class="bash"> python3 -m venv /app/python/.venv</span>
+<span class="hljs-keyword">COPY</span><span class="bash"> python/requirements.txt /app/python/requirements.txt</span>
+<span class="hljs-keyword">RUN</span><span class="bash"> /app/python/.venv/bin/pip install -r /app/python/requirements.txt</span>
+
+<span class="hljs-comment"># Node.js dependencies</span>
+<span class="hljs-keyword">COPY</span><span class="bash"> package*.json ./</span>
+<span class="hljs-keyword">RUN</span><span class="bash"> npm ci --only=production</span>
+
+<span class="hljs-comment"># Application code</span>
+<span class="hljs-keyword">COPY</span><span class="bash"> src ./src</span>
+<span class="hljs-keyword">COPY</span><span class="bash"> conf ./conf</span>
+
+<span class="hljs-comment"># Security: non-root user</span>
+<span class="hljs-keyword">USER</span> node
+</div></code></pre>
+<h4 id="build-commands">Build Commands</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Build document workers image</span>
+<span class="hljs-built_in">cd</span> Docker
+docker build -f Dockerfile.workers -t productdemo-doc-workers ..
+
+<span class="hljs-comment"># Or build via docker-compose</span>
+docker compose build doc-workers
+
+<span class="hljs-comment"># Build with no cache (force rebuild)</span>
+docker compose build --no-cache doc-workers
+
+<span class="hljs-comment"># View build logs</span>
+docker compose build doc-workers --progress=plain
+</div></code></pre>
+<h4 id="image-features">Image Features</h4>
+<ul>
+<li><strong>Base</strong>: Alpine Linux (lightweight)</li>
+<li><strong>Runtime</strong>: Node.js 18 + Python 3.9</li>
+<li><strong>Document Processing</strong>: ImageMagick, Poppler (PDF tools)</li>
+<li><strong>Python Libraries</strong>: PyMuPDF, langchain, chromadb</li>
+<li><strong>Security</strong>: Runs as non-root user</li>
+<li><strong>Size</strong>: ~800MB (optimized)</li>
+</ul>
+<h3 id="building-image-processor-image">Building Image Processor Image</h3>
+<h4 id="dockerfileimage-processor-analysis">Dockerfile.image-processor Analysis</h4>
+<pre class="hljs"><code><div><span class="hljs-keyword">FROM</span> python:<span class="hljs-number">3.9</span>-slim
+
+<span class="hljs-comment"># OCR and image processing dependencies</span>
+<span class="hljs-keyword">RUN</span><span class="bash"> apt-get update &amp;&amp; apt-get install -y \
+    tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra \
+    tesseract-ocr-deu tesseract-ocr-spa tesseract-ocr-ita \
+    tesseract-ocr-por libtesseract-dev libleptonica-dev \
+    libpoppler-cpp-dev libmagic1 build-essential</span>
+
+<span class="hljs-comment"># Python dependencies</span>
+<span class="hljs-keyword">COPY</span><span class="bash"> python/RAG-MODULE/image-processing/requirements.txt /app/requirements.txt</span>
+<span class="hljs-keyword">RUN</span><span class="bash"> pip install --no-cache-dir -r requirements.txt</span>
+
+<span class="hljs-comment"># Application scripts</span>
+<span class="hljs-keyword">COPY</span><span class="bash"> python/RAG-MODULE/image-processing/ /app/image-processing/</span>
+
+<span class="hljs-comment"># Security: non-root user</span>
+<span class="hljs-keyword">USER</span> imageprocessor
+</div></code></pre>
+<h4 id="build-commands">Build Commands</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Build image processor</span>
+<span class="hljs-built_in">cd</span> Docker
+docker build -f Dockerfile.image-processor -t productdemo-image-processor ..
+
+<span class="hljs-comment"># Or build via docker-compose</span>
+docker compose build image-processor
+
+<span class="hljs-comment"># Test the build</span>
+./<span class="hljs-built_in">test</span>-image-processing.sh
+
+<span class="hljs-comment"># Build with specific tag</span>
+docker build -f Dockerfile.image-processor -t productdemo-image-processor:v1.0 ..
+</div></code></pre>
+<h4 id="image-features">Image Features</h4>
+<ul>
+<li><strong>Base</strong>: Debian Slim (better OCR support)</li>
+<li><strong>OCR</strong>: Tesseract with 6 language packs</li>
+<li><strong>Image Processing</strong>: PIL, PyMuPDF, OpenCV</li>
+<li><strong>Languages</strong>: EN, FR, DE, ES, IT, PT</li>
+<li><strong>Security</strong>: Runs as non-root user</li>
+<li><strong>Size</strong>: ~1.2GB (includes OCR data)</li>
+</ul>
+<h3 id="image-management-commands">Image Management Commands</h3>
+<h4 id="building-all-images">Building All Images</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Build all custom images</span>
+<span class="hljs-built_in">cd</span> Docker
+docker compose build
+
+<span class="hljs-comment"># Build specific image</span>
+docker compose build doc-workers
+docker compose build image-processor
+
+<span class="hljs-comment"># Force rebuild (no cache)</span>
+docker compose build --no-cache
+
+<span class="hljs-comment"># Build with parallel processing</span>
+docker compose build --parallel
+</div></code></pre>
+<h4 id="image-information">Image Information</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># List all images</span>
+docker images | grep productdemo
+
+<span class="hljs-comment"># Image details</span>
+docker inspect productdemo-doc-workers
+docker inspect productdemo-image-processor
+
+<span class="hljs-comment"># Image size and layers</span>
+docker <span class="hljs-built_in">history</span> productdemo-doc-workers
+docker <span class="hljs-built_in">history</span> productdemo-image-processor
+
+<span class="hljs-comment"># Remove images</span>
+docker rmi productdemo-doc-workers
+docker rmi productdemo-image-processor
+</div></code></pre>
+<h4 id="testing-built-images">Testing Built Images</h4>
+<p><strong>Test Document Workers:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Test worker connectivity</span>
+docker run --rm --network productdemo-network \
+  -e REDIS_HOST=redis -e CHROMADB_HOST=chromadb \
+  productdemo-doc-workers node -e <span class="hljs-string">"console.log('Worker test OK')"</span>
+
+<span class="hljs-comment"># Test Python environment</span>
+docker run --rm productdemo-doc-workers \
+  /app/python/.venv/bin/python -c <span class="hljs-string">"import fitz, chromadb; print('Dependencies OK')"</span>
+</div></code></pre>
+<p><strong>Test Image Processor:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Run comprehensive test</span>
+<span class="hljs-built_in">cd</span> Docker
+./<span class="hljs-built_in">test</span>-image-processing.sh
+
+<span class="hljs-comment"># Test OCR manually</span>
+docker run --rm productdemo-image-processor tesseract --version
+
+<span class="hljs-comment"># Test Python dependencies</span>
+docker run --rm productdemo-image-processor \
+  python -c <span class="hljs-string">"import pytesseract, fitz, PIL; print('OCR dependencies OK')"</span>
+</div></code></pre>
+<h3 id="troubleshooting-image-builds">Troubleshooting Image Builds</h3>
+<h4 id="common-build-issues">Common Build Issues</h4>
+<p><strong>1. Docker Build Context Too Large</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Problem: Build context includes large files</span>
+<span class="hljs-comment"># Solution: Use .dockerignore file</span>
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"node_modules/
+DATA/
+logs/
+*.log"</span> &gt; .dockerignore
+</div></code></pre>
+<p><strong>2. Python Dependencies Fail</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Problem: Missing system dependencies</span>
+<span class="hljs-comment"># Solution: Check Dockerfile system packages</span>
+docker build --no-cache -f Dockerfile.workers ..
+</div></code></pre>
+<p><strong>3. Permission Issues</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Problem: File permissions in container</span>
+<span class="hljs-comment"># Solution: Check user/group settings</span>
+docker run --rm -it productdemo-doc-workers ls -la /app
+</div></code></pre>
+<p><strong>4. Network Issues During Build</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Problem: Cannot download packages</span>
+<span class="hljs-comment"># Solution: Check network and proxy settings</span>
+docker build --network=host -f Dockerfile.workers ..
+</div></code></pre>
+<h4 id="build-optimization-tips">Build Optimization Tips</h4>
+<p><strong>1. Layer Caching</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Copy requirements first (better caching)</span>
+<span class="hljs-keyword">COPY</span><span class="bash"> requirements.txt .</span>
+<span class="hljs-keyword">RUN</span><span class="bash"> pip install -r requirements.txt</span>
+<span class="hljs-comment"># Then copy application code</span>
+<span class="hljs-keyword">COPY</span><span class="bash"> . .</span>
+</div></code></pre>
+<p><strong>2. Multi-stage Builds</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Use multi-stage for smaller final image</span>
+<span class="hljs-keyword">FROM</span> node:<span class="hljs-number">18</span>-alpine as builder
+<span class="hljs-comment"># Build steps...</span>
+
+<span class="hljs-keyword">FROM</span> node:<span class="hljs-number">18</span>-alpine as runtime
+<span class="hljs-keyword">COPY</span><span class="bash"> --from=builder /app/dist /app</span>
+</div></code></pre>
+<p><strong>3. Minimize Image Size</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Clean up after package installation</span>
+<span class="hljs-keyword">RUN</span><span class="bash"> apt-get update &amp;&amp; apt-get install -y packages \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*</span>
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%93%8A-database-setup">📊 Database Setup</h2>
+<h3 id="host-postgresql-setup-recommended">Host PostgreSQL Setup (Recommended)</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># 1. Install PostgreSQL (Ubuntu/Debian)</span>
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+
+<span class="hljs-comment"># 2. Create database and user</span>
+sudo -u postgres psql
+CREATE DATABASE productdemo;
+CREATE USER productdemo_user WITH PASSWORD <span class="hljs-string">'your_secure_password'</span>;
+GRANT ALL PRIVILEGES ON DATABASE productdemo TO productdemo_user;
+\q
+
+<span class="hljs-comment"># 3. Update configuration</span>
+<span class="hljs-comment"># Edit conf/config.ini with the database details</span>
+
+<span class="hljs-comment"># 4. Run migrations</span>
+npm run db:migrate
+npm run db:migrate:queue
+</div></code></pre>
+<h3 id="docker-postgresql-setup">Docker PostgreSQL Setup</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># 1. Add PostgreSQL to docker-compose.yml (see Configuration section)</span>
+
+<span class="hljs-comment"># 2. Start PostgreSQL container</span>
+<span class="hljs-built_in">cd</span> Docker
+docker compose up -d postgres
+
+<span class="hljs-comment"># 3. Wait for database to be ready</span>
+docker compose logs postgres
+
+<span class="hljs-comment"># 4. Run migrations</span>
+<span class="hljs-built_in">cd</span> ..
+npm run db:migrate
+npm run db:migrate:queue
+</div></code></pre>
+<h3 id="database-management">Database Management</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Connect to host PostgreSQL</span>
+psql -h localhost -U productdemo_user -d productdemo
+
+<span class="hljs-comment"># Connect to Docker PostgreSQL</span>
+docker compose <span class="hljs-built_in">exec</span> postgres psql -U productdemo_user -d productdemo
+
+<span class="hljs-comment"># Backup database</span>
+pg_dump -h localhost -U productdemo_user productdemo &gt; backup.sql
+
+<span class="hljs-comment"># Restore database</span>
+psql -h localhost -U productdemo_user productdemo &lt; backup.sql
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%94%84-document-queue-system">🔄 Document Queue System</h2>
+<h3 id="architecture">Architecture</h3>
+<pre class="hljs"><code><div>Frontend Upload → Backend API → Redis Queue → Docker Workers → ChromaDB
+     ↓              ↓              ↓              ↓              ↓
+   User UI      Queue Job      BullMQ         Processing    Vector Storage
+                Creation       Management      (PDF/DOCX)    (Embeddings)
+</div></code></pre>
+<h3 id="worker-management">Worker Management</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Start workers</span>
+<span class="hljs-built_in">cd</span> Docker
+docker compose up -d doc-workers
+
+<span class="hljs-comment"># Scale workers (increase processing capacity)</span>
+docker compose up -d --scale doc-workers=5
+
+<span class="hljs-comment"># View worker logs</span>
+docker compose logs -f doc-workers
+
+<span class="hljs-comment"># Restart workers</span>
+docker compose restart doc-workers
+
+<span class="hljs-comment"># Stop workers</span>
+docker compose stop doc-workers
+</div></code></pre>
+<h3 id="queue-monitoring">Queue Monitoring</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check queue status via API</span>
+curl http://localhost:5634/api/documents/processing-status
+
+<span class="hljs-comment"># Monitor Redis queue directly</span>
+docker compose <span class="hljs-built_in">exec</span> redis redis-cli
+&gt; KEYS bull:document-processing:*
+&gt; LLEN bull:document-processing:waiting
+&gt; LLEN bull:document-processing:active
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%8C%90-environment-variables">🌐 Environment Variables</h2>
+<h3 id="application-environment-env">Application Environment (.env)</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Redis Configuration (for Docker services)</span>
+REDIS_HOST=redis
+REDIS_PORT=6379
+
+<span class="hljs-comment"># Document Queue Configuration</span>
+DOC_WORKER_CONCURRENCY=3
+QUEUE_MAX_RETRIES=3
+
+<span class="hljs-comment"># ChromaDB Configuration</span>
+CHROMADB_HOST=chromadb
+CHROMADB_PORT=8000
+
+<span class="hljs-comment"># Database Configuration (if using Docker PostgreSQL)</span>
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=productdemo
+DATABASE_USER=productdemo_user
+DATABASE_PASSWORD=your_secure_password
+</div></code></pre>
+<h3 id="configuration-file-confconfigini">Configuration File (conf/config.ini)</h3>
+<pre class="hljs"><code><div><span class="hljs-section">[server]</span>
+<span class="hljs-attr">port</span> = <span class="hljs-number">5634</span>
+<span class="hljs-attr">static_root_path</span> = ./client/build
+
+<span class="hljs-section">[database]</span>
+<span class="hljs-attr">database-type</span> = postgres
+<span class="hljs-attr">database-host</span> = localhost
+<span class="hljs-attr">database-port</span> = <span class="hljs-number">5432</span>
+<span class="hljs-attr">database-name</span> = productdemo
+<span class="hljs-attr">database-user</span> = productdemo_user
+<span class="hljs-attr">database-password</span> = your_secure_password
+
+<span class="hljs-section">[redis]</span>
+<span class="hljs-attr">host</span> = localhost
+<span class="hljs-attr">port</span> = <span class="hljs-number">6379</span>
+
+<span class="hljs-section">[ai]</span>
+<span class="hljs-attr">ollama_host</span> = http://localhost:<span class="hljs-number">11434</span>
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%9B%A0%EF%B8%8F-development-setup">🛠️ Development Setup</h2>
+<h3 id="full-local-development">Full Local Development</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># 1. Start infrastructure services only</span>
+<span class="hljs-built_in">cd</span> Docker
+docker compose up -d redis chromadb
+
+<span class="hljs-comment"># 2. Install dependencies</span>
+<span class="hljs-built_in">cd</span> ..
+npm install
+<span class="hljs-built_in">cd</span> client &amp;&amp; npm install &amp;&amp; <span class="hljs-built_in">cd</span> ..
+
+<span class="hljs-comment"># 3. Build frontend</span>
+<span class="hljs-built_in">cd</span> client &amp;&amp; npm run build &amp;&amp; <span class="hljs-built_in">cd</span> ..
+
+<span class="hljs-comment"># 4. Start backend in development mode</span>
+npm run dev
+
+<span class="hljs-comment"># 5. For frontend development (separate terminal)</span>
+<span class="hljs-built_in">cd</span> client &amp;&amp; npm start
+<span class="hljs-comment"># This runs on port 3000 for hot reload</span>
+</div></code></pre>
+<h3 id="production-like-development">Production-like Development</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># 1. Start all infrastructure</span>
+<span class="hljs-built_in">cd</span> Docker
+docker compose up -d
+
+<span class="hljs-comment"># 2. Build frontend</span>
+<span class="hljs-built_in">cd</span> client &amp;&amp; npm run build &amp;&amp; <span class="hljs-built_in">cd</span> ..
+
+<span class="hljs-comment"># 3. Start backend</span>
+npm start
+<span class="hljs-comment"># Access complete app on http://localhost:5634</span>
+</div></code></pre>
+<h3 id="code-changes-workflow">Code Changes Workflow</h3>
+<h4 id="frontend-changes">Frontend Changes</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># 1. Make changes in client/src/</span>
+<span class="hljs-comment"># 2. Build frontend</span>
+<span class="hljs-built_in">cd</span> client &amp;&amp; npm run build &amp;&amp; <span class="hljs-built_in">cd</span> ..
+<span class="hljs-comment"># 3. Restart backend to serve new build</span>
+npm run dev  <span class="hljs-comment"># or restart if using npm start</span>
+</div></code></pre>
+<h4 id="backend-changes">Backend Changes</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># 1. Make changes in src/</span>
+<span class="hljs-comment"># 2. Restart backend (auto-restart with npm run dev)</span>
+</div></code></pre>
+<h4 id="worker-changes">Worker Changes</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># 1. Make changes to worker code</span>
+<span class="hljs-comment"># 2. Rebuild and restart workers</span>
+<span class="hljs-built_in">cd</span> Docker
+docker compose build doc-workers
+docker compose restart doc-workers
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%93%88-monitoring--logs">📈 Monitoring &amp; Logs</h2>
+<h3 id="application-logs">Application Logs</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Backend logs (main application)</span>
+tail -f logs/app.log
+
+<span class="hljs-comment"># Development logs (console)</span>
+npm run dev  <span class="hljs-comment"># Shows logs in console</span>
+
+<span class="hljs-comment"># Worker logs</span>
+<span class="hljs-built_in">cd</span> Docker
+docker compose logs -f doc-workers
+</div></code></pre>
+<h3 id="service-health-checks">Service Health Checks</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Main application health</span>
+curl http://localhost:5634/api/health
+
+<span class="hljs-comment"># Redis health</span>
+docker compose <span class="hljs-built_in">exec</span> redis redis-cli ping
+
+<span class="hljs-comment"># ChromaDB health</span>
+curl http://localhost:8000/api/v1/heartbeat
+
+<span class="hljs-comment"># PostgreSQL health (host)</span>
+pg_isready -h localhost -p 5432
+
+<span class="hljs-comment"># PostgreSQL health (Docker)</span>
+docker compose <span class="hljs-built_in">exec</span> postgres pg_isready
+</div></code></pre>
+<h3 id="performance-monitoring">Performance Monitoring</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Application resource usage</span>
+ps aux | grep node
+
+<span class="hljs-comment"># Docker container resources</span>
+docker stats
+
+<span class="hljs-comment"># Database connections</span>
+<span class="hljs-comment"># Connect to PostgreSQL and run:</span>
+SELECT count(*) FROM pg_stat_activity;
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%94%8D-troubleshooting">🔍 Troubleshooting</h2>
+<h3 id="service-specific-troubleshooting">Service-Specific Troubleshooting</h3>
+<h4 id="1-main-application-issues">1. <strong>Main Application Issues</strong></h4>
+<p><strong>Frontend Not Loading:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check if build exists and is recent</span>
+ls -la client/build/
+<span class="hljs-built_in">stat</span> client/build/index.html
+
+<span class="hljs-comment"># Rebuild frontend</span>
+<span class="hljs-built_in">cd</span> client &amp;&amp; npm run build &amp;&amp; <span class="hljs-built_in">cd</span> ..
+
+<span class="hljs-comment"># Check backend static file serving</span>
+curl -I http://localhost:5634/
+curl http://localhost:5634/ | head -20
+
+<span class="hljs-comment"># Check backend configuration</span>
+grep -A 5 <span class="hljs-string">"static_root_path"</span> conf/config.ini
+</div></code></pre>
+<p><strong>API Routes Not Working:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Test API health endpoint</span>
+curl -v http://localhost:5634/api/health
+
+<span class="hljs-comment"># Check backend logs</span>
+tail -f logs/app.log
+
+<span class="hljs-comment"># Test specific API endpoints</span>
+curl http://localhost:5634/api/users/me
+curl http://localhost:5634/api/documents/
+
+<span class="hljs-comment"># Check if backend is binding to correct port</span>
+netstat -tulpn | grep 5634
+</div></code></pre>
+<h4 id="2-database-connection-issues">2. <strong>Database Connection Issues</strong></h4>
+<p><strong>PostgreSQL Connection Problems:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Test direct connection</span>
+psql -h localhost -U postgres -d copilot -c <span class="hljs-string">"SELECT version();"</span>
+
+<span class="hljs-comment"># Check if PostgreSQL is running</span>
+sudo systemctl status postgresql
+<span class="hljs-comment"># or for Docker: docker compose ps postgres</span>
+
+<span class="hljs-comment"># Verify database configuration</span>
+cat conf/config.ini | grep -A 10 <span class="hljs-string">"\[database\]"</span>
+
+<span class="hljs-comment"># Check database exists and user has permissions</span>
+psql -h localhost -U postgres -l
+psql -h localhost -U postgres -d copilot -c <span class="hljs-string">"\dt"</span>
+
+<span class="hljs-comment"># Test connection with application config</span>
+node -e <span class="hljs-string">"
+const config = require('./src/config/database');
+console.log('DB Config:', config);
+"</span>
+</div></code></pre>
+<h4 id="3-docker-services-issues">3. <strong>Docker Services Issues</strong></h4>
+<p><strong>Redis Problems:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check Redis container status</span>
+docker compose ps redis
+docker compose logs redis
+
+<span class="hljs-comment"># Test Redis connectivity</span>
+docker compose <span class="hljs-built_in">exec</span> redis redis-cli ping
+docker compose <span class="hljs-built_in">exec</span> redis redis-cli info
+
+<span class="hljs-comment"># Check Redis memory usage</span>
+docker compose <span class="hljs-built_in">exec</span> redis redis-cli info memory
+
+<span class="hljs-comment"># Test from application</span>
+node -e <span class="hljs-string">"
+const Redis = require('ioredis');
+const redis = new Redis('localhost', 6379);
+redis.ping().then(console.log).catch(console.error);
+"</span>
+</div></code></pre>
+<p><strong>ChromaDB Issues:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check ChromaDB container status</span>
+docker compose ps chromadb
+docker compose logs chromadb
+
+<span class="hljs-comment"># Test ChromaDB API</span>
+curl http://localhost:8001/api/v1/heartbeat
+curl http://localhost:8001/api/v1/version
+
+<span class="hljs-comment"># Check ChromaDB collections</span>
+curl http://localhost:8001/api/v1/collections
+
+<span class="hljs-comment"># Verify data directory</span>
+ls -la Docker/DATA/chroma_data/
+
+<span class="hljs-comment"># Test from application</span>
+node -e <span class="hljs-string">"
+const { ChromaClient } = require('chromadb');
+const client = new ChromaClient('http://localhost:8001');
+client.heartbeat().then(console.log).catch(console.error);
+"</span>
+</div></code></pre>
+<h4 id="4-document-workers-issues">4. <strong>Document Workers Issues</strong></h4>
+<p><strong>Worker Not Processing Documents:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check worker container status</span>
+docker compose ps doc-workers
+docker compose logs -f doc-workers
+
+<span class="hljs-comment"># Check worker resource usage</span>
+docker stats productdemo-doc-workers
+
+<span class="hljs-comment"># Test worker dependencies</span>
+docker compose <span class="hljs-built_in">exec</span> doc-workers node -e <span class="hljs-string">"
+const Redis = require('ioredis');
+const redis = new Redis('redis', 6379);
+redis.ping().then(() =&gt; console.log('Redis OK')).catch(console.error);
+"</span>
+
+<span class="hljs-comment"># Test Python environment in worker</span>
+docker compose <span class="hljs-built_in">exec</span> doc-workers /app/python/.venv/bin/python -c <span class="hljs-string">"
+import fitz, chromadb
+print('Python dependencies OK')
+"</span>
+
+<span class="hljs-comment"># Check queue status</span>
+docker compose <span class="hljs-built_in">exec</span> redis redis-cli KEYS <span class="hljs-string">"bull:*"</span>
+docker compose <span class="hljs-built_in">exec</span> redis redis-cli LLEN <span class="hljs-string">"bull:document-processing:waiting"</span>
+</div></code></pre>
+<p><strong>Scale Workers for Better Performance:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Scale up workers</span>
+docker compose up -d --scale doc-workers=3
+
+<span class="hljs-comment"># Check all worker instances</span>
+docker ps | grep doc-workers
+
+<span class="hljs-comment"># Monitor worker distribution</span>
+docker compose logs -f doc-workers | grep <span class="hljs-string">"Processing job"</span>
+</div></code></pre>
+<h4 id="5-image-processor-issues">5. <strong>Image Processor Issues</strong></h4>
+<p><strong>OCR Not Working:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check image processor status</span>
+docker compose ps image-processor
+docker compose logs image-processor
+
+<span class="hljs-comment"># Test Tesseract installation</span>
+docker compose <span class="hljs-built_in">exec</span> image-processor tesseract --version
+
+<span class="hljs-comment"># Test OCR functionality</span>
+docker compose <span class="hljs-built_in">exec</span> image-processor python -c <span class="hljs-string">"
+import pytesseract
+from PIL import Image, ImageDraw
+img = Image.new('RGB', (200, 50), 'white')
+draw = ImageDraw.Draw(img)
+draw.text((10, 10), 'Test OCR', fill='black')
+img.save('/tmp/test.png')
+text = pytesseract.image_to_string('/tmp/test.png')
+print(f'OCR Result: {text.strip()}')
+"</span>
+
+<span class="hljs-comment"># Run comprehensive test</span>
+<span class="hljs-built_in">cd</span> Docker &amp;&amp; ./<span class="hljs-built_in">test</span>-image-processing.sh
+</div></code></pre>
+<h4 id="6-ollamallm-integration-issues">6. <strong>Ollama/LLM Integration Issues</strong></h4>
+<p><strong>Ollama Connection Problems:</strong></p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check if Ollama is running</span>
+curl http://localhost:11434/api/tags
+ps aux | grep ollama
+
+<span class="hljs-comment"># Start Ollama if not running</span>
+ollama serve &amp;
+
+<span class="hljs-comment"># Test Ollama models</span>
+ollama list
+ollama pull llama2  <span class="hljs-comment"># if no models installed</span>
+
+<span class="hljs-comment"># Check application configuration</span>
+cat conf/config.ini | grep -A 5 <span class="hljs-string">"\[ai\]"</span>
+
+<span class="hljs-comment"># Test from application</span>
+node -e <span class="hljs-string">"
+const axios = require('axios');
+axios.get('http://localhost:11434/api/tags')
+  .then(res =&gt; console.log('Ollama OK:', res.data))
+  .catch(err =&gt; console.error('Ollama Error:', err.message));
+"</span>
+</div></code></pre>
+<h3 id="%F0%9F%94%A7-advanced-debugging">🔧 Advanced Debugging</h3>
+<h4 id="container-deep-dive">Container Deep Dive</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Enter container for debugging</span>
+docker compose <span class="hljs-built_in">exec</span> doc-workers sh
+docker compose <span class="hljs-built_in">exec</span> image-processor bash
+
+<span class="hljs-comment"># Check container resource usage</span>
+docker stats --no-stream
+
+<span class="hljs-comment"># Inspect container configuration</span>
+docker inspect productdemo-doc-workers
+docker inspect productdemo-image-processor
+
+<span class="hljs-comment"># Check container logs with timestamps</span>
+docker compose logs -t doc-workers
+docker compose logs -t image-processor
+</div></code></pre>
+<h4 id="network-debugging">Network Debugging</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check Docker network</span>
+docker network ls
+docker network inspect docker_productdemo-network
+
+<span class="hljs-comment"># Test inter-container connectivity</span>
+docker compose <span class="hljs-built_in">exec</span> doc-workers ping redis
+docker compose <span class="hljs-built_in">exec</span> doc-workers ping chromadb
+
+<span class="hljs-comment"># Check port bindings</span>
+docker port productdemo-redis
+docker port productdemo-chromadb
+</div></code></pre>
+<h4 id="performance-debugging">Performance Debugging</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Monitor system resources</span>
+htop
+docker stats
+
+<span class="hljs-comment"># Check disk usage</span>
+df -h
+du -sh Docker/DATA/
+
+<span class="hljs-comment"># Monitor application performance</span>
+curl -w <span class="hljs-string">"@curl-format.txt"</span> -o /dev/null -s http://localhost:5634/api/health
+
+<span class="hljs-comment"># Database performance</span>
+psql -h localhost -U postgres -d copilot -c <span class="hljs-string">"
+SELECT query, calls, total_time, mean_time
+FROM pg_stat_statements
+ORDER BY total_time DESC LIMIT 10;
+"</span>
+</div></code></pre>
+<h3 id="%F0%9F%9A%A8-emergency-recovery">🚨 Emergency Recovery</h3>
+<h4 id="complete-system-reset">Complete System Reset</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Stop all services</span>
+docker compose down
+
+<span class="hljs-comment"># Remove all containers and volumes</span>
+docker compose down -v
+docker system prune -a
+
+<span class="hljs-comment"># Rebuild everything</span>
+docker compose build --no-cache
+docker compose up -d
+
+<span class="hljs-comment"># Reinitialize database</span>
+npm run db:migrate
+npm run db:migrate:queue
+</div></code></pre>
+<h4 id="data-recovery">Data Recovery</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Backup current data</span>
+cp -r Docker/DATA/ Docker/DATA.backup.$(date +%Y%m%d)
+
+<span class="hljs-comment"># Restore from backup</span>
+cp -r Docker/DATA.backup.YYYYMMDD/ Docker/DATA/
+
+<span class="hljs-comment"># Reset ChromaDB collections</span>
+curl -X POST http://localhost:8001/api/v1/reset
+
+<span class="hljs-comment"># Reset Redis queues</span>
+docker compose <span class="hljs-built_in">exec</span> redis redis-cli FLUSHALL
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%9A%80-production-deployment">🚀 Production Deployment</h2>
+<h3 id="pre-deployment-checklist">Pre-deployment Checklist</h3>
+<ul>
+<li><input type="checkbox" id="checkbox0"><label for="checkbox0">PostgreSQL installed and configured on host</label></li>
+<li><input type="checkbox" id="checkbox1"><label for="checkbox1">Ollama installed and models downloaded</label></li>
+<li><input type="checkbox" id="checkbox2"><label for="checkbox2">Frontend built (</label><code>npm run build</code>)</li>
+<li><input type="checkbox" id="checkbox3"><label for="checkbox3">Database migrations applied</label></li>
+<li><input type="checkbox" id="checkbox4"><label for="checkbox4">Configuration files updated with production values</label></li>
+<li><input type="checkbox" id="checkbox5"><label for="checkbox5">SSL certificates configured (if needed)</label></li>
+<li><input type="checkbox" id="checkbox6"><label for="checkbox6">Firewall rules configured</label></li>
+<li><input type="checkbox" id="checkbox7"><label for="checkbox7">Backup strategy implemented</label></li>
+</ul>
+<h3 id="production-environment-setup">Production Environment Setup</h3>
+<h4 id="1-system-preparation">1. System Preparation</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Install Node.js (Ubuntu/Debian)</span>
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+<span class="hljs-comment"># Install PostgreSQL</span>
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+
+<span class="hljs-comment"># Install Docker</span>
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+<span class="hljs-comment"># Install Ollama</span>
+curl -fsSL https://ollama.ai/install.sh | sh
+</div></code></pre>
+<h4 id="2-application-deployment">2. Application Deployment</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Clone and setup application</span>
+git <span class="hljs-built_in">clone</span> &lt;repository-url&gt; /opt/productdemo
+<span class="hljs-built_in">cd</span> /opt/productdemo
+
+<span class="hljs-comment"># Install dependencies</span>
+npm install
+<span class="hljs-built_in">cd</span> client &amp;&amp; npm install &amp;&amp; npm run build &amp;&amp; <span class="hljs-built_in">cd</span> ..
+
+<span class="hljs-comment"># Setup database</span>
+sudo -u postgres createdb productdemo
+sudo -u postgres createuser productdemo_user
+<span class="hljs-comment"># Set password and permissions</span>
+
+<span class="hljs-comment"># Run migrations</span>
+npm run db:migrate
+npm run db:migrate:queue
+
+<span class="hljs-comment"># Start infrastructure services</span>
+<span class="hljs-built_in">cd</span> Docker &amp;&amp; docker compose up -d
+
+<span class="hljs-comment"># Start application (consider using PM2 for production)</span>
+npm install -g pm2
+pm2 start src/server.js --name <span class="hljs-string">"productdemo"</span>
+pm2 startup
+pm2 save
+</div></code></pre>
+<h4 id="3-reverse-proxy-setup-nginx">3. Reverse Proxy Setup (Nginx)</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># /etc/nginx/sites-available/productdemo</span>
+<span class="hljs-section">server</span> {
+    <span class="hljs-attribute">listen</span> <span class="hljs-number">80</span>;
+    <span class="hljs-attribute">server_name</span> your-domain.com;
+
+    <span class="hljs-attribute">location</span> / {
+        <span class="hljs-attribute">proxy_pass</span> http://localhost:5634;
+        <span class="hljs-attribute">proxy_http_version</span> <span class="hljs-number">1</span>.<span class="hljs-number">1</span>;
+        <span class="hljs-attribute">proxy_set_header</span> Upgrade <span class="hljs-variable">$http_upgrade</span>;
+        <span class="hljs-attribute">proxy_set_header</span> Connection <span class="hljs-string">'upgrade'</span>;
+        <span class="hljs-attribute">proxy_set_header</span> Host <span class="hljs-variable">$host</span>;
+        <span class="hljs-attribute">proxy_set_header</span> X-Real-IP <span class="hljs-variable">$remote_addr</span>;
+        <span class="hljs-attribute">proxy_set_header</span> X-Forwarded-For <span class="hljs-variable">$proxy_add_x_forwarded_for</span>;
+        <span class="hljs-attribute">proxy_set_header</span> X-Forwarded-Proto <span class="hljs-variable">$scheme</span>;
+        <span class="hljs-attribute">proxy_cache_bypass</span> <span class="hljs-variable">$http_upgrade</span>;
+    }
+}
+</div></code></pre>
+<h3 id="security-considerations">Security Considerations</h3>
+<ol>
+<li>
+<p><strong>Database Security</strong></p>
+<ul>
+<li>Use strong passwords</li>
+<li>Restrict database access to localhost</li>
+<li>Enable SSL connections</li>
+</ul>
+</li>
+<li>
+<p><strong>Application Security</strong></p>
+<ul>
+<li>Update <code>secret_key</code> in config</li>
+<li>Enable HTTPS in production</li>
+<li>Configure proper CORS origins</li>
+</ul>
+</li>
+<li>
+<p><strong>Docker Security</strong></p>
+<ul>
+<li>Keep Docker images updated</li>
+<li>Use non-root users in containers</li>
+<li>Limit container resources</li>
+</ul>
+</li>
+<li>
+<p><strong>System Security</strong></p>
+<ul>
+<li>Keep system packages updated</li>
+<li>Configure firewall (ufw/iptables)</li>
+<li>Regular security audits</li>
+</ul>
+</li>
+</ol>
+<h3 id="backup-strategy">Backup Strategy</h3>
+<pre class="hljs"><code><div><span class="hljs-meta">#!/bin/bash</span>
+<span class="hljs-comment"># backup.sh - Production backup script</span>
+
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR=<span class="hljs-string">"/opt/backups/productdemo"</span>
+
+<span class="hljs-comment"># Create backup directory</span>
+mkdir -p <span class="hljs-variable">$BACKUP_DIR</span>
+
+<span class="hljs-comment"># Database backup</span>
+pg_dump -h localhost -U productdemo_user productdemo &gt; <span class="hljs-string">"<span class="hljs-variable">$BACKUP_DIR</span>/db_<span class="hljs-variable">$DATE</span>.sql"</span>
+
+<span class="hljs-comment"># Application data backup</span>
+tar -czf <span class="hljs-string">"<span class="hljs-variable">$BACKUP_DIR</span>/data_<span class="hljs-variable">$DATE</span>.tar.gz"</span> /opt/productdemo/DATA
+
+<span class="hljs-comment"># Redis backup (if needed)</span>
+docker <span class="hljs-built_in">exec</span> productdemo-redis redis-cli BGSAVE
+cp /var/lib/docker/volumes/docker_redis_data/_data/dump.rdb <span class="hljs-string">"<span class="hljs-variable">$BACKUP_DIR</span>/redis_<span class="hljs-variable">$DATE</span>.rdb"</span>
+
+<span class="hljs-comment"># Cleanup old backups (keep last 7 days)</span>
+find <span class="hljs-variable">$BACKUP_DIR</span> -name <span class="hljs-string">"*.sql"</span> -mtime +7 -delete
+find <span class="hljs-variable">$BACKUP_DIR</span> -name <span class="hljs-string">"*.tar.gz"</span> -mtime +7 -delete
+find <span class="hljs-variable">$BACKUP_DIR</span> -name <span class="hljs-string">"*.rdb"</span> -mtime +7 -delete
+
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"Backup completed: <span class="hljs-variable">$DATE</span>"</span>
+</div></code></pre>
+<h3 id="scaling-considerations">Scaling Considerations</h3>
+<h4 id="horizontal-scaling">Horizontal Scaling</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Scale document workers</span>
+<span class="hljs-built_in">cd</span> Docker
+docker compose up -d --scale doc-workers=10
+
+<span class="hljs-comment"># Scale application (requires load balancer)</span>
+<span class="hljs-comment"># Run multiple instances on different ports</span>
+<span class="hljs-comment"># Use Nginx/HAProxy for load balancing</span>
+</div></code></pre>
+<h4 id="vertical-scaling">Vertical Scaling</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Increase worker resources</span>
+<span class="hljs-comment"># Edit docker-compose.yml:</span>
+deploy:
+  resources:
+    limits:
+      memory: 2G
+      cpus: <span class="hljs-string">'2.0'</span>
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%93%9E-support--resources">📞 Support &amp; Resources</h2>
+<h3 id="architecture-summary">Architecture Summary</h3>
+<p><strong>What's Containerized:</strong></p>
+<ul>
+<li>✅ Redis (Queue management)</li>
+<li>✅ ChromaDB (Vector database)</li>
+<li>✅ Document Workers (Processing)</li>
+</ul>
+<p><strong>What's on Host:</strong></p>
+<ul>
+<li>✅ Main Application (Backend + Frontend)</li>
+<li>✅ PostgreSQL (Recommended)</li>
+<li>✅ Ollama/LLM Services</li>
+</ul>
+<p><strong>Why This Architecture:</strong></p>
+<ul>
+<li><strong>Performance</strong>: Host services avoid container overhead</li>
+<li><strong>Simplicity</strong>: Single port access, easier deployment</li>
+<li><strong>Flexibility</strong>: Easy to scale workers independently</li>
+<li><strong>Development</strong>: Faster iteration on main application code</li>
+</ul>
+<h2 id="%F0%9F%9B%A0%EF%B8%8F-docker-image-management">🛠️ Docker Image Management</h2>
+<h3 id="image-lifecycle-management">Image Lifecycle Management</h3>
+<h4 id="building-images">Building Images</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Build all custom images</span>
+<span class="hljs-built_in">cd</span> Docker
+docker compose build
+
+<span class="hljs-comment"># Build specific images</span>
+docker compose build doc-workers
+docker compose build image-processor
+
+<span class="hljs-comment"># Force rebuild (ignore cache)</span>
+docker compose build --no-cache
+
+<span class="hljs-comment"># Build with specific tag</span>
+docker build -f Dockerfile.workers -t productdemo-doc-workers:v1.0 ..
+docker build -f Dockerfile.image-processor -t productdemo-image-processor:v1.0 ..
+</div></code></pre>
+<h4 id="image-information--inspection">Image Information &amp; Inspection</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># List all project images</span>
+docker images | grep productdemo
+
+<span class="hljs-comment"># Detailed image information</span>
+docker inspect productdemo-doc-workers
+docker inspect productdemo-image-processor
+
+<span class="hljs-comment"># Image layer history and size</span>
+docker <span class="hljs-built_in">history</span> productdemo-doc-workers
+docker <span class="hljs-built_in">history</span> productdemo-image-processor
+
+<span class="hljs-comment"># Image vulnerability scanning (if available)</span>
+docker scout cves productdemo-doc-workers
+docker scout cves productdemo-image-processor
+</div></code></pre>
+<h4 id="image-updates--maintenance">Image Updates &amp; Maintenance</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Update base images</span>
+docker pull node:18-alpine3.16
+docker pull python:3.9-slim
+docker pull redis:7-alpine
+docker pull chromadb/chroma:latest
+
+<span class="hljs-comment"># Rebuild after base image updates</span>
+docker compose build --pull
+
+<span class="hljs-comment"># Clean up old images</span>
+docker image prune
+docker image prune -a  <span class="hljs-comment"># Remove all unused images</span>
+
+<span class="hljs-comment"># Remove specific images</span>
+docker rmi productdemo-doc-workers:old-tag
+docker rmi productdemo-image-processor:old-tag
+</div></code></pre>
+<h4 id="image-registry-operations">Image Registry Operations</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Tag images for registry</span>
+docker tag productdemo-doc-workers:latest your-registry.com/productdemo-doc-workers:v1.0
+docker tag productdemo-image-processor:latest your-registry.com/productdemo-image-processor:v1.0
+
+<span class="hljs-comment"># Push to registry</span>
+docker push your-registry.com/productdemo-doc-workers:v1.0
+docker push your-registry.com/productdemo-image-processor:v1.0
+
+<span class="hljs-comment"># Pull from registry</span>
+docker pull your-registry.com/productdemo-doc-workers:v1.0
+docker pull your-registry.com/productdemo-image-processor:v1.0
+</div></code></pre>
+<h3 id="container-management">Container Management</h3>
+<h4 id="container-operations">Container Operations</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Start/stop specific services</span>
+docker compose up -d redis chromadb
+docker compose stop doc-workers
+docker compose restart image-processor
+
+<span class="hljs-comment"># Scale services</span>
+docker compose up -d --scale doc-workers=3
+
+<span class="hljs-comment"># View container details</span>
+docker compose ps
+docker compose top doc-workers
+
+<span class="hljs-comment"># Container resource usage</span>
+docker stats productdemo-doc-workers
+docker stats productdemo-image-processor
+</div></code></pre>
+<h4 id="container-debugging">Container Debugging</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Execute commands in running containers</span>
+docker compose <span class="hljs-built_in">exec</span> doc-workers sh
+docker compose <span class="hljs-built_in">exec</span> image-processor bash
+
+<span class="hljs-comment"># Run one-off commands</span>
+docker compose run --rm doc-workers node --version
+docker compose run --rm image-processor python --version
+
+<span class="hljs-comment"># Copy files to/from containers</span>
+docker cp <span class="hljs-built_in">local</span>-file.txt productdemo-doc-workers:/app/
+docker cp productdemo-image-processor:/app/output.txt ./
+</div></code></pre>
+<h4 id="container-logs--monitoring">Container Logs &amp; Monitoring</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># View logs</span>
+docker compose logs doc-workers
+docker compose logs image-processor
+docker compose logs -f --tail=100 doc-workers
+
+<span class="hljs-comment"># Follow logs from multiple services</span>
+docker compose logs -f doc-workers image-processor
+
+<span class="hljs-comment"># Export logs</span>
+docker compose logs doc-workers &gt; worker-logs.txt
+docker compose logs image-processor &gt; processor-logs.txt
+</div></code></pre>
+<h3 id="volume--data-management">Volume &amp; Data Management</h3>
+<h4 id="volume-operations">Volume Operations</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># List volumes</span>
+docker volume ls | grep docker
+
+<span class="hljs-comment"># Inspect volume details</span>
+docker volume inspect docker_redis_data
+docker volume inspect docker_image_collections
+
+<span class="hljs-comment"># Backup volumes</span>
+docker run --rm -v docker_redis_data:/data -v $(<span class="hljs-built_in">pwd</span>):/backup alpine tar czf /backup/redis-backup.tar.gz -C /data .
+docker run --rm -v docker_image_collections:/data -v $(<span class="hljs-built_in">pwd</span>):/backup alpine tar czf /backup/collections-backup.tar.gz -C /data .
+
+<span class="hljs-comment"># Restore volumes</span>
+docker run --rm -v docker_redis_data:/data -v $(<span class="hljs-built_in">pwd</span>):/backup alpine tar xzf /backup/redis-backup.tar.gz -C /data
+</div></code></pre>
+<h4 id="data-directory-management">Data Directory Management</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check data directory sizes</span>
+du -sh Docker/DATA/chroma_data/
+du -sh Docker/DATA/documents/
+du -sh Docker/DATA/embeddings/
+
+<span class="hljs-comment"># Backup data directories</span>
+tar czf data-backup-$(date +%Y%m%d).tar.gz Docker/DATA/
+
+<span class="hljs-comment"># Clean up old data (be careful!)</span>
+find Docker/DATA/documents/ -name <span class="hljs-string">"*.pdf"</span> -mtime +30 -delete
+find Docker/DATA/embeddings/ -name <span class="hljs-string">"*.json"</span> -mtime +30 -delete
+</div></code></pre>
+<h3 id="performance-optimization">Performance Optimization</h3>
+<h4 id="resource-limits">Resource Limits</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># In docker-compose.yml</span>
+<span class="hljs-attr">services:</span>
+  <span class="hljs-attr">doc-workers:</span>
+    <span class="hljs-attr">deploy:</span>
+      <span class="hljs-attr">resources:</span>
+        <span class="hljs-attr">limits:</span>
+          <span class="hljs-attr">memory:</span> <span class="hljs-string">2G</span>
+          <span class="hljs-attr">cpus:</span> <span class="hljs-string">'2.0'</span>
+        <span class="hljs-attr">reservations:</span>
+          <span class="hljs-attr">memory:</span> <span class="hljs-string">1G</span>
+          <span class="hljs-attr">cpus:</span> <span class="hljs-string">'1.0'</span>
+</div></code></pre>
+<h4 id="scaling-strategies">Scaling Strategies</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Horizontal scaling for workers</span>
+docker compose up -d --scale doc-workers=5
+
+<span class="hljs-comment"># Monitor scaling effectiveness</span>
+docker stats $(docker ps -q --filter <span class="hljs-string">"name=doc-workers"</span>)
+
+<span class="hljs-comment"># Adjust based on load</span>
+docker compose up -d --scale doc-workers=2  <span class="hljs-comment"># Scale down</span>
+</div></code></pre>
+<h3 id="quick-reference-commands">Quick Reference Commands</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># === APPLICATION MANAGEMENT ===</span>
+npm start                        <span class="hljs-comment"># Start main application</span>
+npm run dev                      <span class="hljs-comment"># Development mode with auto-reload</span>
+<span class="hljs-built_in">cd</span> client &amp;&amp; npm run build       <span class="hljs-comment"># Build frontend from client directory</span>
+
+<span class="hljs-comment"># === DOCKER SERVICES ===</span>
+<span class="hljs-built_in">cd</span> Docker &amp;&amp; docker compose up -d              <span class="hljs-comment"># Start all infrastructure</span>
+docker compose ps                              <span class="hljs-comment"># Check service status</span>
+docker compose logs -f doc-workers            <span class="hljs-comment"># View worker logs</span>
+docker compose up -d --scale doc-workers=5    <span class="hljs-comment"># Scale workers</span>
+docker compose build --no-cache               <span class="hljs-comment"># Rebuild all images</span>
+
+<span class="hljs-comment"># === IMAGE MANAGEMENT ===</span>
+docker images | grep productdemo              <span class="hljs-comment"># List project images</span>
+docker compose build doc-workers              <span class="hljs-comment"># Build specific image</span>
+docker system prune -a                        <span class="hljs-comment"># Clean up unused images</span>
+docker stats                                  <span class="hljs-comment"># Monitor container resources</span>
+
+<span class="hljs-comment"># === DATABASE MANAGEMENT ===</span>
+npm run db:migrate               <span class="hljs-comment"># Run database migrations</span>
+npm run db:migrate:queue         <span class="hljs-comment"># Apply queue schema</span>
+psql -h localhost -U postgres copilot         <span class="hljs-comment"># Connect to database</span>
+
+<span class="hljs-comment"># === MONITORING &amp; HEALTH CHECKS ===</span>
+curl http://localhost:5634/api/health          <span class="hljs-comment"># Application health</span>
+docker compose <span class="hljs-built_in">exec</span> redis redis-cli ping       <span class="hljs-comment"># Redis health</span>
+curl http://localhost:8001/api/v1/heartbeat   <span class="hljs-comment"># ChromaDB health</span>
+docker compose logs -f doc-workers            <span class="hljs-comment"># Monitor worker activity</span>
+
+<span class="hljs-comment"># === TROUBLESHOOTING ===</span>
+docker compose down &amp;&amp; docker compose up -d   <span class="hljs-comment"># Restart all services</span>
+docker compose build --no-cache &amp;&amp; docker compose up -d  <span class="hljs-comment"># Full rebuild</span>
+./Docker/<span class="hljs-built_in">test</span>-image-processing.sh             <span class="hljs-comment"># Test image processor</span>
+</div></code></pre>
+<h3 id="getting-help">Getting Help</h3>
+<ol>
+<li><strong>Check Application Logs</strong>: <code>tail -f logs/app.log</code></li>
+<li><strong>Verify Services</strong>: <code>cd Docker &amp;&amp; docker compose ps</code></li>
+<li><strong>Test Connectivity</strong>: <code>curl http://localhost:5634/api/health</code></li>
+<li><strong>Check Configuration</strong>: Review <code>conf/config.ini</code></li>
+<li><strong>Database Issues</strong>: Test with <code>psql</code> connection</li>
+<li><strong>Frontend Issues</strong>: Rebuild with <code>cd client &amp;&amp; npm run build</code></li>
+</ol>
+<hr>
+<h2 id="%F0%9F%8E%AF-next-steps">🎯 Next Steps</h2>
+<p>After successful setup:</p>
+<ol>
+<li><strong>Access Application</strong>: http://localhost:5634</li>
+<li><strong>Create Admin Account</strong>: Use the frontend interface</li>
+<li><strong>Upload Test Document</strong>: Verify queue processing works</li>
+<li><strong>Configure LLM Models</strong>: Set up Ollama with required models</li>
+<li><strong>Monitor Performance</strong>: Check logs and resource usage</li>
+<li><strong>Set Up Backups</strong>: Implement automated backup strategy</li>
+<li><strong>Scale Workers</strong>: Adjust based on document processing load</li>
+</ol>
+<hr>
+<hr>
+<h2 id="%F0%9F%93%8B-complete-setup-summary">📋 Complete Setup Summary</h2>
+<h3 id="%F0%9F%8F%97%EF%B8%8F-architecture-overview">🏗️ Architecture Overview</h3>
+<p>This system uses a <strong>hybrid containerization approach</strong> with:</p>
+<p><strong>Containerized Services (Docker):</strong></p>
+<ul>
+<li>✅ <strong>Redis</strong> (<code>redis:7-alpine</code>) - Queue management on port 6379</li>
+<li>✅ <strong>ChromaDB</strong> (<code>chromadb/chroma:latest</code>) - Vector database on port 8001</li>
+<li>✅ <strong>Document Workers</strong> (Custom built) - Scalable document processing</li>
+<li>✅ <strong>Image Processor</strong> (Custom built) - OCR and image extraction</li>
+</ul>
+<p><strong>Host Services:</strong></p>
+<ul>
+<li>✅ <strong>Main Application</strong> (Node.js + React) - Single port 5634</li>
+<li>✅ <strong>PostgreSQL</strong> - Primary database on port 5432</li>
+<li>✅ <strong>Ollama/LLM</strong> - AI model inference on port 11434</li>
+</ul>
+<h3 id="%F0%9F%90%B3-docker-images-details">🐳 Docker Images Details</h3>
+<table>
+<thead>
+<tr>
+<th>Image</th>
+<th>Type</th>
+<th>Base</th>
+<th>Size</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>productdemo-doc-workers</code></td>
+<td>Custom</td>
+<td><code>node:18-alpine</code></td>
+<td>~800MB</td>
+<td>Document processing, PDF parsing</td>
+</tr>
+<tr>
+<td><code>productdemo-image-processor</code></td>
+<td>Custom</td>
+<td><code>python:3.9-slim</code></td>
+<td>~1.2GB</td>
+<td>OCR, image extraction, multi-language</td>
+</tr>
+<tr>
+<td><code>redis:7-alpine</code></td>
+<td>Pre-built</td>
+<td>Alpine Linux</td>
+<td>~30MB</td>
+<td>Queue management, caching</td>
+</tr>
+<tr>
+<td><code>chromadb/chroma:latest</code></td>
+<td>Pre-built</td>
+<td>Python</td>
+<td>~500MB</td>
+<td>Vector database, embeddings</td>
+</tr>
+<tr>
+<td><code>postgres:15-alpine</code></td>
+<td>Pre-built</td>
+<td>Alpine Linux</td>
+<td>~200MB</td>
+<td>Optional database container</td>
+</tr>
+</tbody>
+</table>
+<h3 id="%F0%9F%94%A7-key-features">🔧 Key Features</h3>
+<p><strong>Document Workers:</strong></p>
+<ul>
+<li>BullMQ-based queue processing</li>
+<li>PDF/DOCX parsing with PyMuPDF</li>
+<li>Embedding generation for RAG</li>
+<li>Horizontal scaling (1-10 instances)</li>
+<li>Python + Node.js hybrid environment</li>
+</ul>
+<p><strong>Image Processor:</strong></p>
+<ul>
+<li>Tesseract OCR with 6 languages (EN, FR, DE, ES, IT, PT)</li>
+<li>PDF image extraction</li>
+<li>User-isolated collections</li>
+<li>ChromaDB integration</li>
+<li>Keyword-based image retrieval</li>
+</ul>
+<p><strong>Infrastructure:</strong></p>
+<ul>
+<li>Redis with persistence and memory management</li>
+<li>ChromaDB with CORS and reset capabilities</li>
+<li>Automatic health checks and restart policies</li>
+<li>Resource limits and reservations</li>
+</ul>
+<h3 id="%F0%9F%9A%80-quick-start-checklist">🚀 Quick Start Checklist</h3>
+<ul>
+<li><input type="checkbox" id="checkbox8"><label for="checkbox8"></label><strong>Prerequisites</strong>: Docker, Node.js 18+, PostgreSQL</li>
+<li><input type="checkbox" id="checkbox9"><label for="checkbox9"></label><strong>Clone Repository</strong>: <code>git clone &lt;repo&gt; &amp;&amp; cd c2s_integrate</code></li>
+<li><input type="checkbox" id="checkbox10"><label for="checkbox10"></label><strong>Install Dependencies</strong>: <code>npm install &amp;&amp; cd client &amp;&amp; npm install &amp;&amp; npm run build</code></li>
+<li><input type="checkbox" id="checkbox11"><label for="checkbox11"></label><strong>Configure Environment</strong>: Copy and edit <code>conf/config.ini</code> and <code>.env</code></li>
+<li><input type="checkbox" id="checkbox12"><label for="checkbox12"></label><strong>Build Images</strong>: <code>cd Docker &amp;&amp; docker compose build</code></li>
+<li><input type="checkbox" id="checkbox13"><label for="checkbox13"></label><strong>Start Services</strong>: <code>docker compose up -d</code></li>
+<li><input type="checkbox" id="checkbox14"><label for="checkbox14"></label><strong>Initialize Database</strong>: <code>npm run db:migrate &amp;&amp; npm run db:migrate:queue</code></li>
+<li><input type="checkbox" id="checkbox15"><label for="checkbox15"></label><strong>Start Application</strong>: <code>npm start</code></li>
+<li><input type="checkbox" id="checkbox16"><label for="checkbox16"></label><strong>Verify Setup</strong>: Access http://localhost:5634</li>
+</ul>
+<h3 id="%F0%9F%94%8D-health-check-urls">🔍 Health Check URLs</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Health Check</th>
+<th>Expected Response</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Main App</td>
+<td><code>curl http://localhost:5634/api/health</code></td>
+<td><code>{&quot;status&quot;: &quot;ok&quot;}</code></td>
+</tr>
+<tr>
+<td>Redis</td>
+<td><code>docker compose exec redis redis-cli ping</code></td>
+<td><code>PONG</code></td>
+</tr>
+<tr>
+<td>ChromaDB</td>
+<td><code>curl http://localhost:8001/api/v1/heartbeat</code></td>
+<td><code>{&quot;nanosecond heartbeat&quot;: ...}</code></td>
+</tr>
+<tr>
+<td>Database</td>
+<td><code>psql -h localhost -U postgres -d copilot -c &quot;SELECT 1;&quot;</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td><code>curl http://localhost:11434/api/tags</code></td>
+<td><code>{&quot;models&quot;: [...]}</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="%F0%9F%9B%A0%EF%B8%8F-maintenance-commands">🛠️ Maintenance Commands</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Daily operations</span>
+docker compose up -d                    <span class="hljs-comment"># Start services</span>
+npm start                              <span class="hljs-comment"># Start main app</span>
+docker compose ps                      <span class="hljs-comment"># Check status</span>
+
+<span class="hljs-comment"># Updates and maintenance</span>
+docker compose pull                    <span class="hljs-comment"># Update pre-built images</span>
+docker compose build --no-cache       <span class="hljs-comment"># Rebuild custom images</span>
+docker system prune                   <span class="hljs-comment"># Clean up unused resources</span>
+
+<span class="hljs-comment"># Scaling and performance</span>
+docker compose up -d --scale doc-workers=3  <span class="hljs-comment"># Scale workers</span>
+docker stats                               <span class="hljs-comment"># Monitor resources</span>
+docker compose logs -f doc-workers        <span class="hljs-comment"># Monitor activity</span>
+
+<span class="hljs-comment"># Troubleshooting</span>
+./Docker/<span class="hljs-built_in">test</span>-image-processing.sh      <span class="hljs-comment"># Test image processor</span>
+docker compose down &amp;&amp; docker compose up -d  <span class="hljs-comment"># Restart all</span>
+</div></code></pre>
+<h3 id="%F0%9F%93%9E-support--resources">📞 Support &amp; Resources</h3>
+<p><strong>Documentation:</strong></p>
+<ul>
+<li>Main README: Project root directory</li>
+<li>Docker Setup: This file (<code>Docker/README.md</code>)</li>
+<li>API Documentation: Check <code>/api/docs</code> endpoint</li>
+</ul>
+<p><strong>Troubleshooting:</strong></p>
+<ul>
+<li>Check service logs: <code>docker compose logs &lt;service&gt;</code></li>
+<li>Verify connectivity: Use health check URLs above</li>
+<li>Test individual components: Use commands in troubleshooting section</li>
+<li>Reset system: <code>docker compose down -v &amp;&amp; docker compose up -d</code></li>
+</ul>
+<hr>
+<p><em>Last Updated: 2025-01-27</em><br>
+<em>Version: 3.0.0 (Enhanced Docker Setup with Detailed Image Management)</em></p>
+<p><strong>Key Architecture Benefits:</strong></p>
+<ul>
+<li>🎯 <strong>Single Port Access</strong>: Complete application via port 5634</li>
+<li>🏗️ <strong>Hybrid Approach</strong>: Optimal performance with selective containerization</li>
+<li>🐳 <strong>Custom Images</strong>: Tailored for document processing and OCR</li>
+<li>🚀 <strong>Scalable Design</strong>: Independent scaling of processing components</li>
+<li>📈 <strong>Production Ready</strong>: Comprehensive monitoring and maintenance tools</li>
+<li>🔧 <strong>Developer Friendly</strong>: Easy setup, debugging, and iteration</li>
+</ul>
+<p>For additional support, please check the project documentation or create an issue in the repository.</p>
+<hr>
+<h2 id="%F0%9F%97%91%EF%B8%8F-automatic-file-cleanup">🗑️ Automatic File Cleanup</h2>
+<h3 id="overview">Overview</h3>
+<p>The system automatically deletes uploaded PDF/DOC files after successful processing to save storage space. This feature:</p>
+<ul>
+<li>✅ <strong>Cross-platform compatible</strong> (Windows, Linux, macOS)</li>
+<li>✅ <strong>Configurable</strong> via settings</li>
+<li>✅ <strong>Safe</strong> - only deletes after successful processing</li>
+<li>✅ <strong>Logged</strong> for audit trails</li>
+<li>✅ <strong>Error-resistant</strong> - cleanup failures don't affect processing</li>
+</ul>
+<h3 id="configuration">Configuration</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># conf/config.ini</span>
+<span class="hljs-section">[document_processing]</span>
+<span class="hljs-attr">auto_cleanup_files</span> = <span class="hljs-literal">true</span>          <span class="hljs-comment"># Enable/disable automatic cleanup</span>
+<span class="hljs-attr">cleanup_delay_seconds</span> = <span class="hljs-number">30</span>         <span class="hljs-comment"># Wait time before deletion (safety buffer)</span>
+<span class="hljs-attr">keep_failed_files</span> = <span class="hljs-literal">true</span>           <span class="hljs-comment"># Keep files if processing failed</span>
+<span class="hljs-attr">cleanup_log_level</span> = info           <span class="hljs-comment"># Logging level for cleanup operations</span>
+</div></code></pre>
+<h3 id="how-it-works">How It Works</h3>
+<ol>
+<li><strong>Document Upload</strong> → File stored in <code>DATA/documents/{userId}/</code></li>
+<li><strong>Processing</strong> → Text extraction, chunking, embedding generation</li>
+<li><strong>Success</strong> → Wait 30 seconds, then delete original file</li>
+<li><strong>Failure</strong> → Keep file for debugging (configurable)</li>
+</ol>
+<h3 id="manual-cleanup-commands">Manual Cleanup Commands</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Clean up old processed files (older than 7 days)</span>
+node src/scripts/cleanup-processed-files.js --days=7
+
+<span class="hljs-comment"># Clean up specific user's files</span>
+node src/scripts/cleanup-processed-files.js --user-id=&lt;userId&gt;
+
+<span class="hljs-comment"># Clean up failed processing files</span>
+node src/scripts/cleanup-processed-files.js --failed-only
+
+<span class="hljs-comment"># Dry run (show what would be deleted)</span>
+node src/scripts/cleanup-processed-files.js --dry-run
+</div></code></pre>
+
+</body>
+
+</html>

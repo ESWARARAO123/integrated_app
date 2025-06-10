@@ -11,6 +11,7 @@ const { spawn, exec } = require('child_process');
 const ini = require('ini');
 const { chunkBySection } = require('../utils/headerChunker');
 const { extractTextAndTablesSmart } = require('./pdfProcessor');
+const FileCleanupService = require('./fileCleanupService');
 
 // Helper function to get documentService only when needed
 function getDocumentService() {
@@ -115,6 +116,7 @@ class DocumentProcessor {
     // Set up services
     this.ollamaService = null;
     this.vectorStoreService = null;
+    this.fileCleanupService = new FileCleanupService();
     // Don't store documentService directly to avoid circular dependency
     this.config = {
       embedding: {
@@ -194,7 +196,10 @@ class DocumentProcessor {
         workerId = null // Worker ID for tracking
       } = options;
 
-      console.log(`Processing document ${document.id}: ${document.original_name}${sessionId ? ` for session ${sessionId}` : ''}${jobId ? ` (Job: ${jobId})` : ''}`);
+      // Resolve the actual sessionId to use - prioritize options.sessionId, then document.session_id
+      const actualSessionId = sessionId || document.session_id || null;
+
+      console.log(`Processing document ${document.id}: ${document.original_name}${actualSessionId ? ` for session ${actualSessionId}` : ''}${jobId ? ` (Job: ${jobId})` : ''}`);
 
       // Enhanced progress reporting function
       const reportProgress = async (progress, message, additionalData = {}) => {
@@ -255,7 +260,7 @@ class DocumentProcessor {
       let imageResult = { success: true, total_count: 0 };
       if (document.file_type === 'pdf') {
         try {
-          imageResult = await this.processDocumentImages(document, { userId, sessionId });
+          imageResult = await this.processDocumentImages(document, { userId, sessionId: actualSessionId });
           if (imageResult.success && imageResult.total_count > 0) {
             await reportProgress(40, `Processed ${imageResult.total_count} images`, {
               phase: 'image_processing_complete',
@@ -295,7 +300,7 @@ class DocumentProcessor {
       // Generate embeddings for the chunks with enhanced error handling
       let embeddingsResult;
       try {
-        embeddingsResult = await this.generateEmbeddings(chunks, document.id, userId, sessionId, onProgress);
+        embeddingsResult = await this.generateEmbeddings(chunks, document.id, userId, actualSessionId, onProgress);
         if (!embeddingsResult.success) {
           throw new Error(`Embedding generation failed: ${embeddingsResult.error}`);
         }
@@ -313,7 +318,7 @@ class DocumentProcessor {
       }
 
       // Update progress after embedding generation
-      await reportProgress(100, 'Document processing completed', { 
+      await reportProgress(100, 'Document processing completed', {
         phase: 'completed',
         chunkCount: chunks.length,
         embeddingCount: embeddingsResult.embeddings?.length || chunks.length,
@@ -321,13 +326,38 @@ class DocumentProcessor {
       });
 
       console.log(`Document ${document.id} processing completed: ${chunks.length} chunks processed`);
+
+      // Schedule automatic file cleanup after successful processing
+      try {
+        const cleanupResult = await this.fileCleanupService.scheduleCleanup(
+          document.file_path,
+          {
+            id: document.id,
+            original_name: document.original_name,
+            user_id: userId,
+            session_id: actualSessionId
+          },
+          true // processing was successful
+        );
+
+        if (cleanupResult.scheduled) {
+          console.log(`File cleanup scheduled for document ${document.id}: ${document.file_path}`);
+        } else {
+          console.log(`File cleanup not scheduled for document ${document.id}: ${cleanupResult.reason}`);
+        }
+      } catch (cleanupError) {
+        // Don't let cleanup errors affect the processing result
+        console.error(`Error scheduling file cleanup for document ${document.id}:`, cleanupError.message);
+      }
+
       return {
         success: true,
         chunks: chunks.length,
         embeddings: embeddingsResult.embeddings?.length || chunks.length,
         message: `Document processed successfully: ${chunks.length} chunks created`,
         jobId,
-        workerId
+        workerId,
+        cleanupScheduled: true
       };
 
     } catch (error) {
@@ -355,6 +385,29 @@ class DocumentProcessor {
       }
 
       await this.updateDocumentProgress(document.id, errorData);
+
+      // Handle file cleanup for failed processing (based on configuration)
+      try {
+        const cleanupResult = await this.fileCleanupService.scheduleCleanup(
+          document.file_path,
+          {
+            id: document.id,
+            original_name: document.original_name,
+            user_id: document.user_id,
+            session_id: document.session_id
+          },
+          false // processing failed
+        );
+
+        if (cleanupResult.scheduled) {
+          console.log(`File cleanup scheduled for failed document ${document.id}: ${document.file_path}`);
+        } else {
+          console.log(`File cleanup not scheduled for failed document ${document.id}: ${cleanupResult.reason}`);
+        }
+      } catch (cleanupError) {
+        // Don't let cleanup errors affect the error response
+        console.error(`Error scheduling file cleanup for failed document ${document.id}:`, cleanupError.message);
+      }
 
       return {
         success: false,

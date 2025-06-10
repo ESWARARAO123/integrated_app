@@ -13,7 +13,7 @@ const { ChromaClient } = require('chromadb');
 const path = require('path');
 
 // Load configuration
-const config = require('../src/utils/config');
+const config = require('../utils/config');
 
 async function clearAllCollections() {
   let chromaClient = null;
