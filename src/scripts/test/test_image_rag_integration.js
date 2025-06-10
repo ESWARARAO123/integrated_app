@@ -3,9 +3,9 @@
  * Demonstrates the complete flow from document upload to image-enhanced responses
  */
 
-const imageProcessingService = require('../src/services/imageProcessingService');
-const vectorStoreService = require('../src/services/vectorStoreService');
-const ragService = require('../src/services/ragService');
+const imageProcessingService = require('../../services/imageProcessingService');
+const vectorStoreService = require('../../services/vectorStoreService');
+const ragService = require('../../services/ragService');
 
 async function testImageRagIntegration() {
   console.log('🧪 Testing Image-Enhanced RAG Integration');
