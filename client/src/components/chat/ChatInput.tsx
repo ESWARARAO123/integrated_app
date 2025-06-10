@@ -564,13 +564,11 @@ Please check your file format (PDF, DOCX, TXT supported) and try again.`;
       )}
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-        {/* Main input row with textarea and send button */}
+        {/* Main input row with textarea only */}
         <div style={{
           ...chatInputStyles.inputRow,
-          backgroundColor: 'rgba(255, 255, 255, 0.05)',
           borderRadius: '1.5rem',
           padding: '0.25rem',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
         }}>
           <textarea
             ref={inputRef}
@@ -593,9 +591,113 @@ Please check your file format (PDF, DOCX, TXT supported) and try again.`;
             }}
             disabled={isLoading || isUploading || localLoading}
           />
+        </div>
 
-          {/* Send/Stop button */}
-          <div style={{ marginLeft: '0.5rem' }}>
+        {/* Buttons row below the input */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginTop: '0.75rem',
+            paddingLeft: '0.25rem',
+            overflowX: 'auto',
+            flexWrap: 'nowrap',
+            justifyContent: 'space-between',
+          }}
+          className="hide-scrollbar"
+        >
+          {/* Left side buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {/* File upload button */}
+            <FileUploadButton
+              onFileSelect={handleFileSelect}
+              onAutoUpload={handleAutoUpload}
+              autoUpload={true}
+              isLoading={isLoading || isUploading || localLoading}
+              acceptedFileTypes=".pdf,.docx,.txt"
+              disabled={isStreaming}
+            />
+
+            {/* RAG toggle button - always show but disable if not available */}
+            <button
+              type="button"
+              onClick={onToggleRag}
+              disabled={!isRagAvailable || isLoading || isUploading || isStreaming || localLoading}
+              style={{
+                ...chatInputStyles.ragToggleButton,
+                ...(isRagEnabled && isRagAvailable ? chatInputStyles.ragToggleEnabled : chatInputStyles.ragToggleDisabled),
+                opacity: (!isRagAvailable || isLoading || isUploading || isStreaming || localLoading) ? 0.5 : 1,
+                cursor: (!isRagAvailable || isLoading || isUploading || isStreaming || localLoading) ? 'not-allowed' : 'pointer',
+              }}
+              className="hover:bg-opacity-90 transition-all"
+              aria-label={isRagEnabled ? "Disable document-based answers" : "Enable document-based answers"}
+              title={!isRagAvailable ? "Upload documents to enable RAG" : (isRagEnabled ? "Disable document-based answers" : "Enable document-based answers")}
+            >
+              <DocumentTextIcon className="h-4 w-4 mr-1" />
+              RAG
+            </button>
+
+            {/* MCP toggle button - always enabled */}
+            <button
+              type="button"
+              onClick={onToggleMCP}
+              disabled={isLoading || isUploading || isStreaming || localLoading}
+              style={{
+                ...chatInputStyles.mcpToggleButton,
+                ...(isMCPEnabled ? chatInputStyles.mcpToggleEnabled : chatInputStyles.mcpToggleDisabled),
+                opacity: (isLoading || isUploading || isStreaming || localLoading) ? 0.5 : 1,
+                cursor: (isLoading || isUploading || isStreaming || localLoading) ? 'not-allowed' : 'pointer',
+              }}
+              className="hover:bg-opacity-90 transition-all"
+              aria-label={isMCPEnabled ? "Disable MCP agent" : "Enable MCP agent"}
+              title={isMCPEnabled ? "Disable MCP agent" : "Enable MCP agent"}
+            >
+              <CpuChipIcon className="h-4 w-4 mr-1" />
+              MCP
+            </button>
+
+            {/* Chat2SQL toggle button - Added */}
+            <button
+              type="button"
+              onClick={onToggleChat2Sql}
+              disabled={isLoading || isUploading || isStreaming || localLoading}
+              style={{
+                ...chatInputStyles.ragToggleButton, // Reuse RAG button styles for consistency
+                ...(isChat2SqlEnabled ? chatInputStyles.ragToggleEnabled : chatInputStyles.ragToggleDisabled),
+                opacity: (isLoading || isUploading || isStreaming || localLoading) ? 0.5 : 1,
+                cursor: (isLoading || isUploading || isStreaming || localLoading) ? 'not-allowed' : 'pointer',
+              }}
+              className="hover:bg-opacity-90 transition-all"
+              aria-label={isChat2SqlEnabled ? "Disable Chat2SQL mode" : "Enable Chat2SQL mode"}
+              title={isChat2SqlEnabled ? "Disable Chat2SQL mode" : "Enable Chat2SQL mode"}
+            >
+              <TableCellsIcon className="h-4 w-4 mr-1" />
+              Chat2SQL
+            </button>
+
+            {/* Predictor toggle button - Added */}
+            <button
+              type="button"
+              onClick={onTogglePredictor}
+              disabled={isLoading || isUploading || isStreaming || localLoading}
+              style={{
+                ...chatInputStyles.ragToggleButton, // Reuse RAG button styles for consistency
+                ...(isPredictorEnabled ? chatInputStyles.ragToggleEnabled : chatInputStyles.ragToggleDisabled),
+                opacity: (isLoading || isUploading || isStreaming || localLoading) ? 0.5 : 1,
+                cursor: (isLoading || isUploading || isStreaming || localLoading) ? 'not-allowed' : 'pointer',
+              }}
+              className="hover:bg-opacity-90 transition-all"
+              aria-label={isPredictorEnabled ? "Disable Predictor mode" : "Enable Predictor mode"}
+              title={isPredictorEnabled ? "Disable Predictor mode" : "Enable Predictor mode"}
+            >
+              <LightBulbIcon className="h-4 w-4 mr-1" />
+              Predictor
+            </button>
+          </div>
+
+          {/* Right side - Send/Stop button */}
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             {isStreaming ? (
               <button
                 type="button"
@@ -627,115 +729,15 @@ Please check your file format (PDF, DOCX, TXT supported) and try again.`;
             )}
           </div>
         </div>
-
-        {/* Buttons row below the input */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            marginTop: '0.75rem',
-            paddingLeft: '0.25rem',
-            overflowX: 'auto',
-            flexWrap: 'nowrap',
-            justifyContent: 'flex-start',
-          }}
-          className="hide-scrollbar"
-        >
-          {/* File upload button */}
-          <FileUploadButton
-            onFileSelect={handleFileSelect}
-            onAutoUpload={handleAutoUpload}
-            autoUpload={true}
-            isLoading={isLoading || isUploading || localLoading}
-            acceptedFileTypes=".pdf,.docx,.txt"
-            disabled={isStreaming}
-          />
-
-          {/* RAG toggle button - always show but disable if not available */}
-          <button
-            type="button"
-            onClick={onToggleRag}
-            disabled={!isRagAvailable || isLoading || isUploading || isStreaming || localLoading}
-            style={{
-              ...chatInputStyles.ragToggleButton,
-              ...(isRagEnabled && isRagAvailable ? chatInputStyles.ragToggleEnabled : chatInputStyles.ragToggleDisabled),
-              opacity: (!isRagAvailable || isLoading || isUploading || isStreaming || localLoading) ? 0.5 : 1,
-              cursor: (!isRagAvailable || isLoading || isUploading || isStreaming || localLoading) ? 'not-allowed' : 'pointer',
-            }}
-            className="hover:bg-opacity-90 transition-all"
-            aria-label={isRagEnabled ? "Disable document-based answers" : "Enable document-based answers"}
-            title={!isRagAvailable ? "Upload documents to enable RAG" : (isRagEnabled ? "Disable document-based answers" : "Enable document-based answers")}
-          >
-            <DocumentTextIcon className="h-4 w-4 mr-1" />
-            RAG
-          </button>
-
-          {/* MCP toggle button - always enabled */}
-          <button
-            type="button"
-            onClick={onToggleMCP}
-            disabled={isLoading || isUploading || isStreaming || localLoading}
-            style={{
-              ...chatInputStyles.mcpToggleButton,
-              ...(isMCPEnabled ? chatInputStyles.mcpToggleEnabled : chatInputStyles.mcpToggleDisabled),
-              opacity: (isLoading || isUploading || isStreaming || localLoading) ? 0.5 : 1,
-              cursor: (isLoading || isUploading || isStreaming || localLoading) ? 'not-allowed' : 'pointer',
-            }}
-            className="hover:bg-opacity-90 transition-all"
-            aria-label={isMCPEnabled ? "Disable MCP agent" : "Enable MCP agent"}
-            title={isMCPEnabled ? "Disable MCP agent" : "Enable MCP agent"}
-          >
-            <CpuChipIcon className="h-4 w-4 mr-1" />
-            MCP
-          </button>
-
-          {/* Chat2SQL toggle button - Added */}
-          <button
-            type="button"
-            onClick={onToggleChat2Sql}
-            disabled={isLoading || isUploading || isStreaming || localLoading}
-            style={{
-              ...chatInputStyles.ragToggleButton, // Reuse RAG button styles for consistency
-              ...(isChat2SqlEnabled ? chatInputStyles.ragToggleEnabled : chatInputStyles.ragToggleDisabled),
-              opacity: (isLoading || isUploading || isStreaming || localLoading) ? 0.5 : 1,
-              cursor: (isLoading || isUploading || isStreaming || localLoading) ? 'not-allowed' : 'pointer',
-            }}
-            className="hover:bg-opacity-90 transition-all"
-            aria-label={isChat2SqlEnabled ? "Disable Chat2SQL mode" : "Enable Chat2SQL mode"}
-            title={isChat2SqlEnabled ? "Disable Chat2SQL mode" : "Enable Chat2SQL mode"}
-          >
-            <TableCellsIcon className="h-4 w-4 mr-1" />
-            Chat2SQL
-          </button>
-
-          {/* Predictor toggle button - Added */}
-          <button
-            type="button"
-            onClick={onTogglePredictor}
-            disabled={isLoading || isUploading || isStreaming || localLoading}
-            style={{
-              ...chatInputStyles.ragToggleButton, // Reuse RAG button styles for consistency
-              ...(isPredictorEnabled ? chatInputStyles.ragToggleEnabled : chatInputStyles.ragToggleDisabled),
-              opacity: (isLoading || isUploading || isStreaming || localLoading) ? 0.5 : 1,
-              cursor: (isLoading || isUploading || isStreaming || localLoading) ? 'not-allowed' : 'pointer',
-            }}
-            className="hover:bg-opacity-90 transition-all"
-            aria-label={isPredictorEnabled ? "Disable Predictor mode" : "Enable Predictor mode"}
-            title={isPredictorEnabled ? "Disable Predictor mode" : "Enable Predictor mode"}
-          >
-            <LightBulbIcon className="h-4 w-4 mr-1" />
-            Predictor
-          </button>
-        </div>
       </form>
 
-      {/* Document Processing Status - Only show if there's active processing */}
+      {/* Enhanced Document Processing - Compact Design */}
       {(hasActiveProcessing || totalJobs > 0) && (
-        <DocumentProcessingStatus 
-          className="mt-4"
-          showDetailedStatus={true}
-          maxVisibleJobs={3}
+        <DocumentProcessingStatus
+          className="mt-2"
+          showDetailedStatus={false}
+          maxVisibleJobs={1}
+          compactMode={true}
         />
       )}
     </div>

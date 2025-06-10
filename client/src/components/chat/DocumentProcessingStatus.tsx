@@ -6,12 +6,14 @@ interface DocumentProcessingStatusProps {
   className?: string;
   showDetailedStatus?: boolean;
   maxVisibleJobs?: number;
+  compactMode?: boolean;
 }
 
 const DocumentProcessingStatus: React.FC<DocumentProcessingStatusProps> = ({
   className = '',
   showDetailedStatus = true,
-  maxVisibleJobs = 5
+  maxVisibleJobs = 5,
+  compactMode = false
 }) => {
   const {
     processingStatus,
@@ -70,7 +72,7 @@ const DocumentProcessingStatus: React.FC<DocumentProcessingStatusProps> = ({
               className="doc-processing-cancel-btn"
               title="Cancel processing"
             >
-              {isCancelling ? '⏳' : '✕'}
+              {isCancelling ? 'Canceling...' : '×'}
             </button>
           )}
         </div>
@@ -113,12 +115,44 @@ const DocumentProcessingStatus: React.FC<DocumentProcessingStatusProps> = ({
     return null;
   }
 
+  // Use compact mode if specified
+  if (compactMode) {
+    const primaryJob = activeJobs[0];
+    const progress = primaryJob?.progress || 0;
+
+    return (
+      <div className={`doc-processing-compact ${className}`}>
+        <div className="doc-processing-compact-content">
+          <span className="doc-processing-compact-status">
+            {primaryJob?.status === 'processing' ? 'Processing' :
+             primaryJob?.status === 'completed' ? 'Complete' :
+             primaryJob?.status === 'failed' ? 'Failed' : 'Document'}
+          </span>
+          <span className="doc-processing-compact-text">
+            {totalJobs === 1
+              ? `Processing ${primaryJob?.fileName?.substring(0, 25)}${primaryJob?.fileName?.length > 25 ? '...' : ''}`
+              : `Processing ${totalJobs} documents`
+            }
+          </span>
+          <div className="doc-processing-compact-progress">
+            <div
+              className="doc-processing-compact-fill"
+              style={{ width: `${Math.max(2, Math.min(100, progress))}%` }}
+            />
+          </div>
+          <span className="doc-processing-compact-percent">
+            {Math.round(progress)}%
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`doc-processing-status ${className}`}>
       {/* Header */}
       <div className="doc-processing-header">
         <div className="doc-processing-title">
-          <span className="doc-processing-icon">📄</span>
           Document Processing
           {totalJobs > 0 && (
             <span className="doc-processing-count">({totalJobs})</span>
@@ -128,17 +162,17 @@ const DocumentProcessingStatus: React.FC<DocumentProcessingStatusProps> = ({
         <div className="doc-processing-controls">
           {!connected && (
             <span className="doc-processing-offline" title="WebSocket disconnected">
-              ⚠️ Offline
+              Offline
             </span>
           )}
-          
+
           <button
             onClick={refreshStatus}
             disabled={isLoading}
             className="doc-processing-refresh-btn"
             title="Refresh status"
           >
-            {isLoading ? '⏳' : '🔄'}
+            {isLoading ? 'Loading...' : 'Refresh'}
           </button>
         </div>
       </div>
@@ -210,7 +244,7 @@ const DocumentProcessingStatus: React.FC<DocumentProcessingStatusProps> = ({
       {/* Loading state */}
       {isLoading && activeJobs.length === 0 && (
         <div className="doc-processing-loading">
-          <span className="doc-processing-spinner">⏳</span>
+          <span className="doc-processing-spinner">Loading</span>
           Loading processing status...
         </div>
       )}

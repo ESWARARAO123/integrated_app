@@ -383,12 +383,10 @@ export const chatInputStyles = {
     fontWeight: 500,
     transition: 'all 0.2s ease',
     boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    backdropFilter: 'blur(5px)',
-    WebkitBackdropFilter: 'blur(5px)',
+    backgroundColor: 'var(--color-surface-dark)',
     height: '2.25rem',
     minWidth: '4.5rem',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    border: '1px solid var(--color-border)',
   },
   ragToggleEnabled: {
     backgroundColor: 'var(--color-primary-translucent)',
@@ -396,9 +394,9 @@ export const chatInputStyles = {
     border: '1px solid var(--color-primary-translucent)',
   },
   ragToggleDisabled: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'var(--color-surface-dark)',
     color: 'var(--color-text-muted)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    border: '1px solid var(--color-border)',
   },
   mcpToggleButton: {
     display: 'flex',
@@ -410,12 +408,10 @@ export const chatInputStyles = {
     fontWeight: 500,
     transition: 'all 0.2s ease',
     boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    backdropFilter: 'blur(5px)',
-    WebkitBackdropFilter: 'blur(5px)',
+    backgroundColor: 'var(--color-surface-dark)',
     height: '2.25rem',
     minWidth: '4.5rem',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    border: '1px solid var(--color-border)',
   },
   mcpToggleEnabled: {
     backgroundColor: 'var(--color-success-translucent)',
@@ -423,9 +419,9 @@ export const chatInputStyles = {
     border: '1px solid var(--color-success-translucent)',
   },
   mcpToggleDisabled: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'var(--color-surface-dark)',
     color: 'var(--color-text-muted)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    border: '1px solid var(--color-border)',
   },
 };
 

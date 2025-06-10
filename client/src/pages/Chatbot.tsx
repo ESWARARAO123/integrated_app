@@ -15,6 +15,7 @@ import ChatSidebar from '../components/chat/ChatSidebar';
 import MessageList from '../components/chat/MessageList';
 import ModelSelector from '../components/chat/ModelSelector';
 import MCPServerSelector from '../components/chat/MCPServerSelector';
+import ProcessingToast from '../components/chat/ProcessingToast';
 import ContextReadingIndicator from '../components/chat/ContextReadingIndicator';
 import MCPNotifications from '../components/mcp/MCPNotifications';
 import { useMCP } from '../contexts/MCPContext';
@@ -1153,16 +1154,9 @@ const Chatbot: React.FC = () => {
 
       .input-area-blur {
         background-color: transparent !important;
-        -webkit-backdrop-filter: blur(5px) !important;
-        backdrop-filter: blur(5px) !important;
         border: none !important;
         box-shadow: none !important;
-        isolation: isolate !important;
         opacity: 1 !important;
-      }
-
-      .input-area-blur > * {
-        isolation: isolate !important;
       }
     `;
     document.head.appendChild(styleElement);
@@ -1181,6 +1175,9 @@ const Chatbot: React.FC = () => {
         width: isMainSidebarExpanded ? 'calc(100% - 64px)' : 'calc(100% - 50px)'
       }}
     >
+      {/* Processing Toast Notifications */}
+      <ProcessingToast />
+
       {/* MCP Server Selector */}
       <MCPServerSelector
         isOpen={showServerSelector}
@@ -1310,13 +1307,12 @@ const Chatbot: React.FC = () => {
 
           <div
             className={`${isEmpty ? "absolute left-1/2 bottom-[10%] transform -translate-x-1/2" : "absolute bottom-0 left-0 right-0"}
-            ${!isEmpty && ""} py-4 px-4 md:px-8 lg:px-16 xl:px-24 input-area-blur`}
+            ${!isEmpty && ""} py-4 px-4 md:px-8 lg:px-16 xl:px-24`}
             style={{
               maxWidth: '100%',
               margin: '0 auto',
               zIndex: 10,
-              boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.05)',
-              backgroundColor: isEmpty ? 'transparent' : 'var(--color-bg-translucent)'
+              backgroundColor: 'transparent'
             }}
           >
             <ChatInput

@@ -20,12 +20,9 @@
 
 /* Fix for input area to prevent overlap with chat messages */
 .input-area-blur {
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  background-color: rgba(var(--color-bg-rgb), 0.85);
+  background-color: transparent;
   z-index: 10;
   padding-bottom: 20px !important;
-  border-top: 1px solid var(--color-border);
 }
 
 /* Add extra padding to the bottom of the message list to prevent overlap */

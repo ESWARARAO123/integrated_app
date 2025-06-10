@@ -10,6 +10,73 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* Compact Mode Styles */
+.doc-processing-compact {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 6px 0;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.doc-processing-compact:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.doc-processing-compact-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.doc-processing-compact-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-color, #007bff);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.doc-processing-compact-text {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 500;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-processing-compact-progress {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  min-width: 50px;
+  max-width: 80px;
+}
+
+.doc-processing-compact-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.doc-processing-compact-percent {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* Header */
 .doc-processing-header {
   display: flex;
@@ -29,9 +96,7 @@
   font-size: 14px;
 }
 
-.doc-processing-icon {
-  font-size: 16px;
-}
+/* Removed doc-processing-icon as it's no longer needed */
 
 .doc-processing-count {
   background: var(--accent-color, #007bff);
@@ -321,7 +386,9 @@
 .doc-processing-spinner {
   display: inline-block;
   margin-right: 8px;
-  animation: spin 1s linear infinite;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
 }
 
 @keyframes spin {
@@ -373,6 +440,30 @@
     align-self: flex-end;
     margin-left: 0;
   }
+
+  /* Compact mode mobile */
+  .doc-processing-compact {
+    padding: 8px 10px;
+    margin: 4px 0;
+  }
+
+  .doc-processing-compact-content {
+    gap: 8px;
+  }
+
+  .doc-processing-compact-text {
+    font-size: 11px;
+  }
+
+  .doc-processing-compact-progress {
+    min-width: 40px;
+    max-width: 60px;
+  }
+
+  .doc-processing-compact-percent {
+    font-size: 9px;
+    min-width: 24px;
+  }
 }
 
 /* Dark Mode Support */
@@ -395,4 +486,40 @@
   .doc-processing-progress-bar {
     background: var(--bg-muted-dark, #4a5568);
   }
-} 
+
+  /* Compact mode dark theme */
+  .doc-processing-compact {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .doc-processing-compact:hover {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+}
+
+/* Light Mode Overrides for Compact */
+@media (prefers-color-scheme: light) {
+  .doc-processing-compact {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .doc-processing-compact:hover {
+    background: rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.15);
+  }
+
+  .doc-processing-compact-text {
+    color: rgba(0, 0, 0, 0.8);
+  }
+
+  .doc-processing-compact-percent {
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  .doc-processing-compact-progress {
+    background: rgba(0, 0, 0, 0.1);
+  }
+}
