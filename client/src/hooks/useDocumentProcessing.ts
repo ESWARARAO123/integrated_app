@@ -288,7 +288,7 @@ export function useDocumentProcessing(options: UseDocumentProcessingOptions = {}
       console.log('Cleaning up document processing WebSocket listeners');
       listeners.forEach(removeListener => removeListener());
     };
-  }, [connected, handleDocumentEvent, autoSubscribe, activeJobs, subscribeToDocument, addMessageListener]);
+  }, [connected, handleDocumentEvent, autoSubscribe, subscribeToDocument, addMessageListener]); // Removed activeJobs to prevent constant re-setup
 
   // Set up polling for processing status
   useEffect(() => {

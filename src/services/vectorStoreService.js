@@ -621,6 +621,159 @@ class VectorStoreService {
       return { success: false, error: error.message };
     }
   }
+
+  /**
+   * Delete session data from image collection - USER ISOLATED
+   */
+  async deleteSessionImageData(sessionId, userId) {
+    try {
+      if (!userId) {
+        throw new Error('userId is required for user isolation');
+      }
+
+      const imageCollection = await this.getUserImageCollection(userId);
+
+      console.log(`🗑️ Deleting session image data for sessionId: ${sessionId}, userId: ${userId}`);
+
+      // Get all image data for this user
+      const allResults = await imageCollection.get({
+        where: { userId: userId }
+      });
+
+      console.log(`Found ${allResults.ids?.length || 0} total image chunks for user ${userId}`);
+
+      // Filter for this specific session
+      let idsToDelete = [];
+      if (allResults.ids && allResults.metadatas) {
+        for (let i = 0; i < allResults.ids.length; i++) {
+          const metadata = allResults.metadatas[i];
+          if (metadata.sessionId === sessionId || metadata.sessionId === sessionId.toString()) {
+            idsToDelete.push(allResults.ids[i]);
+          }
+        }
+      }
+
+      console.log(`Found ${idsToDelete.length} image chunks to delete for session ${sessionId}`);
+
+      if (idsToDelete.length > 0) {
+        await imageCollection.delete({
+          ids: idsToDelete
+        });
+
+        console.log(`✅ Deleted ${idsToDelete.length} image chunks for session ${sessionId} (user ${userId})`);
+      } else {
+        console.log(`No image chunks found for session ${sessionId} (user ${userId})`);
+      }
+
+      return { success: true, deletedCount: idsToDelete.length };
+    } catch (error) {
+      console.error(`❌ Error deleting session image data:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Delete entire user collections (both text and images) - USER ISOLATED
+   */
+  async deleteUserCollections(userId) {
+    try {
+      if (!userId) {
+        throw new Error('userId is required for user isolation');
+      }
+
+      console.log(`🗑️ Deleting all collections for user: ${userId}`);
+
+      const results = {
+        textCollection: { success: false, error: null },
+        imageCollection: { success: false, error: null }
+      };
+
+      // Delete text collection
+      try {
+        const textCollectionName = `user_${userId.replace(/-/g, '_')}_docs`;
+        await this.chromaClient.deleteCollection({ name: textCollectionName });
+        console.log(`✅ Deleted text collection: ${textCollectionName}`);
+        results.textCollection.success = true;
+      } catch (error) {
+        console.log(`⚠️ Text collection deletion failed or collection doesn't exist: ${error.message}`);
+        results.textCollection.error = error.message;
+        // Don't treat this as a failure if collection doesn't exist
+        if (error.message.includes('does not exist')) {
+          results.textCollection.success = true;
+        }
+      }
+
+      // Delete image collection
+      try {
+        const imageCollectionName = `user_${userId.replace(/-/g, '_')}_images`;
+        await this.chromaClient.deleteCollection({ name: imageCollectionName });
+        console.log(`✅ Deleted image collection: ${imageCollectionName}`);
+        results.imageCollection.success = true;
+      } catch (error) {
+        console.log(`⚠️ Image collection deletion failed or collection doesn't exist: ${error.message}`);
+        results.imageCollection.error = error.message;
+        // Don't treat this as a failure if collection doesn't exist
+        if (error.message.includes('does not exist')) {
+          results.imageCollection.success = true;
+        }
+      }
+
+      const overallSuccess = results.textCollection.success && results.imageCollection.success;
+      console.log(`${overallSuccess ? '✅' : '❌'} User collection deletion completed for user ${userId}`);
+
+      return {
+        success: overallSuccess,
+        results: results,
+        message: overallSuccess ? 'All user collections deleted successfully' : 'Some collections failed to delete'
+      };
+    } catch (error) {
+      console.error(`❌ Error deleting user collections:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Check if user has any data in their collections
+   */
+  async userHasData(userId) {
+    try {
+      if (!userId) {
+        throw new Error('userId is required');
+      }
+
+      let hasTextData = false;
+      let hasImageData = false;
+
+      // Check text collection
+      try {
+        const textCollection = await this.getUserCollection(userId);
+        const textCount = await textCollection.count();
+        hasTextData = textCount > 0;
+        console.log(`User ${userId} has ${textCount} text chunks`);
+      } catch (error) {
+        console.log(`Text collection check failed: ${error.message}`);
+      }
+
+      // Check image collection
+      try {
+        const imageCollection = await this.getUserImageCollection(userId);
+        const imageCount = await imageCollection.count();
+        hasImageData = imageCount > 0;
+        console.log(`User ${userId} has ${imageCount} image chunks`);
+      } catch (error) {
+        console.log(`Image collection check failed: ${error.message}`);
+      }
+
+      return {
+        hasData: hasTextData || hasImageData,
+        hasTextData,
+        hasImageData
+      };
+    } catch (error) {
+      console.error(`❌ Error checking user data:`, error);
+      return { hasData: false, hasTextData: false, hasImageData: false };
+    }
+  }
 }
 
 module.exports = new VectorStoreService();

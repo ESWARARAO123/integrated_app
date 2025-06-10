@@ -328,13 +328,63 @@ router.delete('/sessions/:sessionId', isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: 'Chat session not found' });
     }
 
-    // Delete session (cascade will delete messages)
+    console.log(`🗑️ Starting deletion process for session ${sessionId} (user: ${userId})`);
+
+    // Import vector store service for ChromaDB cleanup
+    const vectorStoreService = require('../services/vectorStoreService');
+
+    // Step 1: Delete ChromaDB data for this session (both text and images)
+    try {
+      console.log('🗑️ Deleting ChromaDB text data for session...');
+      const textDeletionResult = await vectorStoreService.deleteSessionData(sessionId, userId);
+      console.log(`Text deletion result: ${textDeletionResult.success ? 'Success' : 'Failed'} - ${textDeletionResult.deletedCount || 0} chunks deleted`);
+
+      console.log('🗑️ Deleting ChromaDB image data for session...');
+      const imageDeletionResult = await vectorStoreService.deleteSessionImageData(sessionId, userId);
+      console.log(`Image deletion result: ${imageDeletionResult.success ? 'Success' : 'Failed'} - ${imageDeletionResult.deletedCount || 0} chunks deleted`);
+    } catch (chromaError) {
+      console.error('Error deleting ChromaDB data:', chromaError);
+      // Continue with session deletion even if ChromaDB cleanup fails
+    }
+
+    // Step 2: Delete session from database (cascade will delete messages)
     await pool.query(
       'DELETE FROM chat_sessions WHERE id = $1',
       [sessionId]
     );
 
-    res.json({ message: 'Session deleted successfully' });
+    console.log(`✅ Session ${sessionId} deleted from database`);
+
+    // Step 3: Check if user has any remaining sessions
+    const remainingSessionsResult = await pool.query(
+      'SELECT COUNT(*) as count FROM chat_sessions WHERE user_id = $1',
+      [userId]
+    );
+
+    const remainingSessionsCount = parseInt(remainingSessionsResult.rows[0].count);
+    console.log(`User ${userId} has ${remainingSessionsCount} remaining sessions`);
+
+    // Step 4: If no sessions remain, completely wipe user's ChromaDB collections
+    if (remainingSessionsCount === 0) {
+      console.log(`🧹 No sessions remaining for user ${userId}, wiping all ChromaDB collections...`);
+      try {
+        const collectionDeletionResult = await vectorStoreService.deleteUserCollections(userId);
+        if (collectionDeletionResult.success) {
+          console.log(`✅ Successfully wiped all collections for user ${userId}`);
+        } else {
+          console.log(`⚠️ Collection wipe completed with some issues: ${collectionDeletionResult.message}`);
+        }
+      } catch (wipeError) {
+        console.error('Error wiping user collections:', wipeError);
+        // Don't fail the request if collection wipe fails
+      }
+    }
+
+    res.json({
+      message: 'Session deleted successfully',
+      remainingSessions: remainingSessionsCount,
+      collectionsWiped: remainingSessionsCount === 0
+    });
   } catch (error) {
     console.error('Error deleting chat session:', error);
     res.status(500).json({ error: 'Error deleting chat session' });

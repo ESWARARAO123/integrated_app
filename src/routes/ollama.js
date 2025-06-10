@@ -334,21 +334,32 @@ module.exports = function(config) {
       // Import the vector store service
       const vectorStoreService = require('../services/vectorStoreService');
 
-      // Delete the collection for this session
-      const result = await vectorStoreService.deleteSessionData(sessionId, userId);
+      // Delete both text and image data for this session
+      const textResult = await vectorStoreService.deleteSessionData(sessionId, userId);
+      const imageResult = await vectorStoreService.deleteSessionImageData(sessionId, userId);
 
-      logger.info(`RAG data deletion result for session ${sessionId}: ${result.success ? 'Success' : 'Failed'}`);
-      if (result.success) {
-        logger.info(`Successfully deleted RAG data for session ${sessionId}`);
+      const overallSuccess = textResult.success && imageResult.success;
+      const totalDeleted = (textResult.deletedCount || 0) + (imageResult.deletedCount || 0);
+
+      logger.info(`RAG data deletion result for session ${sessionId}: ${overallSuccess ? 'Success' : 'Partial/Failed'}`);
+      logger.info(`Text chunks deleted: ${textResult.deletedCount || 0}, Image chunks deleted: ${imageResult.deletedCount || 0}`);
+
+      if (overallSuccess) {
+        logger.info(`Successfully deleted all RAG data for session ${sessionId} (${totalDeleted} total chunks)`);
       } else {
-        logger.warn(`Failed to delete RAG data: ${result.error}`);
+        logger.warn(`RAG data deletion had issues - Text: ${textResult.success ? 'OK' : textResult.error}, Images: ${imageResult.success ? 'OK' : imageResult.error}`);
       }
 
       res.json({
-        success: result.success,
-        message: result.success
-          ? `Successfully deleted RAG data for session ${sessionId}`
-          : `Failed to delete RAG data: ${result.error}`
+        success: overallSuccess,
+        message: overallSuccess
+          ? `Successfully deleted RAG data for session ${sessionId} (${totalDeleted} chunks)`
+          : `RAG data deletion completed with issues - Text: ${textResult.success ? 'OK' : 'Failed'}, Images: ${imageResult.success ? 'OK' : 'Failed'}`,
+        details: {
+          textChunksDeleted: textResult.deletedCount || 0,
+          imageChunksDeleted: imageResult.deletedCount || 0,
+          totalDeleted: totalDeleted
+        }
       });
     } catch (error) {
       logger.error(`Error deleting RAG data for session: ${error.message}`, error);

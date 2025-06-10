@@ -101,6 +101,12 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
 
   // Add a flag to track if we're currently connecting
   const [isConnectingToServer, setIsConnectingToServer] = useState(false);
+
+  // Add a ref to track connection stability and prevent rapid disconnections
+  const connectionStabilityRef = useRef<{
+    lastConnectedTime: number;
+    disconnectionCount: number;
+  }>({ lastConnectedTime: 0, disconnectionCount: 0 });
   
   // Fetch MCP status on mount
   useEffect(() => {
@@ -170,8 +176,8 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
 
     // Listen for MCP connections
     const connectedUnsubscribe = addMessageListener('mcp_connected', (message) => {
-      console.log('Received MCP connected message:', message);
-      
+      console.log('[MCP-CONTEXT] Received MCP connected message:', message);
+
       if (message.connectionId && message.clientId) {
         // Store connection info
         const connectionInfo: StoredConnectionInfo = {
@@ -180,9 +186,13 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
           timestamp: Date.now(),
           server: `${message.host}:${message.port}`
         };
-        
+
         localStorage.setItem('mcp_connection_info', JSON.stringify(connectionInfo));
-        
+
+        // Update connection stability tracking
+        connectionStabilityRef.current.lastConnectedTime = Date.now();
+        connectionStabilityRef.current.disconnectionCount = 0; // Reset disconnection count on successful connection
+
         // Update connection state
         setMCPConnection({
           connectionId: message.connectionId,
@@ -190,15 +200,18 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
           status: 'connected',
           error: null
         });
-        
+
         // Clear any reconnect attempts
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
           reconnectTimeoutRef.current = null;
         }
-        
+
         setError(null);
         isConnectingRef.current = false;
+        setIsConnectingToServer(false);
+
+        console.log(`[MCP-CONTEXT] Successfully connected with clientId: ${message.clientId}`);
       }
     });
     
@@ -236,17 +249,29 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
     
     // Listen for MCP disconnection
     const disconnectedUnsubscribe = addMessageListener('mcp_disconnected', (message) => {
-      console.log('Received MCP disconnected message:', message);
-      
-      setMCPConnection({
-        connectionId: null,
-        clientId: null,
-        status: 'disconnected',
-        error: null
-      });
-      
-      // Remove stored connection info
-      localStorage.removeItem('mcp_connection_info');
+      console.log('[MCP-CONTEXT] Received MCP disconnected message:', message);
+
+      // Update disconnection tracking
+      connectionStabilityRef.current.disconnectionCount++;
+      const timeSinceLastConnection = Date.now() - connectionStabilityRef.current.lastConnectedTime;
+
+      // Only process disconnection if it's been more than 5 seconds since connection
+      // This prevents rapid connect/disconnect cycles
+      if (timeSinceLastConnection > 5000) {
+        setMCPConnection({
+          connectionId: null,
+          clientId: null,
+          status: 'disconnected',
+          error: null
+        });
+
+        // Remove stored connection info
+        localStorage.removeItem('mcp_connection_info');
+
+        console.log(`[MCP-CONTEXT] Processed disconnection (${connectionStabilityRef.current.disconnectionCount} total)`);
+      } else {
+        console.log(`[MCP-CONTEXT] Ignoring rapid disconnection (${timeSinceLastConnection}ms since connection)`);
+      }
     });
     
     // Listen for MCP reconnection attempts
@@ -279,12 +304,21 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
 
   // Connect when MCP is enabled
   useEffect(() => {
+    console.log(`[MCP-CONTEXT] useEffect triggered - isMCPEnabled: ${isMCPEnabled}, defaultServer: ${defaultServer?.mcp_host || 'none'}, availableServers: ${availableServers.length}`);
+
     if (isMCPEnabled && defaultServer) {
-      connectToServer(defaultServer);
+      // Only connect if we're not already connected or connecting
+      if (mcpConnection.status !== 'connected' && mcpConnection.status !== 'connecting') {
+        console.log('[MCP-CONTEXT] Connecting to server because MCP is enabled and we have a default server');
+        connectToServer(defaultServer);
+      } else {
+        console.log('[MCP-CONTEXT] Already connected or connecting, skipping connection attempt');
+      }
     } else if (isMCPEnabled && !defaultServer) {
       // MCP is enabled, but no default server is set yet.
       // Show server selector if servers are available, otherwise show error.
       if (availableServers.length > 0) {
+        console.log('[MCP-CONTEXT] MCP enabled but no default server, showing server selector');
         setShowServerSelector(true);
       } else {
         // fetchServers in the initial useEffect should have already set an error
@@ -296,49 +330,63 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
       }
     } else if (!isMCPEnabled) {
       // MCP is disabled, ensure everything is disconnected.
+      console.log('[MCP-CONTEXT] MCP disabled, disconnecting');
       disconnectFromMCP();
     }
-  }, [isMCPEnabled, defaultServer, availableServers, error]);
+  }, [isMCPEnabled, defaultServer, availableServers]); // Removed 'error' from dependencies
 
   // Restore connection from localStorage if possible
   useEffect(() => {
     if (wsConnected && defaultServer && isMCPEnabled) {
-      try {
-        const savedConnectionStr = localStorage.getItem('mcp_connection_info');
-        if (savedConnectionStr) {
-          const savedConnection: StoredConnectionInfo = JSON.parse(savedConnectionStr);
-          
-          // Check if connection is not too old (less than 15 minutes)
-          const age = Date.now() - savedConnection.timestamp;
-          if (age < 15 * 60 * 1000) {
-            // Check if it's for the current server
-            const currentServer = `${defaultServer.mcp_host}:${defaultServer.mcp_port}`;
-            if (savedConnection.server === currentServer) {
-              console.log('Restoring MCP connection from localStorage');
-              
-              // Set the connection state
-              setMCPConnection({
-                connectionId: savedConnection.connectionId,
-                clientId: savedConnection.clientId,
-                status: 'connected',
-                error: null
-              });
-              
-              // Verify the connection is still valid
-              verifyConnection(savedConnection.connectionId, savedConnection.clientId);
-              
-              return;
+      // Only restore if we don't already have a connection
+      if (mcpConnection.status === 'disconnected') {
+        try {
+          const savedConnectionStr = localStorage.getItem('mcp_connection_info');
+          if (savedConnectionStr) {
+            const savedConnection: StoredConnectionInfo = JSON.parse(savedConnectionStr);
+
+            // Check if connection is not too old (less than 1 hour for better stability)
+            const age = Date.now() - savedConnection.timestamp;
+            if (age < 60 * 60 * 1000) { // 1 hour instead of 15 minutes
+              // Check if it's for the current server
+              const currentServer = `${defaultServer.mcp_host}:${defaultServer.mcp_port}`;
+              if (savedConnection.server === currentServer) {
+                console.log('[MCP-CONTEXT] Restoring MCP connection from localStorage');
+
+                // Set the connection state
+                setMCPConnection({
+                  connectionId: savedConnection.connectionId,
+                  clientId: savedConnection.clientId,
+                  status: 'connected',
+                  error: null
+                });
+
+                // Verify the connection is still valid (but don't disconnect on failure)
+                verifyConnection(savedConnection.connectionId, savedConnection.clientId);
+
+                return;
+              } else {
+                console.log('[MCP-CONTEXT] Saved connection is for different server, clearing');
+                localStorage.removeItem('mcp_connection_info');
+              }
+            } else {
+              console.log('[MCP-CONTEXT] Saved connection is too old, clearing');
+              localStorage.removeItem('mcp_connection_info');
             }
           }
+        } catch (e) {
+          console.error('[MCP-CONTEXT] Error restoring MCP connection from localStorage:', e);
+          localStorage.removeItem('mcp_connection_info');
         }
-      } catch (e) {
-        console.error('Error restoring MCP connection from localStorage:', e);
+      } else {
+        console.log('[MCP-CONTEXT] Already have a connection, skipping restore');
       }
     }
   }, [wsConnected, defaultServer, isMCPEnabled]);
 
   // Save MCP enabled state to localStorage when it changes
   useEffect(() => {
+    console.log(`[MCP-CONTEXT] Saving MCP enabled state to localStorage: ${isMCPEnabled}`);
     localStorage.setItem('mcp_enabled', JSON.stringify(isMCPEnabled));
   }, [isMCPEnabled]);
 
@@ -363,39 +411,32 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
     mcpAgentDispatcher.current = handler;
   };
 
-  // Verify a connection is still valid
+  // Verify a connection is still valid (less aggressive approach)
   const verifyConnection = (connectionId: string, clientId: string) => {
     if (!wsConnected) {
       console.log('Cannot verify connection: WebSocket not connected');
       return false;
     }
-    
-    console.log(`Verifying MCP connection: ${connectionId} with clientId: ${clientId}`);
-    
-    // Execute a simple test command to verify the connection
-    executeCommand('echo', { text: 'connection_test' })
-      .then(result => {
-        console.log('Connection verification successful:', result);
-      })
-      .catch(err => {
-        console.error('Connection verification failed:', err);
-        
-        // Set connection to error state
-        setMCPConnection({
-          connectionId: null,
-          clientId: null,
-          status: 'error',
-          error: 'Connection verification failed'
+
+    console.log(`[MCP-CONTEXT] Verifying MCP connection: ${connectionId} with clientId: ${clientId}`);
+
+    // Instead of executing a command that might not exist, just check if we can fetch tools
+    // This is a less intrusive way to verify the connection
+    if (defaultServer) {
+      fetchServerTools(defaultServer)
+        .then(tools => {
+          console.log(`[MCP-CONTEXT] Connection verification successful: ${tools.length} tools available`);
+          // Connection is good, no need to do anything
+        })
+        .catch(err => {
+          console.warn(`[MCP-CONTEXT] Connection verification failed (tools fetch): ${err.message}`);
+          // Don't immediately disconnect - the connection might still be valid
+          // Just log the warning and let the user continue
+          // Only disconnect if there are repeated failures
         });
-        
-        // Remove stored connection info
-        localStorage.removeItem('mcp_connection_info');
-        
-        // If MCP is still enabled, try to reconnect
-        if (isMCPEnabled && defaultServer) {
-          reconnect();
-        }
-      });
+    } else {
+      console.log('[MCP-CONTEXT] No default server available for verification');
+    }
   };
 
   // Connect to server using WebSocket
@@ -473,31 +514,36 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
 
   // Disconnect from MCP server
   const disconnectFromMCP = () => {
+    console.log('[MCP-CONTEXT] Disconnecting from MCP server');
+
     if (!wsConnected) {
       // If WebSocket is not connected, just update our local state
+      console.log('[MCP-CONTEXT] WebSocket not connected, updating local state only');
       setMCPConnection({
         connectionId: null,
         clientId: null,
         status: 'disconnected',
         error: null
       });
-      
+
       // Clear stored connection info
       localStorage.removeItem('mcp_connection_info');
-      
+
       return;
     }
-    
+
     if (mcpConnection.connectionId) {
-      console.log(`Disconnecting from MCP server: ${mcpConnection.connectionId}`);
-      
+      console.log(`[MCP-CONTEXT] Sending disconnect request for: ${mcpConnection.connectionId}`);
+
       // Send disconnect request
       send({
         type: 'mcp_disconnect',
         connectionId: mcpConnection.connectionId
       });
+    } else {
+      console.log('[MCP-CONTEXT] No connection ID to disconnect');
     }
-    
+
     // Update state immediately for better UX
     setMCPConnection({
       connectionId: null,
@@ -505,9 +551,12 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
       status: 'disconnected',
       error: null
     });
-    
+
     // Clear stored connection info
     localStorage.removeItem('mcp_connection_info');
+
+    // Reset connection stability tracking
+    connectionStabilityRef.current.disconnectionCount = 0;
   };
 
   // Reconnect to MCP server
@@ -692,11 +741,15 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
   // Toggle MCP enabled state
   const toggleMCPEnabled = () => {
     const newState = !isMCPEnabled;
+    console.log(`[MCP-CONTEXT] Toggling MCP enabled state: ${isMCPEnabled} -> ${newState}`);
     setIsMCPEnabled(newState);
 
     // If turning off, disconnect
     if (!newState) {
+      console.log('[MCP-CONTEXT] MCP disabled, disconnecting...');
       disconnectFromMCP();
+    } else {
+      console.log('[MCP-CONTEXT] MCP enabled, connection will be handled by useEffect');
     }
   };
 

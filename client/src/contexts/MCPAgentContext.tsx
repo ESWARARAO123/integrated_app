@@ -474,8 +474,8 @@ export const MCPAgentProvider: React.FC<MCPAgentProviderProps> = ({ children }) 
     mcpConnection.error,
     defaultServer,
     availableTools.length,
-    addCommandResult,
-    commandResults
+    addCommandResult
+    // Removed commandResults to prevent infinite loop
   ]);
 
   // Monitor SSE connection status changes for errors (from MCPAgentContext perspective)
@@ -521,7 +521,7 @@ export const MCPAgentProvider: React.FC<MCPAgentProviderProps> = ({ children }) 
     return () => {
       clearInterval(interval);
     };
-  }, [mcpConnection, getClientId, hasClientIdIssue]);
+  }, [mcpConnection, getClientId]); // Removed hasClientIdIssue to prevent infinite loop
 
   // Enhanced function to attempt client ID recovery with better error handling
   const attemptClientIdRecovery = async (): Promise<boolean> => {
