@@ -178,12 +178,33 @@ export const useChatMessaging = () => {
               ragResponse.content
             );
 
+            // Trigger automatic title generation after saving the message
+            try {
+              const sessionIdForTitle = activeSessionId || dbResponse.sessionId;
+              if (sessionIdForTitle) {
+                // Generate title in the background (don't wait for it)
+                chatbotService.generateSessionTitle(sessionIdForTitle, selectedModelId)
+                  .then((titleResponse) => {
+                    if (titleResponse.generated) {
+                      console.log('Auto-generated title (RAG):', titleResponse.title);
+                      // Refresh sessions to show the new title
+                      fetchSessions();
+                    }
+                  })
+                  .catch((titleError) => {
+                    console.warn('Failed to auto-generate title (RAG):', titleError);
+                  });
+              }
+            } catch (titleError) {
+              console.warn('Error triggering title generation (RAG):', titleError);
+            }
+
             // Update the activeSessionId and fetch sessions if needed
             if (!activeSessionId || activeSessionId !== dbResponse.sessionId) {
               // We will return the new session ID to be set in the calling component
               const newSessionId = dbResponse.sessionId;
               await fetchSessions();
-              
+
               // Return the new session ID
               return { success: true, newSessionId };
             }
@@ -280,6 +301,27 @@ export const useChatMessaging = () => {
               );
               console.log('Database response:', dbResponse);
 
+              // Trigger automatic title generation after saving the message
+              try {
+                const sessionIdForTitle = activeSessionId || dbResponse.sessionId;
+                if (sessionIdForTitle) {
+                  // Generate title in the background (don't wait for it)
+                  chatbotService.generateSessionTitle(sessionIdForTitle, selectedModelId)
+                    .then((titleResponse) => {
+                      if (titleResponse.generated) {
+                        console.log('Auto-generated title:', titleResponse.title);
+                        // Refresh sessions to show the new title
+                        fetchSessions();
+                      }
+                    })
+                    .catch((titleError) => {
+                      console.warn('Failed to auto-generate title:', titleError);
+                    });
+                }
+              } catch (titleError) {
+                console.warn('Error triggering title generation:', titleError);
+              }
+
               // Update the activeSessionId and fetch sessions if needed
               if (!activeSessionId || activeSessionId !== dbResponse.sessionId) {
                 // We will return the new session ID to be set in the calling component
@@ -351,10 +393,31 @@ export const useChatMessaging = () => {
       } else {
         // Fallback for when no model is selected
         const response = await chatbotService.sendMessage(userMessage.content, activeSessionId || undefined);
-        
+
+        // Trigger automatic title generation after saving the message
+        try {
+          const sessionIdForTitle = activeSessionId || response.sessionId;
+          if (sessionIdForTitle) {
+            // Generate title in the background (don't wait for it)
+            chatbotService.generateSessionTitle(sessionIdForTitle, selectedModelId)
+              .then((titleResponse) => {
+                if (titleResponse.generated) {
+                  console.log('Auto-generated title (fallback):', titleResponse.title);
+                  // Refresh sessions to show the new title
+                  fetchSessions();
+                }
+              })
+              .catch((titleError) => {
+                console.warn('Failed to auto-generate title (fallback):', titleError);
+              });
+          }
+        } catch (titleError) {
+          console.warn('Error triggering title generation (fallback):', titleError);
+        }
+
         // Return the new session ID if needed
         const newSessionId = response.sessionId;
-        
+
         setMessages(prev => {
           const filteredMessages = prev.filter(m => m.id !== tempId);
           return [
@@ -363,10 +426,10 @@ export const useChatMessaging = () => {
             { id: response.id, role: 'assistant', content: response.content, timestamp: new Date() }
           ];
         });
-        
+
         await fetchSessions();
         setIsLoading(false);
-        
+
         return { success: true, newSessionId };
       }
       

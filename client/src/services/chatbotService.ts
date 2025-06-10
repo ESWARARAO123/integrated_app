@@ -30,6 +30,14 @@ export const chatbotService = {
     await api.delete(`/chatbot/sessions/${sessionId}`);
   },
 
+  // Title generation
+  generateSessionTitle: async (sessionId: string, userSelectedModelId?: string): Promise<{ title: string, generated: boolean, message: string }> => {
+    const response = await api.post(`/chatbot/sessions/${sessionId}/generate-title`, {
+      userSelectedModelId
+    });
+    return response.data;
+  },
+
   // Message sending
   sendMessage: async (message: string, sessionId?: string, response?: string, isContextUpdate: boolean = false): Promise<ChatMessageResponse> => {
     try {

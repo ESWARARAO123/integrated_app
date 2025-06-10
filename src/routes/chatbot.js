@@ -4,6 +4,7 @@ const { db, pool } = require('../database');
 const path = require('path');
 const fs = require('fs');
 const documentService = require('../services/documentService');
+const titleGenerationService = require('../services/titleGenerationService');
 const { loadPathsFromConfig, ensureDirectoriesExist } = require('../utils/pathConfig');
 let multer;
 let uuidv4;
@@ -337,6 +338,88 @@ router.delete('/sessions/:sessionId', isAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error deleting chat session:', error);
     res.status(500).json({ error: 'Error deleting chat session' });
+  }
+});
+
+// Generate title for a chat session
+router.post('/sessions/:sessionId/generate-title', isAuthenticated, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const userId = req.session.userId;
+    const { userSelectedModelId } = req.body;
+
+    // Verify session belongs to user
+    const sessionCheck = await pool.query(
+      'SELECT id, title FROM chat_sessions WHERE id = $1 AND user_id = $2',
+      [sessionId, userId]
+    );
+
+    if (sessionCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Chat session not found' });
+    }
+
+    // Get messages for the session to generate title from
+    const messagesResult = await pool.query(
+      `SELECT message, response, timestamp, is_context_update
+       FROM messages
+       WHERE session_id = $1 AND user_id = $2
+       ORDER BY timestamp ASC
+       LIMIT 10`, // Only use first 10 messages for title generation
+      [sessionId, userId]
+    );
+
+    // Convert database messages to the format expected by title generation service
+    const messages = [];
+    messagesResult.rows.forEach(row => {
+      // Add user message if it exists and is not a context update
+      if (!row.is_context_update && row.message && row.message.trim()) {
+        messages.push({
+          role: 'user',
+          content: row.message,
+          timestamp: row.timestamp
+        });
+      }
+
+      // Add assistant response if it exists
+      if (row.response && row.response.trim()) {
+        messages.push({
+          role: 'assistant',
+          content: row.response,
+          timestamp: row.timestamp
+        });
+      }
+    });
+
+    // Check if we should generate a title
+    const currentTitle = sessionCheck.rows[0].title;
+    if (!titleGenerationService.shouldGenerateTitle(messages, currentTitle)) {
+      return res.json({
+        title: currentTitle,
+        generated: false,
+        message: 'Title generation not needed or not enough messages'
+      });
+    }
+
+    // Generate the title
+    const generatedTitle = await titleGenerationService.generateTitle(messages, userSelectedModelId);
+
+    // Update the session with the new title
+    await pool.query(
+      'UPDATE chat_sessions SET title = $1 WHERE id = $2 AND user_id = $3',
+      [generatedTitle, sessionId, userId]
+    );
+
+    console.log(`Generated title for session ${sessionId}: "${generatedTitle}"`);
+
+    res.json({
+      title: generatedTitle,
+      generated: true,
+      message: 'Title generated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error generating session title:', error);
+    res.status(500).json({ error: 'Error generating session title' });
   }
 });
 
