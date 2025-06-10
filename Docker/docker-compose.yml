@@ -75,8 +75,37 @@ services:
     networks:
       - productdemo-network
 
+  image-processor:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.image-processor
+    container_name: productdemo-image-processor
+    env_file:
+      - env.docker
+    environment:
+      - TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
+      - TESSERACT_CMD=/usr/bin/tesseract
+      - PYTHONPATH=/app
+    volumes:
+      - ../DATA:/app/data
+      - ../python/RAG-MODULE/image-processing:/app/image-processing
+      - image_collections:/app/data/collections
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.5'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - productdemo-network
+
 volumes:
   redis_data:
+    driver: local
+  image_collections:
     driver: local
 
 networks:

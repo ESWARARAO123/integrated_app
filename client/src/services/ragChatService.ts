@@ -9,6 +9,7 @@ export interface RagChatRequest {
 export interface RagChatResponse {
   content: string;
   sources: RagSource[];
+  images?: RagImage[];
   ragAvailable: boolean;
 }
 
@@ -22,6 +23,18 @@ export interface RagSource {
     [key: string]: any;
   };
   score: number;
+}
+
+export interface RagImage {
+  imageId: string;
+  base64: string;
+  keywords: string;
+  page: number;
+  filename: string;
+  dimensions: string;
+  score: number;
+  documentId: string;
+  fileName: string;
 }
 
 export const ragChatService = {

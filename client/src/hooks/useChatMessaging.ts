@@ -166,6 +166,7 @@ export const useChatMessaging = () => {
                 ...msg,
                 content: ragResponse.content,
                 sources: ragResponse.sources,
+                images: ragResponse.images,
                 isStreaming: false
               } : msg
             ));

@@ -11,7 +11,7 @@ const sshService = require('../services/sshService');
 const mcpDBService = require('../services/mcpDBService');
 const config = require('../utils/config');
 const { logger } = require('../utils/logger');
-const db = require('../database');
+const { db, pool } = require('../database');
 const axios = require('axios');
 const http = require('http');
 const { v4: uuidv4 } = require('uuid');
@@ -868,20 +868,34 @@ router.post('/chat', requireAuth, async (req, res) => {
   try {
     const { messages, modelId, mcpClientId, mcpServer, options } = req.body;
 
+    // Log the incoming request for debugging
+    logger.info(`MCP chat request received:`, {
+      userId: req.session?.userId,
+      hasMessages: !!messages,
+      messagesCount: messages?.length || 0,
+      modelId: modelId || 'not provided',
+      mcpClientId: mcpClientId || 'not provided',
+      mcpServer: mcpServer ? `${mcpServer.host}:${mcpServer.port}` : 'not provided',
+      isStreaming: options?.stream || false
+    });
+
     if (!messages) {
+      logger.warn('MCP chat request missing messages');
       return res.status(400).json({ error: 'Messages are required' });
     }
 
     if (!mcpClientId) {
+      logger.warn('MCP chat request missing client ID');
       return res.status(400).json({ error: 'MCP Client ID is required' });
     }
 
     if (!mcpServer || !mcpServer.host || !mcpServer.port) {
+      logger.warn('MCP chat request missing server details');
       return res.status(400).json({ error: 'MCP server details are required' });
     }
 
     logger.info(`Processing MCP chat request with client ID: ${mcpClientId}, model: ${modelId || 'default'}`);
-    
+
     // Check if the request is for streaming
     const isStreaming = options && options.stream === true;
     
@@ -893,8 +907,29 @@ router.post('/chat', requireAuth, async (req, res) => {
 
     try {
       // Get the modelId from request or use default
-      const selectedModel = modelId || ollamaService.settings?.default_model || process.env.DEFAULT_OLLAMA_MODEL || 'llama3';
-      
+      let selectedModel = modelId || ollamaService.settings?.default_model || process.env.DEFAULT_OLLAMA_MODEL || 'llama3';
+
+      // If the modelId looks like a UUID (frontend model selector ID), try to get the actual model name
+      if (selectedModel && selectedModel.includes('-') && selectedModel.length > 20) {
+        logger.info(`Model ID appears to be a database ID: ${selectedModel}, looking up actual model name`);
+
+        try {
+          // Query the database to get the actual Ollama model name
+          const modelQuery = await pool.query('SELECT ollama_model_id FROM ai_models WHERE id = $1 AND is_active = true', [selectedModel]);
+
+          if (modelQuery.rows.length > 0) {
+            selectedModel = modelQuery.rows[0].ollama_model_id;
+            logger.info(`Found actual model name: ${selectedModel}`);
+          } else {
+            logger.warn(`Model ID ${modelId} not found in database, using default`);
+            selectedModel = ollamaService.settings?.default_model || process.env.DEFAULT_OLLAMA_MODEL || 'llama3';
+          }
+        } catch (dbError) {
+          logger.error(`Error looking up model in database: ${dbError.message}`);
+          selectedModel = ollamaService.settings?.default_model || process.env.DEFAULT_OLLAMA_MODEL || 'llama3';
+        }
+      }
+
       // Log the model being used
       logger.info(`Using model for MCP chat: ${selectedModel}`);
       

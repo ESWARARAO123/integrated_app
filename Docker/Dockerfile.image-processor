@@ -1,0 +1,60 @@
+# Multi-stage build for Image Processing with OCR Support
+FROM python:3.9-slim as base
+
+# Install system dependencies including Tesseract OCR
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-fra \
+    tesseract-ocr-deu \
+    tesseract-ocr-spa \
+    tesseract-ocr-ita \
+    tesseract-ocr-por \
+    libtesseract-dev \
+    libleptonica-dev \
+    pkg-config \
+    libpoppler-cpp-dev \
+    libmagic1 \
+    libffi-dev \
+    libssl-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Create non-root user
+RUN groupadd -r imageprocessor && useradd -r -g imageprocessor imageprocessor
+
+# Copy requirements first for better caching
+COPY python/RAG-MODULE/image-processing/requirements.txt /app/requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy the image processing scripts
+COPY python/RAG-MODULE/image-processing/ /app/image-processing/
+
+# Create necessary directories
+RUN mkdir -p /app/data/input /app/data/output /app/data/collections && \
+    chown -R imageprocessor:imageprocessor /app
+
+# Set environment variables for Tesseract
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
+ENV TESSERACT_CMD=/usr/bin/tesseract
+
+# Switch to non-root user
+USER imageprocessor
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD tesseract --version || exit 1
+
+# Default command - keep container running
+CMD ["tail", "-f", "/dev/null"]
+
+# Labels
+LABEL maintainer="ProductDemo Team"
+LABEL description="Image Processing Container with OCR Support for RAG System"
+LABEL version="1.0.0"

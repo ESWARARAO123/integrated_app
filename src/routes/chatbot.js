@@ -342,12 +342,26 @@ router.delete('/sessions/:sessionId', isAuthenticated, async (req, res) => {
 
 // Send message to chatbot
 router.post('/message', isAuthenticated, async (req, res) => {
-  const { message, sessionId, isContextUpdate } = req.body;
+  const { message, sessionId, isContextUpdate, response } = req.body;
   const userId = req.session.userId;
 
-  // Allow empty messages for context updates, but require message for regular messages
-  if (!message && !isContextUpdate) {
-    return res.status(400).json({ error: 'Message is required' });
+  // Log the incoming request for debugging
+  console.log('Chatbot message request received:', {
+    userId: userId || 'not authenticated',
+    hasMessage: !!message,
+    messageLength: message ? message.length : 0,
+    hasResponse: !!response,
+    responseLength: response ? response.length : 0,
+    sessionId: sessionId || 'not provided',
+    isContextUpdate: !!isContextUpdate,
+    sessionExists: !!req.session,
+    sessionUserId: req.session?.userId
+  });
+
+  // Allow empty messages for context updates or when saving assistant responses
+  if (!message && !isContextUpdate && !response) {
+    console.warn('Message request rejected: Message or response is required');
+    return res.status(400).json({ error: 'Message or response is required' });
   }
 
   try {
@@ -377,6 +391,11 @@ router.post('/message', isAuthenticated, async (req, res) => {
     // When called from the Ollama AI flow, the frontend will have already generated a response
     // and is just using this endpoint to save the message to the database
     let response = req.body.response;
+
+    console.log('Processing message with response:', {
+      hasResponse: !!response,
+      responseLength: response ? response.length : 0
+    });
 
     // If no response is provided (direct API call), use placeholder logic
     if (!response) {
@@ -413,11 +432,22 @@ router.post('/message', isAuthenticated, async (req, res) => {
 
         messageId = result.rows[0].id;
         timestamp = result.rows[0].timestamp;
+      } else if (!message && response) {
+        console.log('This is an assistant-only message (e.g., from MCP), saving only response');
+
+        // Store only the response in database (for assistant-only messages like MCP responses)
+        const result = await pool.query(
+          'INSERT INTO messages (user_id, message, response, session_id, timestamp) VALUES ($1, $2, $3, $4, NOW()) RETURNING id, timestamp',
+          [userId, '', response, activeSessionId]
+        );
+
+        messageId = result.rows[0].id;
+        timestamp = result.rows[0].timestamp;
       } else {
         // Regular message - store both user message and response
         const result = await pool.query(
           'INSERT INTO messages (user_id, message, response, session_id, timestamp) VALUES ($1, $2, $3, $4, NOW()) RETURNING id, timestamp',
-          [userId, message, response, activeSessionId]
+          [userId, message || '', response, activeSessionId]
         );
 
         messageId = result.rows[0].id;

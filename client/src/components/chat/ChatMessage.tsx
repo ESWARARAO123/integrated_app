@@ -14,7 +14,10 @@ import {
   InformationCircleIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  TableCellsIcon
+  TableCellsIcon,
+  PhotoIcon,
+  XMarkIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import { messageBubbleStyles, markdownStyles } from './chatStyles';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -34,6 +37,8 @@ interface ChatMessageProps {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conversationId }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [showSources, setShowSources] = useState<boolean>(false);
+  const [showImages, setShowImages] = useState<boolean>(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [contextResult, setContextResult] = useState<any>(null);
   // Add a state variable to force re-renders when needed
   const [lastUpdated, setLastUpdated] = useState<number>(Date.now());
@@ -1423,6 +1428,129 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
           </div>
         )}
 
+        {/* Images section for RAG responses */}
+        {isAI && message.images && message.images.length > 0 && (
+          <div style={{
+            marginTop: '0.75rem',
+            borderTop: `1px solid ${isDarkTheme ? '#444' : '#e2e8f0'}`,
+            paddingTop: '0.5rem'
+          }}>
+            <button
+              onClick={() => setShowImages(!showImages)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                background: 'none',
+                border: 'none',
+                color: 'var(--color-primary)',
+                padding: '0.25rem 0',
+                fontSize: '0.85rem',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+            >
+              <PhotoIcon className="w-4 h-4 mr-1" />
+              {showImages ? 'Hide images' : `Show images (${message.images.length})`}
+              {showImages ? <ChevronUpIcon className="w-3 h-3 ml-1" /> : <ChevronDownIcon className="w-3 h-3 ml-1" />}
+            </button>
+
+            {showImages && (
+              <div style={{
+                marginTop: '0.5rem'
+              }}>
+                <div style={{ fontWeight: 500, marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                  Relevant Images:
+                </div>
+                <div
+                  className="image-grid"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                    gap: '0.75rem',
+                    maxHeight: '400px',
+                    overflowY: 'auto'
+                  }}>
+                  {message.images.map((image, index) => (
+                    <div key={index} style={{
+                      backgroundColor: isDarkTheme ? 'var(--color-surface-dark)' : 'var(--color-surface-light)',
+                      borderRadius: '0.5rem',
+                      overflow: 'hidden',
+                      border: `1px solid ${isDarkTheme ? '#444' : '#e2e8f0'}`,
+                      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => setSelectedImage(`data:image/png;base64,${image.base64}`)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.02)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                    >
+                      <div style={{ position: 'relative' }}>
+                        <img
+                          src={`data:image/png;base64,${image.base64}`}
+                          alt={`Page ${image.page} - ${image.keywords.substring(0, 50)}...`}
+                          style={{
+                            width: '100%',
+                            height: '150px',
+                            objectFit: 'contain',
+                            backgroundColor: isDarkTheme ? '#2a2a2a' : '#f8f9fa'
+                          }}
+                        />
+                        <div style={{
+                          position: 'absolute',
+                          top: '0.25rem',
+                          right: '0.25rem',
+                          backgroundColor: 'rgba(0,0,0,0.7)',
+                          color: 'white',
+                          padding: '0.125rem 0.25rem',
+                          borderRadius: '0.25rem',
+                          fontSize: '0.7rem',
+                          fontWeight: 500
+                        }}>
+                          {(image.score * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                      <div style={{
+                        padding: '0.5rem',
+                        fontSize: '0.75rem'
+                      }}>
+                        <div style={{
+                          fontWeight: 500,
+                          marginBottom: '0.25rem',
+                          color: 'var(--color-text)'
+                        }}>
+                          Page {image.page} • {image.fileName}
+                        </div>
+                        <div style={{
+                          color: 'var(--color-text-muted)',
+                          lineHeight: 1.3,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}>
+                          {image.keywords.substring(0, 80)}...
+                        </div>
+                        <div style={{
+                          marginTop: '0.25rem',
+                          fontSize: '0.7rem',
+                          color: 'var(--color-text-muted)'
+                        }}>
+                          {image.dimensions}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Sources section for RAG responses */}
         {isAI && message.sources && message.sources.length > 0 && (
           <div style={{
@@ -1489,6 +1617,67 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Image Modal */}
+        {selectedImage && (
+          <div
+            className="image-modal"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              padding: '2rem'
+            }}
+            onClick={() => setSelectedImage(null)}
+          >
+            <button
+              onClick={() => setSelectedImage(null)}
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'white',
+                transition: 'background-color 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+              }}
+            >
+              <XMarkIcon className="w-6 h-6" />
+            </button>
+            <img
+              src={selectedImage}
+              alt="Full size image"
+              style={{
+                maxWidth: '90%',
+                maxHeight: '90%',
+                objectFit: 'contain',
+                borderRadius: '0.5rem',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         )}
       </div>
@@ -1584,6 +1773,33 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
             40% {
               transform: scale(1);
               opacity: 1;
+            }
+          }
+
+          /* Responsive image grid */
+          @media (max-width: 768px) {
+            .image-grid {
+              grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+              gap: 0.5rem !important;
+            }
+
+            .image-item {
+              height: auto !important;
+            }
+
+            .image-modal {
+              padding: 1rem !important;
+            }
+
+            .image-modal img {
+              max-width: 95% !important;
+              max-height: 85% !important;
+            }
+          }
+
+          @media (max-width: 480px) {
+            .image-grid {
+              grid-template-columns: 1fr 1fr !important;
             }
           }
         `}

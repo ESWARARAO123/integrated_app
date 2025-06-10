@@ -7,6 +7,7 @@ const vectorStoreService = require('./vectorStoreService');
 const OllamaService = require('./ollamaService');
 const { formatRagResponse } = require('./ragResponseFormatter');
 const { logger } = require('../utils/logger');
+const config = require('../utils/config');
 
 class RAGService {
   constructor() {
@@ -108,31 +109,48 @@ class RAGService {
         tableReference
       };
 
-      // Search for relevant documents - pass sessionId and userId as options
+      // Get image processing configuration
+      const imageConfig = config.getSection('image_processing') || {};
+      const includeImages = imageConfig.enabled === 'true' || imageConfig.enabled === true;
+      const maxImages = parseInt(imageConfig.max_images_in_response) || 3;
+
+      // Search for relevant documents with image support
       const searchResults = await this.vectorStoreService.search(
         embedResult.embedding,
-        searchOptions
+        {
+          ...searchOptions,
+          includeImages: includeImages,
+          imageLimit: maxImages,
+          query: query // Add the original query for image keyword matching
+        }
       );
 
-      // Handle the new return format (array of results instead of {success, results})
-      if (!searchResults || searchResults.length === 0) {
+      // Handle the enhanced return format with text and image results
+      const textResults = searchResults.textResults || searchResults.allResults || searchResults || [];
+      const imageResults = searchResults.imageResults || [];
+
+      if (!textResults || textResults.length === 0) {
         console.log(`RAG: No relevant documents found for query`);
         return {
           success: true,
           context: '',
-          sources: []
+          sources: [],
+          images: imageResults || []
         };
       }
 
-      console.log(`RAG: Found ${searchResults.length} relevant chunks`);
+      // Handle both old and new search result formats
+      const actualTextResults = textResults.length > 0 ? textResults : searchResults;
+
+      console.log(`RAG: Found ${actualTextResults.length} text chunks and ${imageResults.length} images`);
 
       // Temporary debug: Log summaries of retrieved chunks to understand content
-      searchResults.forEach((result, index) => {
+      actualTextResults.forEach((result, index) => {
         console.log(`RAG: Chunk ${index + 1} (Score: ${result.score.toFixed(3)}): ${result.content.substring(0, 100).replace(/\n/g, ' ')}...`);
       });
 
       // For table queries, prioritize chunks that contain table markers
-      let results = searchResults;
+      let results = actualTextResults;
       if (isTableQuery) {
         // Boost scores for chunks that contain table markers
         results = results.map(result => {
@@ -177,10 +195,24 @@ class RAGService {
         containsRequestedTable: result.containsRequestedTable || false
       }));
 
+      // Process image results for response
+      const images = imageResults.map(result => ({
+        imageId: result.metadata.imageId,
+        base64: result.metadata.base64,
+        keywords: result.metadata.keywords,
+        page: result.metadata.page,
+        filename: result.metadata.filename,
+        dimensions: result.metadata.dimensions,
+        score: result.score,
+        documentId: result.metadata.documentId,
+        fileName: result.metadata.fileName
+      }));
+
       return {
         success: true,
         context,
         sources,
+        images,
         isTableQuery,
         tableReference
       };
@@ -303,11 +335,12 @@ Question: ${message}`
 
         if (chatResult.success) {
           console.log(`RAG: Successfully generated response using ollamaService.chat`);
-          // Add sources to the response
+          // Add sources and images to the response
           return {
             success: true,
             response: chatResult.response,
             sources: ragResult.sources,
+            images: ragResult.images || [],
             context: optimizedContext
           };
         } else {
@@ -335,6 +368,7 @@ Question: ${message}`
           }]
         },
         sources: ragResult.sources,
+        images: ragResult.images || [],
         context: optimizedContext
       };
 

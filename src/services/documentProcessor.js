@@ -246,10 +246,27 @@ class DocumentProcessor {
       }
 
       // Update progress after text extraction
-      await reportProgress(30, 'Text extracted, chunking document', { 
+      await reportProgress(30, 'Text extracted, chunking document', {
         phase: 'text_extraction_complete',
-        textLength: textResult.text.length 
+        textLength: textResult.text.length
       });
+
+      // Process images if enabled and document is PDF
+      let imageResult = { success: true, total_count: 0 };
+      if (document.file_type === 'pdf') {
+        try {
+          imageResult = await this.processDocumentImages(document, { userId, sessionId });
+          if (imageResult.success && imageResult.total_count > 0) {
+            await reportProgress(40, `Processed ${imageResult.total_count} images`, {
+              phase: 'image_processing_complete',
+              imageCount: imageResult.total_count
+            });
+          }
+        } catch (imageError) {
+          console.warn(`Image processing failed for document ${document.id}:`, imageError.message);
+          // Continue with text processing even if image processing fails
+        }
+      }
 
       // Split text into chunks with enhanced error handling
       let chunks;
@@ -270,9 +287,9 @@ class DocumentProcessor {
       }
 
       // Update progress after chunking
-      await reportProgress(50, 'Document chunked, generating embeddings', { 
+      await reportProgress(60, 'Document chunked, generating embeddings', {
         phase: 'chunking_complete',
-        chunkCount: chunks.length 
+        chunkCount: chunks.length
       });
 
       // Generate embeddings for the chunks with enhanced error handling
@@ -284,9 +301,9 @@ class DocumentProcessor {
         }
       } catch (embeddingError) {
         console.error(`Embedding generation error for document ${document.id}:`, embeddingError);
-        await reportProgress(50, `Embedding generation failed: ${embeddingError.message}`, { 
+        await reportProgress(60, `Embedding generation failed: ${embeddingError.message}`, {
           phase: 'embedding_generation',
-          error: embeddingError.message 
+          error: embeddingError.message
         });
         return {
           success: false,
@@ -433,7 +450,7 @@ class DocumentProcessor {
 
       // Report progress before starting embeddings
       if (onProgress) {
-        await onProgress(60, `Generating embeddings for ${texts.length} chunks`);
+        await onProgress(70, `Generating embeddings for ${texts.length} chunks`);
       }
 
       // Generate embeddings using Ollama in batches
@@ -445,7 +462,7 @@ class DocumentProcessor {
 
       // Report progress after embeddings are generated
       if (onProgress) {
-        await onProgress(80, `Storing ${result.embeddings.length} embeddings`);
+        await onProgress(90, `Storing ${result.embeddings.length} embeddings`);
       }
 
       // Store embeddings in vector database if available
@@ -1147,6 +1164,358 @@ class DocumentProcessor {
 
     console.log(`Custom text chunking created ${chunks.length} chunks`);
     return chunks;
+  }
+
+  /**
+   * Process images from a PDF document using Docker container
+   * @param {Object} document - Document object with file path
+   * @param {Object} options - Processing options (userId, sessionId)
+   * @returns {Promise<Object>} - Processing result
+   */
+  async processDocumentImages(document, options = {}) {
+    try {
+      const { userId, sessionId } = options;
+
+      // Check if image processing is enabled
+      const config = require('../utils/config');
+      const imageConfig = config.getSection('image_processing') || {};
+      const isEnabled = imageConfig.enabled === 'true' || imageConfig.enabled === true;
+
+      if (!isEnabled) {
+        console.log('Image processing is disabled in configuration');
+        return { success: true, total_count: 0, message: 'Image processing disabled' };
+      }
+
+      console.log(`Processing images for document ${document.id}: ${document.original_name}`);
+
+      // Execute image processing using Docker container
+      const result = await this.executeImageProcessor(
+        document.file_path,
+        userId,
+        sessionId || 'no_session'
+      );
+
+      if (result.success) {
+        console.log(`Successfully processed ${result.stats?.processed || result.total_count || 0} images for document ${document.id}`);
+
+        // Store images in ChromaDB if vector store is available and images were processed
+        if (this.vectorStoreService && result.images && result.images.length > 0) {
+          try {
+            console.log(`🗄️ Attempting to store ${result.images.length} images in ChromaDB for document ${document.id}`);
+            await this.storeImagesInVectorDB(result.images, document, userId, sessionId);
+            console.log(`✅ Successfully stored ${result.images.length} images in vector database`);
+          } catch (storeError) {
+            console.error(`❌ Failed to store images in vector database: ${storeError.message}`);
+            console.error('Store error details:', storeError);
+            // Continue even if vector storage fails, but log the error prominently
+          }
+        } else if (!result.images || result.images.length === 0) {
+          console.log(`ℹ️ No images to store for document ${document.id} (${result.stats?.total_found || 0} found, ${result.stats?.processed || 0} processed)`);
+        } else if (!this.vectorStoreService) {
+          console.warn(`⚠️ Vector store service not available - ${result.images?.length || 0} images will not be stored in ChromaDB`);
+        }
+      } else {
+        console.warn(`Image processing failed for document ${document.id}: ${result.error || 'Unknown error'}`);
+      }
+
+      return result;
+    } catch (error) {
+      console.error(`Error processing images for document ${document.id}:`, error);
+      return {
+        success: false,
+        error: error.message,
+        total_count: 0
+      };
+    }
+  }
+
+  /**
+   * Execute image processing using Docker container
+   * @param {string} filePath - Path to the PDF file
+   * @param {string} userId - User ID for isolation
+   * @param {string} sessionId - Session ID for context
+   * @returns {Promise<Object>} - Processing result
+   */
+  async executeImageProcessor(filePath, userId, sessionId) {
+    return new Promise((resolve, reject) => {
+      try {
+        const config = require('../utils/config');
+        const imageConfig = config.getSection('image_processing') || {};
+        const containerName = imageConfig.docker_container || 'productdemo-image-processor';
+
+        // Convert file path to Docker container path
+        // Host path: /home/yaswanth/Desktop/c2s_integrate/DATA/documents/...
+        // Container path: /app/data/documents/...
+        const dockerFilePath = filePath.replace(
+          path.resolve(process.cwd(), 'DATA'),
+          '/app/data'
+        );
+
+        // Prepare the command to execute in Docker container
+        const command = [
+          'docker', 'compose', 'exec', '-T', 'image-processor',
+          'python', 'image-processing/user_isolated_image_processor.py',
+          dockerFilePath, userId, '--session-id', sessionId
+        ];
+
+        console.log(`Executing image processing: ${command.join(' ')}`);
+
+        const { spawn } = require('child_process');
+        const childProcess = spawn(command[0], command.slice(1), {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          cwd: path.resolve(process.cwd(), 'Docker'), // Execute from Docker directory
+          maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large JSON output
+        });
+
+        let stdout = '';
+        let stderr = '';
+        let stdoutChunks = [];
+        let stderrChunks = [];
+
+        childProcess.stdout.on('data', (data) => {
+          stdoutChunks.push(data);
+          stdout += data.toString();
+        });
+
+        childProcess.stderr.on('data', (data) => {
+          stderrChunks.push(data);
+          stderr += data.toString();
+        });
+
+        childProcess.on('close', (code) => {
+          if (code === 0) {
+            try {
+              console.log('🔍 Raw image processing output:');
+              console.log('STDOUT length:', stdout.length);
+              console.log('STDERR length:', stderr.length);
+              console.log('STDOUT preview (first 500 chars):', stdout.substring(0, 500));
+              console.log('STDOUT preview (last 500 chars):', stdout.substring(stdout.length - 500));
+
+              // Extract JSON from stdout - the entire output should be JSON
+              let jsonLine = '';
+
+              // First, try to parse the entire stdout as JSON
+              try {
+                const testParse = JSON.parse(stdout.trim());
+                jsonLine = stdout.trim();
+                console.log('✅ Entire stdout is valid JSON');
+              } catch (e) {
+                console.log('❌ Entire stdout is not valid JSON, trying extraction...');
+
+                // Extract JSON from stdout (it might have extra content before/after)
+                const lines = stdout.trim().split('\n');
+
+                // Find the line that starts with { and ends with }
+                for (const line of lines) {
+                  const trimmedLine = line.trim();
+                  if (trimmedLine.startsWith('{') && trimmedLine.endsWith('}')) {
+                    jsonLine = trimmedLine;
+                    break;
+                  }
+                }
+
+                if (!jsonLine) {
+                  // If no complete JSON line found, try to parse the last few lines
+                  const lastLines = lines.slice(-10).join('\n');
+                  const jsonMatch = lastLines.match(/\{[\s\S]*\}/);
+                  if (jsonMatch) {
+                    jsonLine = jsonMatch[0];
+                  }
+                }
+              }
+
+              // If still no JSON, try to find the start and end of JSON manually
+              if (!jsonLine) {
+                // Look for the start of the main JSON object - prioritize the beginning
+                let startIndex = stdout.indexOf('{\n  "success"');
+                if (startIndex === -1) {
+                  startIndex = stdout.indexOf('{"success"');
+                }
+                if (startIndex === -1) {
+                  startIndex = stdout.indexOf('{ "success"');
+                }
+
+                if (startIndex !== -1) {
+                  // Find the matching closing brace by counting braces
+                  let braceCount = 0;
+                  let endIndex = -1;
+
+                  for (let i = startIndex; i < stdout.length; i++) {
+                    if (stdout[i] === '{') {
+                      braceCount++;
+                    } else if (stdout[i] === '}') {
+                      braceCount--;
+                      if (braceCount === 0) {
+                        endIndex = i;
+                        break;
+                      }
+                    }
+                  }
+
+                  if (endIndex !== -1) {
+                    jsonLine = stdout.substring(startIndex, endIndex + 1);
+                  }
+                }
+              }
+
+              // If still no JSON found, try to extract from the entire output (fallback)
+              if (!jsonLine) {
+                // Look for JSON pattern in the entire output
+                const fullJsonMatch = stdout.match(/\{[\s\S]*"stats"[\s\S]*\}/);
+                if (fullJsonMatch) {
+                  jsonLine = fullJsonMatch[0];
+                }
+              }
+
+              if (!jsonLine) {
+                console.error('❌ No valid JSON found in output');
+                console.error('Available lines:', lines.slice(0, 5).map((line, i) => `${i}: ${line.substring(0, 100)}...`));
+                throw new Error('No valid JSON found in output');
+              }
+
+              console.log('📄 Extracted JSON line length:', jsonLine.length);
+              console.log('📄 JSON preview:', jsonLine.substring(0, 200) + '...');
+
+              // Parse JSON with better error handling
+              let result;
+              try {
+                result = JSON.parse(jsonLine);
+              } catch (parseError) {
+                console.error('❌ JSON parse error:', parseError.message);
+                console.error('❌ JSON error position:', parseError.message.match(/position (\d+)/)?.[1]);
+
+                // Try to clean the JSON string
+                const cleanedJson = jsonLine
+                  .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
+                  .replace(/\n\s*\n/g, '\n') // Remove empty lines
+                  .trim();
+
+                console.log('🧹 Trying with cleaned JSON...');
+                result = JSON.parse(cleanedJson);
+              }
+
+              console.log('✅ Successfully parsed image processing result');
+              console.log(`📊 Result summary: ${result.success ? 'SUCCESS' : 'FAILED'}, ${result.images?.length || 0} images`);
+
+              resolve(result);
+            } catch (parseError) {
+              console.error('❌ Error parsing image processing result:', parseError);
+              console.error('Raw stdout length:', stdout.length);
+              console.error('Raw stdout preview:', stdout.substring(0, 500));
+
+              // Try to extract any useful information even if JSON parsing fails
+              const imageCountMatch = stdout.match(/processed[:\s]+(\d+)/i);
+              const foundCountMatch = stdout.match(/found[:\s]+(\d+)/i);
+
+              resolve({
+                success: false,
+                error: `Failed to parse result: ${parseError.message}`,
+                images: [],
+                stats: {
+                  processed: imageCountMatch ? parseInt(imageCountMatch[1]) : 0,
+                  total_found: foundCountMatch ? parseInt(foundCountMatch[1]) : 0,
+                  skipped: 0
+                },
+                total_count: 0
+              });
+            }
+          } else {
+            console.error(`❌ Image processing failed with code ${code}`);
+            console.error('Stderr:', stderr);
+            resolve({
+              success: false,
+              error: `Docker command failed with code ${code}\nStderr: ${stderr}`,
+              total_count: 0
+            });
+          }
+        });
+
+        childProcess.on('error', (error) => {
+          console.error('Error executing image processing:', error);
+          reject(error);
+        });
+
+      } catch (error) {
+        console.error('Error setting up image processing:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Store extracted images in ChromaDB vector database
+   * @param {Array} images - Array of image metadata with base64 data
+   * @param {Object} document - Document object
+   * @param {string} userId - User ID for isolation
+   * @param {string} sessionId - Session ID for context
+   * @returns {Promise<void>}
+   */
+  async storeImagesInVectorDB(images, document, userId, sessionId) {
+    try {
+      if (!this.vectorStoreService) {
+        console.warn('⚠️ Vector store service not available, skipping image storage');
+        return;
+      }
+
+      console.log(`🗄️ Storing ${images.length} images in ChromaDB for document ${document.id}`);
+      console.log(`👤 User: ${userId}, Session: ${sessionId || 'no_session'}`);
+
+      // Get document service for metadata
+      const documentService = getDocumentService();
+      const docMetadata = await documentService.getDocument(document.id);
+
+      // Log sample image data for debugging
+      if (images.length > 0) {
+        const sampleImage = images[0];
+        console.log(`📸 Sample image data:`, {
+          image_id: sampleImage.image_id,
+          page: sampleImage.page,
+          keywords: sampleImage.keywords?.substring(0, 100) + '...',
+          dimensions: sampleImage.dimensions,
+          size_kb: sampleImage.size_kb,
+          format: sampleImage.format,
+          has_base64: !!sampleImage.base64
+        });
+      }
+
+      // Transform images to the format expected by vector store
+      const transformedImages = images.map(image => ({
+        image_id: image.image_id,
+        page: image.page,
+        index: image.index || 0,
+        filename: image.filename,
+        base64: image.base64,
+        keywords: image.keywords || '',
+        dimensions: image.dimensions || 'unknown',
+        size_kb: image.size_kb || 0,
+        format: image.format || 'png'
+      }));
+
+      console.log(`🔄 Calling vectorStoreService.addDocumentImages with ${transformedImages.length} images`);
+
+      // Use the specialized addDocumentImages method from vector store service
+      const result = await this.vectorStoreService.addDocumentImages(
+        document.id,
+        transformedImages,
+        {
+          userId: userId,
+          sessionId: sessionId || 'no_session',
+          fileName: docMetadata.original_name || document.original_name,
+          fileType: docMetadata.file_type || document.file_type
+        }
+      );
+
+      if (result.success) {
+        console.log(`✅ Successfully stored ${result.count} image vectors in ChromaDB`);
+      } else {
+        console.error(`❌ Failed to store images in vector database: ${result.error}`);
+        throw new Error(`Vector storage failed: ${result.error}`);
+      }
+
+    } catch (error) {
+      console.error('💥 Error storing images in vector database:', error);
+      throw error;
+    }
   }
 }
 

@@ -25,6 +25,7 @@ class VectorStoreService {
     };
     this.chromaClient = null;
     this.isInitialized = false;
+    this.ollamaService = null; // Will be initialized when needed for image embeddings
 
     console.log(`ChromaDB configuration loaded: ${chromaUrl}`);
   }
@@ -56,32 +57,65 @@ class VectorStoreService {
   }
 
   /**
-   * Get or create user-specific collection
+   * Get or create user-specific collection for TEXT CHUNKS
    */
   async getUserCollection(userId) {
     try {
       const collectionName = `user_${userId.replace(/-/g, '_')}_docs`;
-      
+
       try {
         const collection = await this.chromaClient.getCollection({
           name: collectionName
         });
-        console.log(`Retrieved existing ChromaDB collection: ${collectionName}`);
+        console.log(`Retrieved existing ChromaDB text collection: ${collectionName}`);
         return collection;
       } catch (error) {
-        console.log(`Creating new ChromaDB collection: ${collectionName}`);
+        console.log(`Creating new ChromaDB text collection: ${collectionName}`);
         const collection = await this.chromaClient.createCollection({
           name: collectionName,
           metadata: {
             userId: userId,
+            type: 'text',
             createdAt: new Date().toISOString()
           }
         });
-        console.log(`Created new ChromaDB collection: ${collectionName}`);
+        console.log(`Created new ChromaDB text collection: ${collectionName}`);
         return collection;
       }
     } catch (error) {
-      console.error(`Error managing user collection for ${userId}:`, error);
+      console.error(`Error managing user text collection for ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get or create user-specific collection for IMAGES
+   */
+  async getUserImageCollection(userId) {
+    try {
+      const collectionName = `user_${userId.replace(/-/g, '_')}_images`;
+
+      try {
+        const collection = await this.chromaClient.getCollection({
+          name: collectionName
+        });
+        console.log(`Retrieved existing ChromaDB image collection: ${collectionName}`);
+        return collection;
+      } catch (error) {
+        console.log(`Creating new ChromaDB image collection: ${collectionName}`);
+        const collection = await this.chromaClient.createCollection({
+          name: collectionName,
+          metadata: {
+            userId: userId,
+            type: 'images',
+            createdAt: new Date().toISOString()
+          }
+        });
+        console.log(`Created new ChromaDB image collection: ${collectionName}`);
+        return collection;
+      }
+    } catch (error) {
+      console.error(`Error managing user image collection for ${userId}:`, error);
       throw error;
     }
   }
@@ -149,48 +183,236 @@ class VectorStoreService {
   }
 
   /**
-   * Search for similar documents - USER ISOLATED
+   * Search for similar documents - USER ISOLATED with IMAGE SUPPORT
    */
   async search(queryEmbedding, options = {}) {
-    const { limit = 10, sessionId, userId } = options;
-    
+    const { limit = 10, sessionId, userId, includeImages = true, imageLimit = 3 } = options;
+
     if (!userId) {
       throw new Error('userId is required for user-isolated search');
     }
 
     try {
       const collection = await this.getUserCollection(userId);
-      
-      console.log(`🔍 Searching ChromaDB for user ${userId} with limit ${limit}`);
-      
+
+      console.log(`🔍 Searching ChromaDB for user ${userId} with limit ${limit}, includeImages: ${includeImages}`);
+
       // Simple where clause - just filter by userId, ignore sessionId for now
       let whereClause = { userId: userId };
-      
+
       console.log('Where clause:', JSON.stringify(whereClause));
+
+      // Increase search limit to get both text and images
+      const searchLimit = includeImages ? limit + imageLimit + 5 : limit;
 
       const results = await collection.query({
         queryEmbeddings: [queryEmbedding],
-        nResults: limit,
+        nResults: searchLimit,
         where: whereClause
       });
 
       if (results.documents && results.documents[0] && results.documents[0].length > 0) {
-        const searchResults = results.documents[0].map((doc, index) => ({
+        const allResults = results.documents[0].map((doc, index) => ({
           content: doc,
           metadata: results.metadatas[0][index],
           score: 1 - results.distances[0][index] // Convert distance to similarity
         }));
 
-        console.log(`✅ Found ${searchResults.length} relevant chunks for user ${userId}`);
-        return searchResults;
+        // All results are text chunks (images are in separate collection)
+        const textResults = allResults.slice(0, limit);
+
+        // Use keyword-based search for images if requested
+        let imageResults = [];
+        if (includeImages && options.query) {
+          imageResults = await this.searchImages(options.query, {
+            userId: userId,
+            limit: imageLimit
+          });
+        }
+
+        console.log(`✅ Found ${textResults.length} text chunks and ${imageResults.length} images for user ${userId}`);
+
+        // Return combined results with type indicators
+        return {
+          textResults,
+          imageResults,
+          allResults: [...textResults, ...imageResults]
+        };
       } else {
         console.log(`No relevant chunks found for user ${userId}`);
-        return [];
+
+        // Still search for images even if no text results
+        let imageResults = [];
+        if (includeImages && options.query) {
+          imageResults = await this.searchImages(options.query, {
+            userId: userId,
+            limit: imageLimit
+          });
+        }
+
+        return {
+          textResults: [],
+          imageResults,
+          allResults: imageResults
+        };
       }
 
     } catch (error) {
       console.error('Error searching ChromaDB:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Add document images to user-specific IMAGE collection (WITHOUT AI embeddings)
+   * Uses keyword-based storage for simple retrieval
+   */
+  async addDocumentImages(documentId, images, metadata = {}) {
+    try {
+      const userId = metadata.userId;
+      if (!userId) {
+        throw new Error('userId is required in metadata for user isolation');
+      }
+
+      // Get user-specific IMAGE collection (separate from text)
+      const collection = await this.getUserImageCollection(userId);
+
+      console.log(`📸 Adding ${images.length} images for document ${documentId} to user IMAGE collection`);
+
+      // Filter out images that don't have valid data
+      const validImages = images.filter(image => {
+        if (!image || !image.base64) {
+          console.warn(`Skipping image without base64 data:`, image?.filename || 'unknown');
+          return false;
+        }
+        return true;
+      });
+
+      if (validImages.length === 0) {
+        console.warn(`No valid images to store for document ${documentId}`);
+        return { success: true, count: 0 };
+      }
+
+      // Prepare image data for storage WITHOUT AI embeddings
+      const imageIds = [];
+      const imageEmbeddings = [];
+      const imageDocuments = [];
+      const imageMetadatas = [];
+
+      for (let i = 0; i < validImages.length; i++) {
+        const image = validImages[i];
+
+        // Use keywords as searchable text (no AI embedding needed)
+        const keywordText = image.keywords || '';
+
+        // Create a simple dummy embedding (all zeros) since ChromaDB requires embeddings
+        // We'll use keyword matching instead of vector similarity
+        const dummyEmbedding = new Array(384).fill(0); // Standard embedding size
+
+        imageIds.push(`${documentId}_image_${image.page || 0}_${image.index || i}_${Date.now()}_${i}`);
+        imageEmbeddings.push(dummyEmbedding);
+        imageDocuments.push(keywordText); // Store keywords as searchable text
+        imageMetadatas.push({
+          documentId: documentId.toString(),
+          userId: userId.toString(),
+          sessionId: metadata.sessionId ? metadata.sessionId.toString() : "no_session",
+          type: 'image', // Mark as image type
+          imageId: image.image_id || `img_${i}`,
+          page: image.page || 0,
+          imageIndex: image.index || i,
+          filename: image.filename || `image_${i}`,
+          base64: image.base64 || '',
+          keywords: image.keywords || '',
+          dimensions: image.dimensions || 'unknown',
+          sizeKb: image.size_kb || 0,
+          format: image.format || 'unknown',
+          fileName: metadata.fileName || "unknown",
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Store in same collection as text chunks
+      await collection.add({
+        ids: imageIds,
+        embeddings: imageEmbeddings,
+        documents: imageDocuments,
+        metadatas: imageMetadatas
+      });
+
+      console.log(`✅ Successfully stored ${imageIds.length} image records for document ${documentId} in user collection`);
+      return { success: true, count: imageIds.length };
+
+    } catch (error) {
+      console.error(`❌ Failed to store images for document ${documentId}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Search for images using keyword matching (not AI embeddings)
+   * @param {string} query - Search query
+   * @param {Object} options - Search options
+   * @returns {Promise<Array>} Array of matching images
+   */
+  async searchImages(query, options = {}) {
+    const { userId, limit = 3 } = options;
+
+    if (!userId) {
+      throw new Error('userId is required for user-isolated image search');
+    }
+
+    try {
+      const collection = await this.getUserImageCollection(userId);
+
+      // Get all images for this user (all items in image collection are images)
+      const results = await collection.get({
+        where: {
+          userId: userId
+        }
+      });
+
+      if (!results.metadatas || results.metadatas.length === 0) {
+        console.log(`No images found for user ${userId}`);
+        return [];
+      }
+
+      // Simple keyword matching - score based on keyword overlap
+      const queryWords = query.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+      const scoredImages = [];
+
+      for (let i = 0; i < results.metadatas.length; i++) {
+        const metadata = results.metadatas[i];
+        const keywords = (metadata.keywords || '').toLowerCase();
+
+        // Calculate simple keyword match score
+        let score = 0;
+        for (const word of queryWords) {
+          if (keywords.includes(word)) {
+            score += 1;
+          }
+        }
+
+        if (score > 0) {
+          scoredImages.push({
+            score: score,
+            metadata: metadata,
+            document: results.documents[i] || '',
+            id: results.ids[i]
+          });
+        }
+      }
+
+      // Sort by score (highest first) and limit results
+      const sortedImages = scoredImages
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+
+      console.log(`🔍 Found ${sortedImages.length} matching images for query: "${query}"`);
+      return sortedImages;
+
+    } catch (error) {
+      console.error('Error searching images:', error);
+      return [];
     }
   }
 
@@ -203,28 +425,38 @@ class VectorStoreService {
         return await this.getAggregateStats();
       }
 
-      // User-specific stats
+      // User-specific stats (text collection only for RAG)
       try {
-        const collection = await this.getUserCollection(userId);
-        const count = await collection.count();
-        
-        // Get unique documents for this user
-        const results = await collection.get({
+        const textCollection = await this.getUserCollection(userId);
+        const textCount = await textCollection.count();
+
+        // Get unique documents for this user from text collection
+        const textResults = await textCollection.get({
           where: { userId: userId }
         });
-        
+
         const uniqueDocuments = new Set();
-        if (results.metadatas) {
-          results.metadatas.forEach(meta => {
+        if (textResults.metadatas) {
+          textResults.metadatas.forEach(meta => {
             if (meta.documentId) {
               uniqueDocuments.add(meta.documentId);
             }
           });
         }
 
-        console.log(`User ${userId} stats: ${count} chunks, ${uniqueDocuments.size} documents`);
+        // Also get image stats
+        let imageCount = 0;
+        try {
+          const imageCollection = await this.getUserImageCollection(userId);
+          imageCount = await imageCollection.count();
+        } catch (imageError) {
+          console.log(`No image collection for user ${userId}`);
+        }
+
+        console.log(`User ${userId} stats: ${textCount} text chunks, ${imageCount} images, ${uniqueDocuments.size} documents`);
         return {
-          totalChunks: count,
+          totalChunks: textCount,
+          totalImages: imageCount,
           totalDocuments: uniqueDocuments.size,
           userId: userId
         };
@@ -232,6 +464,7 @@ class VectorStoreService {
         console.error(`Error getting stats for user ${userId}:`, error);
         return {
           totalChunks: 0,
+          totalImages: 0,
           totalDocuments: 0,
           userId: userId
         };
@@ -241,6 +474,7 @@ class VectorStoreService {
       console.error('Error getting vector store stats:', error);
       return {
         totalChunks: 0,
+        totalImages: 0,
         totalDocuments: 0,
         userId: userId
       };

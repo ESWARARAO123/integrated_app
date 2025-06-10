@@ -454,10 +454,11 @@ module.exports = function(config) {
         content = 'I processed your request but encountered an issue with the response format.';
       }
 
-      // Return the response with sources
+      // Return the response with sources and images
       res.json({
         content: content,
         sources: result.sources || [],
+        images: result.images || [],
         ragAvailable: true
       });
     } catch (error) {

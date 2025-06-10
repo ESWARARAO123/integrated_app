@@ -311,11 +311,27 @@ const Chatbot: React.FC = () => {
     streamedContentRef.current[assistantMessageId] = '';
 
     try {
+      // Import the MCP system prompt
+      const { mcpSystemPrompt } = await import('../prompts/mcpSystemPrompt');
+
       // Prepare messages for MCP chat service
       const mcpMessages = messages.map(msg => ({
         role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content
       }));
+
+      // Add the MCP system prompt at the beginning if not already present
+      const hasSystemPrompt = mcpMessages.some(msg =>
+        msg.role === 'system' &&
+        (msg.content.includes('runshellcommand') || msg.content.includes('SHELL COMMAND TOOL'))
+      );
+
+      if (!hasSystemPrompt) {
+        mcpMessages.unshift({
+          role: 'system',
+          content: mcpSystemPrompt
+        });
+      }
 
       // Add the current user message
       mcpMessages.push({
@@ -367,15 +383,33 @@ const Chatbot: React.FC = () => {
           // Save the assistant message to database
           if (activeSessionId && finalContent) {
             try {
+              console.log('Attempting to save MCP assistant message to database:', {
+                sessionId: activeSessionId,
+                contentLength: finalContent.length,
+                contentPreview: finalContent.substring(0, 50) + '...'
+              });
+
               await chatbotService.sendMessage(
                 '',
                 activeSessionId,
                 finalContent,
                 false
               );
-              console.log('MCP assistant message saved to database');
-            } catch (error) {
-              console.error('Error saving MCP assistant message to database:', error);
+              console.log('MCP assistant message saved to database successfully');
+            } catch (error: any) {
+              console.error('Error saving MCP assistant message to database:', {
+                error: error.message,
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data
+              });
+
+              // If it's an authentication error, show a more helpful message
+              if (error.response?.status === 401) {
+                console.warn('Authentication error when saving MCP assistant message - user may need to log in again');
+              } else if (error.response?.status === 400) {
+                console.warn('Bad request when saving MCP assistant message - check request format');
+              }
             }
           }
 
@@ -977,15 +1011,33 @@ const Chatbot: React.FC = () => {
         
         if (sessionId) {
           try {
+            console.log('Attempting to save MCP user message to database:', {
+              content: content.trim().substring(0, 50) + '...',
+              sessionId,
+              contentLength: content.trim().length
+            });
+
             await chatbotService.sendMessage(
               content.trim(),
               sessionId,
               '', // Empty response since this is user message
               false
             );
-            console.log('MCP user message saved to database');
-          } catch (error) {
-            console.error('Error saving MCP user message to database:', error);
+            console.log('MCP user message saved to database successfully');
+          } catch (error: any) {
+            console.error('Error saving MCP user message to database:', {
+              error: error.message,
+              status: error.response?.status,
+              statusText: error.response?.statusText,
+              data: error.response?.data
+            });
+
+            // If it's an authentication error, show a more helpful message
+            if (error.response?.status === 401) {
+              console.warn('Authentication error when saving MCP message - user may need to log in again');
+            } else if (error.response?.status === 400) {
+              console.warn('Bad request when saving MCP message - check request format');
+            }
           }
         }
 
@@ -1017,15 +1069,32 @@ const Chatbot: React.FC = () => {
         // Save MCP error message to database
         if (activeSessionId) {
           try {
+            console.log('Attempting to save MCP error message to database:', {
+              sessionId: activeSessionId,
+              errorContent: errorMessage.content
+            });
+
             await chatbotService.sendMessage(
               '',
               activeSessionId,
               errorMessage.content,
               false
             );
-            console.log('MCP error message saved to database');
-          } catch (dbError) {
-            console.error('Error saving MCP error message to database:', dbError);
+            console.log('MCP error message saved to database successfully');
+          } catch (dbError: any) {
+            console.error('Error saving MCP error message to database:', {
+              error: dbError.message,
+              status: dbError.response?.status,
+              statusText: dbError.response?.statusText,
+              data: dbError.response?.data
+            });
+
+            // If it's an authentication error, show a more helpful message
+            if (dbError.response?.status === 401) {
+              console.warn('Authentication error when saving MCP error message - user may need to log in again');
+            } else if (dbError.response?.status === 400) {
+              console.warn('Bad request when saving MCP error message - check request format');
+            }
           }
         }
         

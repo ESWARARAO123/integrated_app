@@ -1,3 +1,6 @@
+// Import RAG types
+import { RagImage } from '../services/ragChatService';
+
 // User-related types
 export interface User {
   id: string;
@@ -33,6 +36,7 @@ export interface ChatMessage {
 export interface ExtendedChatMessage extends Omit<ChatMessage, 'role'> {
   role: 'user' | 'assistant' | 'system';
   sources?: any[]; // Sources for RAG responses
+  images?: RagImage[]; // Images for RAG responses
   useRag?: boolean; // Flag to indicate if RAG was used
   isContextTool?: boolean; // Flag to indicate if this is a context tool message
   isContextMessage?: boolean; // Flag to indicate this is a context message with user preferences
