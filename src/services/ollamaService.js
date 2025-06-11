@@ -6,6 +6,7 @@
 const axios = require('axios');
 const { db } = require('../database');
 const { logger } = require('../utils/logger');
+const config = require('../utils/config');
 const path = require('path');
 
 // Default timeout for Ollama API requests (in milliseconds)
@@ -70,11 +71,12 @@ class OllamaService {
         logger.info('Loaded Ollama settings from database');
       } else {
         // Create default settings if none exist
-        logger.info('No Ollama settings found, creating defaults');
+        logger.info('No Ollama settings found, creating defaults from config');
+        const ollamaConfig = config.getSection('ollama');
         await this.saveSettings({
-          host: 'localhost',
-          port: 11434,
-          default_model: ''
+          host: ollamaConfig.host || 'localhost',
+          port: parseInt(ollamaConfig.port) || 11434,
+          default_model: config.get('ai.default_model', '')
         });
         const result = await db.query('SELECT * FROM ollama_settings ORDER BY id DESC LIMIT 1');
         this.settings = result.rows[0];

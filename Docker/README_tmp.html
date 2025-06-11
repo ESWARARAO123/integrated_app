@@ -759,10 +759,10 @@ ollama pull codellama
 <thead>
 <tr>
 <th>Service</th>
-<th>Host Port</th>
+<th>Default Host Port</th>
 <th>Container Port</th>
 <th>Purpose</th>
-<th>Access URL</th>
+<th>Configuration</th>
 </tr>
 </thead>
 <tbody>
@@ -771,38 +771,42 @@ ollama pull codellama
 <td>5634</td>
 <td>N/A (Host)</td>
 <td>Backend + Frontend</td>
-<td>http://localhost:5634</td>
+<td><code>conf/config.ini</code> → <code>[server] port</code></td>
 </tr>
 <tr>
 <td><strong>Redis</strong></td>
 <td>6379</td>
 <td>6379</td>
 <td>Queue Management</td>
-<td>redis://localhost:6379</td>
+<td><code>conf/config.ini</code> → <code>[redis] port</code></td>
 </tr>
 <tr>
 <td><strong>ChromaDB</strong></td>
 <td>8001</td>
 <td>8000</td>
 <td>Vector Database</td>
-<td>http://localhost:8001</td>
+<td><code>conf/config.ini</code> → <code>[docker] chromadb_port</code></td>
 </tr>
 <tr>
 <td><strong>PostgreSQL</strong></td>
 <td>5432</td>
 <td>5432</td>
 <td>Primary Database</td>
-<td>postgresql://localhost:5432</td>
+<td><code>conf/config.ini</code> → <code>[database] database-port</code></td>
 </tr>
 <tr>
 <td><strong>Ollama/LLM</strong></td>
 <td>11434</td>
 <td>N/A (Host)</td>
 <td>AI Model Inference</td>
-<td>http://localhost:11434</td>
+<td><code>conf/config.ini</code> → <code>[ollama] port</code></td>
 </tr>
 </tbody>
 </table>
+<p><strong>🔧 All ports are configurable via <code>conf/config.ini</code> - no hardcoded values!</strong></p>
+<p><strong>📡 Get current port configuration:</strong></p>
+<pre class="hljs"><code><div>curl http://localhost:5634/api/config/ports
+</div></code></pre>
 <hr>
 <h3 id="%F0%9F%90%B3-docker-images--services">🐳 Docker Images &amp; Services</h3>
 <h4 id="1-main-application-host-system">1. <strong>Main Application (Host System)</strong></h4>
@@ -944,6 +948,101 @@ ollama pull codellama
 <li><strong>GPU Support</strong>: Better on host system</li>
 <li><strong>Data Storage</strong>: Named volume <code>ollama_data</code> for models</li>
 </ul>
+<hr>
+<h2 id="%E2%9A%99%EF%B8%8F-configuration-management">⚙️ Configuration Management</h2>
+<h3 id="%F0%9F%8E%AF-no-hardcoded-values-policy">🎯 No Hardcoded Values Policy</h3>
+<p>This application follows a <strong>strict no-hardcoding policy</strong> for ports, URLs, and configuration values. All settings are managed through:</p>
+<ol>
+<li><strong>Primary Configuration</strong>: <code>conf/config.ini</code></li>
+<li><strong>Docker Environment</strong>: <code>Docker/env.docker</code></li>
+<li><strong>Runtime Validation</strong>: Automatic validation on startup</li>
+</ol>
+<h3 id="%F0%9F%93%8B-configuration-sections">📋 Configuration Sections</h3>
+<h4 id="server-configuration">Server Configuration</h4>
+<pre class="hljs"><code><div><span class="hljs-section">[server]</span>
+<span class="hljs-attr">protocol</span> = http
+<span class="hljs-attr">domain</span> = localhost
+<span class="hljs-attr">port</span> = <span class="hljs-number">5634</span>                    <span class="hljs-comment"># Main application port</span>
+<span class="hljs-attr">static_root_path</span> = ./client/build
+</div></code></pre>
+<h4 id="docker-services">Docker Services</h4>
+<pre class="hljs"><code><div><span class="hljs-section">[docker]</span>
+<span class="hljs-comment"># ChromaDB configuration</span>
+<span class="hljs-attr">chromadb_protocol</span> = http
+<span class="hljs-attr">chromadb_host</span> = localhost
+<span class="hljs-attr">chromadb_port</span> = <span class="hljs-number">8001</span>          <span class="hljs-comment"># Host port for ChromaDB</span>
+
+<span class="hljs-comment"># Redis configuration</span>
+<span class="hljs-attr">redis_host</span> = localhost
+<span class="hljs-attr">redis_port</span> = <span class="hljs-number">6379</span>             <span class="hljs-comment"># Host port for Redis</span>
+
+<span class="hljs-comment"># PostgreSQL configuration</span>
+<span class="hljs-attr">postgres_host</span> = localhost
+<span class="hljs-attr">postgres_port</span> = <span class="hljs-number">5432</span>          <span class="hljs-comment"># Host port for PostgreSQL</span>
+</div></code></pre>
+<h4 id="ollama-ai-service">Ollama AI Service</h4>
+<pre class="hljs"><code><div><span class="hljs-section">[ollama]</span>
+<span class="hljs-attr">protocol</span> = http
+<span class="hljs-attr">host</span> = localhost
+<span class="hljs-attr">port</span> = <span class="hljs-number">11434</span>                  <span class="hljs-comment"># Ollama server port</span>
+<span class="hljs-attr">connection_timeout</span> = <span class="hljs-number">30000</span>
+<span class="hljs-attr">request_timeout</span> = <span class="hljs-number">120000</span>
+</div></code></pre>
+<h3 id="%F0%9F%94%8D-configuration-validation">🔍 Configuration Validation</h3>
+<p>The system automatically validates all configuration on startup:</p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check configuration health</span>
+curl http://localhost:5634/api/config/health
+
+<span class="hljs-comment"># Get all port mappings</span>
+curl http://localhost:5634/api/config/ports
+
+<span class="hljs-comment"># Validate configuration (admin only)</span>
+curl -H <span class="hljs-string">"Authorization: Bearer admin-token"</span> http://localhost:5634/api/config/validated
+</div></code></pre>
+<h3 id="%F0%9F%9B%A0%EF%B8%8F-changing-ports">🛠️ Changing Ports</h3>
+<p>To change any service port:</p>
+<ol>
+<li>
+<p><strong>Edit <code>conf/config.ini</code></strong>:</p>
+<pre class="hljs"><code><div><span class="hljs-section">[server]</span>
+<span class="hljs-attr">port</span> = <span class="hljs-number">8080</span>  <span class="hljs-comment"># Change main app port</span>
+
+<span class="hljs-section">[docker]</span>
+<span class="hljs-attr">chromadb_port</span> = <span class="hljs-number">9001</span>  <span class="hljs-comment"># Change ChromaDB port</span>
+</div></code></pre>
+</li>
+<li>
+<p><strong>Update Docker environment</strong> (if using Docker):</p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Edit Docker/env.docker</span>
+CHROMADB_HOST_PORT=9001
+</div></code></pre>
+</li>
+<li>
+<p><strong>Restart services</strong>:</p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Restart Docker services</span>
+<span class="hljs-built_in">cd</span> Docker &amp;&amp; docker compose down &amp;&amp; docker compose up -d
+
+<span class="hljs-comment"># Restart main application</span>
+npm start
+</div></code></pre>
+</li>
+</ol>
+<h3 id="%F0%9F%94%A7-environment-variable-override">🔧 Environment Variable Override</h3>
+<p>Docker services support environment variable overrides:</p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Override ChromaDB port</span>
+CHROMADB_HOST_PORT=9001 docker compose up -d
+
+<span class="hljs-comment"># Override Redis port</span>
+REDIS_HOST_PORT=7379 docker compose up -d
+</div></code></pre>
+<h3 id="%E2%9C%85-configuration-best-practices">✅ Configuration Best Practices</h3>
+<ol>
+<li><strong>Always use config.ini</strong>: Never hardcode ports or URLs</li>
+<li><strong>Validate on startup</strong>: Check configuration health endpoint</li>
+<li><strong>Document changes</strong>: Update this README when adding new config options</li>
+<li><strong>Test port changes</strong>: Verify all services after port modifications</li>
+<li><strong>Use environment overrides</strong>: For temporary testing or deployment variations</li>
+</ol>
 <hr>
 <h2 id="%F0%9F%8F%97%EF%B8%8F-building-custom-docker-images">🏗️ Building Custom Docker Images</h2>
 <h3 id="overview-of-custom-images">Overview of Custom Images</h3>
@@ -1540,7 +1639,7 @@ ollama serve &amp;
 
 <span class="hljs-comment"># Test Ollama models</span>
 ollama list
-ollama pull llama2  <span class="hljs-comment"># if no models installed</span>
+ollama pull llama3 <span class="hljs-comment"># if no models installed</span>
 
 <span class="hljs-comment"># Check application configuration</span>
 cat conf/config.ini | grep -A 5 <span class="hljs-string">"\[ai\]"</span>

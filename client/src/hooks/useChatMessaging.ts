@@ -234,9 +234,10 @@ export const useChatMessaging = () => {
         // Base system prompt
         let systemPromptContent = 'You are a helpful AI assistant. Answer the user\'s questions accurately and concisely.';
 
-        // Apply context to the system prompt using our utility function with shell command capabilities
+        // Apply context to the system prompt using our utility function with conditional shell command capabilities
+        // Only enable shell commands when MCP mode is active
         systemPromptContent = applyContextToPrompt(systemPromptContent, messages, {
-          enableShellCommands: true
+          enableShellCommands: false // Shell commands should only be available in MCP mode
         });
 
         // Log the system prompt with context for debugging

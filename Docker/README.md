@@ -424,13 +424,56 @@ serve_static = true
 ## 🔧 Services Overview & Docker Images
 
 ### 📊 Port Mapping Summary
-| Service | Host Port | Container Port | Purpose | Access URL |
-|---------|-----------|----------------|---------|------------|
-| **Main Application** | 5634 | N/A (Host) | Backend + Frontend | http://localhost:5634 |
-| **Redis** | 6379 | 6379 | Queue Management | redis://localhost:6379 |
-| **ChromaDB** | 8001 | 8000 | Vector Database | http://localhost:8001 |
-| **PostgreSQL** | 5432 | 5432 | Primary Database | postgresql://localhost:5432 |
-| **Ollama/LLM** | 11434 | N/A (Host) | AI Model Inference | http://localhost:11434 |
+| Service | Default Host Port | Container Port | Purpose | Configuration |
+|---------|-------------------|----------------|---------|---------------|
+| **Main Application** | 5634 | N/A (Host) | Backend + Frontend | `conf/config.ini` → `[server] port` |
+| **Redis** | 6379 | 6379 | Queue Management | `conf/config.ini` → `[redis] port` |
+| **ChromaDB** | 8001 | 8000 | Vector Database | `conf/config.ini` → `[docker] chromadb_port` |
+| **PostgreSQL** | 5432 | 5432 | Primary Database | `conf/config.ini` → `[database] database-port` |
+| **Ollama/LLM** | 11434 | N/A (Host) | AI Model Inference | `conf/config.ini` → `[ollama] port` |
+| **Chat2SQL** | 5000 | 5000 | Natural Language to SQL | `conf/config.ini` → `[chat2sql] port` |
+
+**🔧 All ports are configurable via `conf/config.ini` - no hardcoded values!**
+
+**📡 Get current port configuration:**
+```bash
+curl http://localhost:5634/api/config/ports
+```
+
+### 🗣️ Chat2SQL Service
+
+The Chat2SQL service provides natural language to SQL query conversion using AI. It's fully dockerized and integrated with the main application.
+
+**Key Features:**
+- 🤖 **AI-Powered**: Uses Ollama (Mistral model) for natural language understanding
+- 🔒 **Secure**: Only allows SELECT queries for safety
+- 📊 **Formatted Output**: Returns results as markdown tables
+- 🔄 **Session Support**: Maintains query history per chat session
+- 🐳 **Dockerized**: Runs in isolated container with proper resource limits
+
+**Quick Setup:**
+```bash
+# Automated setup (recommended)
+node src/scripts/setup-chat2sql.js
+
+# Manual setup
+cd Docker
+docker compose build chat2sql
+docker compose up -d chat2sql
+
+# Test the service
+node src/scripts/test-chat2sql-docker.js
+```
+
+**Usage in Application:**
+1. Start the main application: `npm start`
+2. Open the chat interface
+3. Click the "Chat2SQL" toggle button
+4. Ask questions like:
+   - "list all tables"
+   - "show me all users"
+   - "count rows in sessions table"
+   - "what columns are in the documents table?"
 
 ---
 
@@ -530,6 +573,31 @@ image-processor:
 - **Resource Limits**: 2GB RAM, 1.5 CPU cores
 - **Data Storage**: Bind mounts for input/output and collections
 
+#### 6. **Chat2SQL (Custom Built Image)**
+```yaml
+# docker-compose.yml
+chat2sql:
+  build:
+    context: ..
+    dockerfile: Docker/Dockerfile.chat2sql
+  container_name: productdemo-chat2sql
+  ports: ["5000:5000"]
+```
+- **Base Image**: `python:3.9-slim`
+- **Build Context**: Project root directory
+- **Dockerfile**: `Docker/Dockerfile.chat2sql`
+- **Purpose**: Natural language to SQL query conversion and execution
+- **Features**:
+  - FastAPI-based REST API
+  - Ollama integration for AI-powered SQL generation
+  - PostgreSQL database connectivity
+  - Session-based query history
+  - Markdown table response formatting
+- **Port**: 5000 (configurable via `CHAT2SQL_HOST_PORT`)
+- **Resource Limits**: 1GB RAM, 1 CPU core
+- **Dependencies**: Ollama (host), PostgreSQL database
+- **API Endpoint**: `/chat2sql/execute`
+
 #### 6. **PostgreSQL (Host or Container)**
 ```yaml
 # Optional - can be added to docker-compose.yml
@@ -559,6 +627,119 @@ ollama:
 - **Models**: Configurable (llama2, codellama, mistral, etc.)
 - **GPU Support**: Better on host system
 - **Data Storage**: Named volume `ollama_data` for models
+
+---
+
+## ⚙️ Configuration Management
+
+### 🎯 No Hardcoded Values Policy
+
+This application follows a **strict no-hardcoding policy** for ports, URLs, and configuration values. All settings are managed through:
+
+1. **Primary Configuration**: `conf/config.ini`
+2. **Docker Environment**: `Docker/env.docker`
+3. **Runtime Validation**: Automatic validation on startup
+
+### 📋 Configuration Sections
+
+#### Server Configuration
+```ini
+[server]
+protocol = http
+domain = localhost
+port = 5634                    # Main application port
+static_root_path = ./client/build
+```
+
+#### Docker Services
+```ini
+[docker]
+# ChromaDB configuration
+chromadb_protocol = http
+chromadb_host = localhost
+chromadb_port = 8001          # Host port for ChromaDB
+
+# Redis configuration
+redis_host = localhost
+redis_port = 6379             # Host port for Redis
+
+# PostgreSQL configuration
+postgres_host = localhost
+postgres_port = 5432          # Host port for PostgreSQL
+```
+
+#### Ollama AI Service
+```ini
+[ollama]
+protocol = http
+host = localhost
+port = 11434                  # Ollama server port
+connection_timeout = 30000
+request_timeout = 120000
+```
+
+### 🔍 Configuration Validation
+
+The system automatically validates all configuration on startup:
+
+```bash
+# Check configuration health
+curl http://localhost:5634/api/config/health
+
+# Get all port mappings
+curl http://localhost:5634/api/config/ports
+
+# Validate configuration (admin only)
+curl -H "Authorization: Bearer admin-token" http://localhost:5634/api/config/validated
+```
+
+### 🛠️ Changing Ports
+
+To change any service port:
+
+1. **Edit `conf/config.ini`**:
+   ```ini
+   [server]
+   port = 8080  # Change main app port
+
+   [docker]
+   chromadb_port = 9001  # Change ChromaDB port
+   ```
+
+2. **Update Docker environment** (if using Docker):
+   ```bash
+   # Edit Docker/env.docker
+   CHROMADB_HOST_PORT=9001
+   ```
+
+3. **Restart services**:
+   ```bash
+   # Restart Docker services
+   cd Docker && docker compose down && docker compose up -d
+
+   # Restart main application
+   npm start
+   ```
+
+### 🔧 Environment Variable Override
+
+Docker services support environment variable overrides:
+
+```bash
+# Override ChromaDB port
+CHROMADB_HOST_PORT=9001 docker compose up -d
+
+# Override Redis port
+REDIS_HOST_PORT=7379 docker compose up -d
+```
+
+### ✅ Configuration Best Practices
+
+1. **Always use config.ini**: Never hardcode ports or URLs
+2. **Validate on startup**: Check configuration health endpoint
+3. **Document changes**: Update this README when adding new config options
+4. **Test port changes**: Verify all services after port modifications
+5. **Use environment overrides**: For temporary testing or deployment variations
 
 ---
 
@@ -1267,7 +1448,7 @@ ollama serve &
 
 # Test Ollama models
 ollama list
-ollama pull llama2  # if no models installed
+ollama pull llama3 # if no models installed
 
 # Check application configuration
 cat conf/config.ini | grep -A 5 "\[ai\]"

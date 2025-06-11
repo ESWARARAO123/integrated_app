@@ -10,10 +10,10 @@ const config = require('../utils/config');
 class VectorStoreService {
   constructor(overrides = {}) {
     // Read ChromaDB configuration from config.ini
-    const dockerConfig = config.getSection('Docker');
-    const protocol = dockerConfig['docker-chromadb-protocol'] || 'http';
-    const host = dockerConfig['docker-chromadb-host'] || 'localhost';
-    const port = dockerConfig['docker-chromadb-port'] || '8000';
+    const dockerConfig = config.getSection('docker');
+    const protocol = dockerConfig['chromadb_protocol'] || config.get('docker.chromadb_protocol', 'http');
+    const host = dockerConfig['chromadb_host'] || config.get('docker.chromadb_host', 'localhost');
+    const port = dockerConfig['chromadb_port'] || config.get('docker.chromadb_port', '8001');
     const chromaUrl = `${protocol}://${host}:${port}`;
 
     this.config = {

@@ -168,7 +168,13 @@ async function startServer() {
 
       // For any request that doesn't match an API route or static file,
       // send the React app's index.html (for client-side routing)
-      app.get('*', (req, res) => {
+      // But exclude API routes from this catch-all
+      app.get('*', (req, res, next) => {
+        // Skip API routes - let them be handled by the API router
+        if (req.path.startsWith('/api/')) {
+          return next();
+        }
+
         // Use path.resolve to create an absolute path to index.html
         const indexPath = path.resolve(staticPath, 'index.html');
         res.sendFile(indexPath);

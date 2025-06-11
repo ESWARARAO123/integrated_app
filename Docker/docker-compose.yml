@@ -5,14 +5,14 @@ services:
     image: chromadb/chroma:latest
     container_name: productdemo-chromadb
     ports:
-      - "8001:8000"
+      - "${CHROMADB_HOST_PORT:-8001}:${CHROMADB_CONTAINER_PORT:-8000}"
     volumes:
       - ./DATA/chroma_data:/chroma/chroma
     environment:
       - ALLOW_RESET=true
       - CHROMA_SERVER_CORS_ALLOW_ORIGINS=*
       - CHROMA_SERVER_HOST=0.0.0.0
-      - CHROMA_SERVER_PORT=8000
+      - CHROMA_SERVER_PORT=${CHROMADB_CONTAINER_PORT:-8000}
     restart: unless-stopped
     networks:
       - productdemo-network
@@ -21,11 +21,11 @@ services:
     image: redis:7-alpine
     container_name: productdemo-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-6379}:${REDIS_CONTAINER_PORT:-6379}"
     volumes:
       - redis_data:/data
     environment:
-      - REDIS_PASSWORD=
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     restart: unless-stopped
     healthcheck:
@@ -101,6 +101,39 @@ services:
           cpus: '0.5'
     networks:
       - productdemo-network
+
+  chat2sql:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.chat2sql
+    container_name: productdemo-chat2sql
+    ports:
+      - "5000:5000"
+    environment:
+      # Python configuration only - no database overrides
+      - PYTHONUNBUFFERED=1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - productdemo-network
+    depends_on:
+      - redis
+      - chromadb
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   redis_data:

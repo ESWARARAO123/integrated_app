@@ -39,7 +39,7 @@ const MCPServerSelector: React.FC<MCPServerSelectorProps> = ({
   onClose,
   onServerSelect
 }) => {
-  const { testServerConnection, connectToServer, mcpConnection, defaultServer } = useMCP();
+  const { testServerConnection, connectToServer, mcpConnection, defaultServer, isMCPEnabled, toggleMCPEnabled } = useMCP();
   const { isAgentEnabled, toggleAgent } = useMCPAgent();
   const { connected: wsConnected, isFullyReady } = useWebSocket();
   const { currentTheme } = useTheme();
@@ -236,10 +236,20 @@ const MCPServerSelector: React.FC<MCPServerSelectorProps> = ({
         setConnecting(false);
         setConnectionPhase('');
         onClose();
+
+        // Ensure MCP is enabled in the context first, then enable the agent
+        if (!isMCPEnabled) {
+          console.log('Enabling MCP context after successful connection');
+          toggleMCPEnabled();
+        }
+
         // Only toggle the agent if it's not already enabled
         if (!isAgentEnabled) {
           console.log('Enabling MCP Agent after successful connection');
-          toggleAgent();
+          // Add a small delay to ensure MCP context is enabled first
+          setTimeout(() => {
+            toggleAgent();
+          }, 100);
         } else {
           console.log('MCP Agent already enabled, not toggling');
         }
@@ -252,7 +262,7 @@ const MCPServerSelector: React.FC<MCPServerSelectorProps> = ({
       setConnectionPhase('');
       setError(mcpConnection.error || 'Failed to establish connection to MCP server');
     }
-  }, [mcpConnection, connecting, wsConnected, isFullyReady, onClose, isAgentEnabled, toggleAgent]);
+  }, [mcpConnection, connecting, wsConnected, isFullyReady, onClose, isAgentEnabled, toggleAgent, isMCPEnabled, toggleMCPEnabled]);
 
   // Fetch default MCP port from configuration when component mounts
   useEffect(() => {

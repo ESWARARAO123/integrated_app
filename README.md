@@ -318,26 +318,55 @@ secret_key = your_secret_key   # Secret for session encryption (change this!)
 
 ## 🔧 Configuration
 
+### 🎯 No Hardcoded Values Policy
+
+This application uses **centralized configuration management** with automatic validation. All ports, URLs, and settings are configurable via `conf/config.ini`.
+
 ### Application Configuration (conf/config.ini)
+
+#### Core Services
 ```ini
 [server]
-domain = 0.0.0.0
-port = 5634
-session_secret = your_secret_key
+protocol = http
+domain = localhost
+port = 5634                    # Main application port (configurable)
 static_root_path = ./client/build
 
 [database]
-type = postgresql
+database-type = postgres
+database-host = localhost
+database-port = 5432          # Database port (configurable)
+database-name = copilot
+database-user = postgres
+database-password = your_password
+
+[ollama]
+protocol = http
 host = localhost
-port = 5432
-name = copilot
-user = postgres
-password = your_password
+port = 11434                  # Ollama server port (configurable)
+connection_timeout = 30000
+
+[docker]
+# Docker service ports (all configurable)
+chromadb_protocol = http
+chromadb_host = localhost
+chromadb_port = 8001          # ChromaDB host port
+redis_host = localhost
+redis_port = 6379             # Redis host port
+```
+
+#### Application Settings
+```ini
+[ai]
+default_model = llama3
+embedding_model = nomic-embed-text
+embedding_dimensions = 768
+temperature = 0.7
 
 [frontend]
-title = Platform Dashboard
+app_title = Product Demo
 api_url = /api
-default_theme = dark
+default_theme = light
 
 [admin]
 default_username = admin
@@ -346,6 +375,34 @@ default_password = admin
 [security]
 cookie_secure = false
 cookie_max_age = 86400000
+```
+
+### 🔍 Configuration Validation
+
+Check your configuration health:
+```bash
+# Validate all configuration
+curl http://localhost:5634/api/config/health
+
+# Get current port mappings
+curl http://localhost:5634/api/config/ports
+
+# Example response:
+{
+  "success": true,
+  "ports": {
+    "Main Application": {
+      "port": 5634,
+      "url": "http://localhost:5634",
+      "description": "Backend + Frontend"
+    },
+    "ChromaDB": {
+      "port": 8001,
+      "url": "http://localhost:8001",
+      "description": "Vector Database"
+    }
+  }
+}
 ```
 
 ## 📱 Responsive Design Breakpoints

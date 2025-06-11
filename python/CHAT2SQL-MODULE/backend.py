@@ -20,18 +20,27 @@ from psycopg2 import pool
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Database Configuration
+# Database Configuration - Keep your original hardcoded values
 DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'copilot',
+    'host': '172.16.16.54',
+    'database': 'chatsqldb',
     'user': 'postgres',
-    'password': 'Welcom@123',
+    'password': 'root',
     'port': '5432'
 }
 
-# Ollama Configuration
-OLLAMA_API_URL = "http://localhost:11434/api/generate"
+# Ollama Configuration - Auto-detect Docker environment
+# Use host.docker.internal when running in Docker, localhost otherwise
+OLLAMA_HOST = "host.docker.internal" if os.path.exists('/.dockerenv') else "localhost"
+OLLAMA_API_URL = f"http://{OLLAMA_HOST}:11434/api/generate"
 MODEL_NAME = "mistral"
+
+# Log configuration on startup
+logger.info(f"Database config: {DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}")
+logger.info(f"Ollama API URL: {OLLAMA_API_URL}")
+logger.info(f"Model: {MODEL_NAME}")
+logger.info(f"Running in Docker: {os.path.exists('/.dockerenv')}")
+logger.info(f"Ollama Host: {OLLAMA_HOST}")
 
 # FastAPI App Setup
 app = FastAPI(

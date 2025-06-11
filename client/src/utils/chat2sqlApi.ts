@@ -72,81 +72,79 @@ const cleanChat2SqlResponse = (data: string): string => {
 
 export const fetchChat2SqlResult = async (query: string, sessionId?: string): Promise<Chat2SqlResponse> => {
   try {
-    console.log('Sending chat2sql request:', query, 'Session ID:', sessionId);
-    
+    console.log('🔍 Sending chat2sql request:', query, 'Session ID:', sessionId);
+
+    // Get Chat2SQL URL from config.ini via backend API service
+    let chat2sqlUrl: string;
+
     try {
-      // First try the external Chat2SQL service
-      const response = await fetch('http://localhost:5000/chat2sql/execute', {
-        method: 'POST',
+      const configResponse = await fetch('/api/config/frontend-config', {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',  // Prevent caching
-          'Pragma': 'no-cache'
-        },
-        body: JSON.stringify({ 
-          query,
-          sessionId,  // Include session ID in request
-          timestamp: Date.now()  // Add timestamp to make each request unique
-        })
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
       });
 
-      console.log('Response status from external service:', response.status);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Received data from external service for query:', query, data);
-        
-        // Clean the response data
-        const cleanedData = {
-          ...data,
-          data: cleanChat2SqlResponse(data.data)
-        };
-        
-        console.log('Cleaned data:', cleanedData);
-        return cleanedData;
+      if (!configResponse.ok) {
+        throw new Error(`Configuration service returned ${configResponse.status}: ${configResponse.statusText}`);
       }
-      
-      console.warn('External Chat2SQL service failed, falling back to internal endpoint');
-    } catch (externalError) {
-      console.warn('Error connecting to external Chat2SQL service:', externalError);
-      console.log('Falling back to internal endpoint');
+
+      if (!configResponse.headers.get('content-type')?.includes('application/json')) {
+        throw new Error('Configuration service returned non-JSON response');
+      }
+
+      const config = await configResponse.json();
+
+      if (!config.chat2sqlUrl) {
+        throw new Error('Chat2SQL URL not found in configuration');
+      }
+
+      chat2sqlUrl = config.chat2sqlUrl;
+      console.log('🎯 Using Chat2SQL URL from config service:', chat2sqlUrl);
+
+    } catch (configError) {
+      console.error('❌ Failed to load Chat2SQL configuration:', configError);
+      throw new Error(`Chat2SQL configuration unavailable: ${configError instanceof Error ? configError.message : 'Unknown error'}`);
     }
-    
-    // Fallback to our internal endpoint
-    const fallbackResponse = await fetch('/api/chat2sql/execute', {
+
+    const requestBody = {
+      query,
+      sessionId,
+      timestamp: Date.now()
+    };
+    console.log('📤 Request body:', requestBody);
+
+    const response = await fetch(`${chat2sqlUrl}/chat2sql/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
       },
-      body: JSON.stringify({ 
-        query,
-        sessionId,
-        timestamp: Date.now()
-      }),
-      credentials: 'include'  // Include cookies for authentication
+      body: JSON.stringify(requestBody)
     });
-    
-    console.log('Response status from internal fallback:', fallbackResponse.status);
-    
-    if (!fallbackResponse.ok) {
-      const errorText = await fallbackResponse.text();
-      console.error('Error response from internal fallback:', errorText);
-      throw new Error(`HTTP error! status: ${fallbackResponse.status}, message: ${errorText}`);
+
+    console.log('📥 Response status from Python service:', response.status);
+    console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Python service error response:', errorText);
+      throw new Error(`Python Chat2SQL service failed: ${response.status} - ${errorText}`);
     }
-    
-    const fallbackData = await fallbackResponse.json();
-    console.log('Received data from internal fallback for query:', query, fallbackData);
-    
-    // Clean the fallback response data as well
-    const cleanedFallbackData = {
-      ...fallbackData,
-      data: cleanChat2SqlResponse(fallbackData.data)
+
+    const data = await response.json();
+    console.log('✅ Received data from Python service:', data);
+
+    // Clean the response data
+    const cleanedData = {
+      ...data,
+      data: cleanChat2SqlResponse(data.data)
     };
-    
-    console.log('Cleaned fallback data:', cleanedFallbackData);
-    return cleanedFallbackData;
+
+    console.log('🧹 Cleaned data:', cleanedData);
+    return cleanedData;
   } catch (error) {
     console.error('Error fetching chat2sql result:', error);
     throw error;
