@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # Database Configuration - Keep your original hardcoded values
 DB_CONFIG = {
-    'host': '172.16.16.54',
+    'host': 'localhost',
     'database': 'chatsqldb',
     'user': 'postgres',
     'password': 'root',

@@ -78,7 +78,7 @@ export const fetchChat2SqlResult = async (query: string, sessionId?: string): Pr
     let chat2sqlUrl: string;
 
     try {
-      const configResponse = await fetch('/api/config/frontend-config', {
+      const configResponse = await fetch('/api/frontend-config', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
