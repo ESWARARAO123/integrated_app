@@ -1,0 +1,39 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install necessary packages
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    curl \
+    bash
+
+# Copy package files
+COPY package*.json ./
+
+# Install Node.js dependencies
+RUN npm ci --only=production
+
+# Copy source code
+COPY src/services/embeddingService/ ./src/services/embeddingService/
+COPY src/utils/ ./src/utils/
+COPY conf/ ./conf/
+
+# Create app user for security
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S embeddinguser -u 1001
+
+# Change ownership of the app directory
+RUN chown -R embeddinguser:nodejs /app
+USER embeddinguser
+
+# Expose port 3579
+EXPOSE 3579
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:3579/health || exit 1
+
+# Start the embedding service
+CMD ["node", "src/services/embeddingService/server.js"] 

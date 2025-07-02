@@ -12,9 +12,42 @@ const configPath = process.argv.find(arg => arg.startsWith('--config='))
 console.log(`Database loading configuration from: ${configPath}`);
 const config = ini.parse(fs.readFileSync(path.resolve(configPath), 'utf-8'));
 
+// Docker-aware host resolution
+function resolveDbHost(configHost) {
+  // More robust Docker detection
+  const dockerIndicators = [
+    fs.existsSync('/.dockerenv'),                    // Standard Docker indicator
+    process.env.DOCKER_CONTAINER === 'true',        // Our custom indicator  
+    process.env.NODE_ENV === 'production',          // Production mode
+    process.env.HOSTNAME && process.env.HOSTNAME.length === 12, // Docker hostname pattern
+    process.env.container === 'docker'              // Another indicator
+  ];
+  
+  const isInDocker = dockerIndicators.some(indicator => indicator);
+  
+  console.log('Docker detection:', {
+    dockerenv: fs.existsSync('/.dockerenv'),
+    dockerContainer: process.env.DOCKER_CONTAINER,
+    nodeEnv: process.env.NODE_ENV,
+    hostname: process.env.HOSTNAME,
+    container: process.env.container,
+    isInDocker: isInDocker,
+    originalHost: configHost
+  });
+  
+  // If in Docker and host is localhost, use host.docker.internal to reach host machine
+  if (isInDocker && (configHost === 'localhost' || configHost === '127.0.0.1')) {
+    console.log(`Docker environment detected: translating ${configHost} to host.docker.internal`);
+    return 'host.docker.internal';
+  }
+  
+  console.log(`Using original host: ${configHost}`);
+  return configHost;
+}
+
 // PostgreSQL connection configuration
 const pgConfig = {
-  host: config.database['database-host'],
+  host: resolveDbHost(config.database['database-host']),
   port: config.database['database-port'],
   user: config.database['database-user'],
   password: config.database['database-password'],

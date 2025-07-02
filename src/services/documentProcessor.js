@@ -12,6 +12,7 @@ const ini = require('ini');
 const { chunkBySection } = require('../utils/headerChunker');
 const { extractTextAndTablesSmart } = require('./pdfProcessor');
 const FileCleanupService = require('./fileCleanupService');
+const EmbeddingClient = require('./embeddingClient');
 
 // Helper function to get documentService only when needed
 function getDocumentService() {
@@ -129,6 +130,13 @@ class DocumentProcessor {
         collectionName: 'rag_docs'
       }
     };
+
+    // Initialize embedding client instead of direct Ollama service for embeddings
+    this.embeddingClient = new EmbeddingClient({
+      embeddingServiceUrl: process.env.EMBEDDING_SERVICE_URL || 'http://localhost:3579',
+      timeout: 120000, // 2 minutes for large batches
+      retries: 3
+    });
 
     // Initialize services as soon as we can
     this.initOllamaService();
@@ -431,6 +439,122 @@ class DocumentProcessor {
     try {
       console.log(`Generating embeddings for document ${documentId}, ${chunks.length} chunks${sessionId ? `, session ${sessionId}` : ''}`);
 
+      // Check embedding service health first
+      const healthCheck = await this.embeddingClient.checkHealth();
+      if (!healthCheck.success) {
+        console.warn(`Embedding service health check failed: ${healthCheck.error}`);
+        console.warn('Falling back to direct Ollama service...');
+        
+        // Fallback to original method
+        return await this.generateEmbeddingsWithOllama(chunks, documentId, userId, sessionId, onProgress);
+      }
+
+      // Prepare texts for embedding
+      const texts = chunks.map(chunk => chunk.text);
+
+      // Report progress before starting embeddings
+      if (onProgress) {
+        await onProgress(70, `Generating embeddings for ${texts.length} chunks using embedding service`);
+      }
+
+      console.log(`Using embedding service to generate embeddings for ${texts.length} chunks`);
+
+      // Generate embeddings using the dedicated embedding service
+      const result = await this.embeddingClient.generateBatchEmbeddings(texts);
+      
+      if (!result.success) {
+        console.error(`Error generating embeddings via service:`, result.error);
+        
+        // If the service failed but is available, try fallback
+        if (result.fallback) {
+          console.log('Service provided fallback result');
+        } else {
+          console.log('Attempting final fallback to direct Ollama...');
+          return await this.generateEmbeddingsWithOllama(chunks, documentId, userId, sessionId, onProgress);
+        }
+      }
+
+      // Report progress after embeddings are generated
+      if (onProgress) {
+        const cacheInfo = result.cacheHits > 0 ? ` (${result.cacheHits} from cache)` : '';
+        await onProgress(90, `Storing ${result.successful} embeddings${cacheInfo}`);
+      }
+
+      // Store embeddings in vector database if available
+      if (this.vectorStoreService && result.embeddings && result.embeddings.length > 0) {
+        try {
+          console.log(`Storing ${result.embeddings.length} embeddings in vector store for document ${documentId}`);
+
+          // Get document service using helper function to avoid circular dependency
+          const documentService = getDocumentService();
+          // Get document metadata for storage
+          const document = await documentService.getDocument(documentId);
+
+          // Add chunks to vector store with session ID in metadata if available
+          const vectorStoreResult = await this.vectorStoreService.addDocumentChunks(
+            documentId,
+            chunks.map(chunk => chunk.text),
+            result.embeddings,
+            {
+              fileName: document.original_name || document.file_path.split('/').pop(),
+              userId: document.user_id || userId,
+              fileType: document.file_type,
+              sessionId: sessionId || document.session_id || null  // Include session ID in metadata
+            }
+          );
+
+          if (!vectorStoreResult) {
+            console.error(`Vector store returned undefined result for document ${documentId}`);
+          } else {
+            console.log(`Successfully stored vectors in store for document ${documentId}`);
+          }
+        } catch (storeError) {
+          console.error(`Error storing embeddings in vector store:`, storeError);
+          // Continue even if vector store fails
+        }
+      }
+
+      const successMessage = result.fallback 
+        ? `Generated ${result.successful} embeddings for document ${documentId} (via fallback)`
+        : `Generated ${result.successful} embeddings for document ${documentId} via embedding service${result.cacheHits > 0 ? ` (${result.cacheHits} cached)` : ''}`;
+
+      return {
+        success: true,
+        embeddings: result.embeddings,
+        message: successMessage,
+        cacheHits: result.cacheHits || 0,
+        fallback: result.fallback || false
+      };
+    } catch (error) {
+      console.error(`Error generating embeddings:`, error);
+      
+      // Final fallback attempt
+      console.log('Attempting final fallback to direct Ollama...');
+      try {
+        return await this.generateEmbeddingsWithOllama(chunks, documentId, userId, sessionId, onProgress);
+      } catch (fallbackError) {
+        console.error('All embedding generation methods failed:', fallbackError);
+        return {
+          success: false,
+          error: `All embedding methods failed. Service: ${error.message}, Fallback: ${fallbackError.message}`
+        };
+      }
+    }
+  }
+
+  /**
+   * Fallback method using direct Ollama service (original implementation)
+   * @param {Array} chunks - Document text chunks
+   * @param {string} documentId - Document ID
+   * @param {string} userId - User ID
+   * @param {string} sessionId - Optional session ID
+   * @param {Function} onProgress - Optional progress callback function
+   * @returns {Promise<Object>} - Result with embeddings
+   */
+  async generateEmbeddingsWithOllama(chunks, documentId, userId, sessionId = null, onProgress = null) {
+    try {
+      console.log(`Using direct Ollama for embeddings: document ${documentId}, ${chunks.length} chunks`);
+
       // Initialize embedding generator if needed
       if (!this.ollamaService) {
         await this.initOllamaService();
@@ -494,7 +618,9 @@ class DocumentProcessor {
         return {
           success: true,
           embeddings: placeholderEmbeddings,
-          message: `Generated ${placeholderEmbeddings.length} placeholder embeddings for document ${documentId} (Ollama unavailable)`
+          message: `Generated ${placeholderEmbeddings.length} placeholder embeddings for document ${documentId} (Ollama unavailable)`,
+          fallback: true,
+          placeholder: true
         };
       }
 
@@ -503,7 +629,7 @@ class DocumentProcessor {
 
       // Report progress before starting embeddings
       if (onProgress) {
-        await onProgress(70, `Generating embeddings for ${texts.length} chunks`);
+        await onProgress(70, `Generating embeddings for ${texts.length} chunks (Ollama direct)`);
       }
 
       // Generate embeddings using Ollama in batches
@@ -555,10 +681,11 @@ class DocumentProcessor {
       return {
         success: true,
         embeddings: result.embeddings,
-        message: `Generated ${result.embeddings.length} embeddings for document ${documentId}`
+        message: `Generated ${result.embeddings.length} embeddings for document ${documentId} (Ollama direct)`,
+        fallback: true
       };
     } catch (error) {
-      console.error(`Error generating embeddings:`, error);
+      console.error(`Error generating embeddings with Ollama:`, error);
       return {
         success: false,
         error: error.message
