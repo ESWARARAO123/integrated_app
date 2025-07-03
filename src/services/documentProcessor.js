@@ -699,128 +699,273 @@ class DocumentProcessor {
    * @returns {Promise<Object>} - Object with extracted text or error
    */
   async extractText(document) {
-    if (!document || !document.file_path) {
-      return {
-        success: false,
-        error: 'Invalid document or missing file path'
-      };
-    }
-
-    // Get the file path and resolve it properly for the current system
-    let { file_path, file_type } = document;
-
-    // Fix file path resolution for cross-platform compatibility
-    let resolvedFilePath = file_path;
-
-    // If the stored path is from a different system, try to resolve it
-    if (file_path.includes('/home/') || file_path.includes('/Users/')) {
-      // This is a Linux/Mac path, let's try to find the file in the current DATA directory
-      console.log(`Detected cross-platform path: ${file_path}`);
-      
-      // Extract the relative path from the user_id onward
-      const pathParts = file_path.split('/');
-      const userIdIndex = pathParts.findIndex(part => part.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/));
-      
-      if (userIdIndex > 0) {
-        // Rebuild the path using current system's DATA directory
-        const relativePath = pathParts.slice(userIdIndex).join(path.sep);
-        resolvedFilePath = path.join(this.documentsDir, relativePath);
-        console.log(`Resolved cross-platform path to: ${resolvedFilePath}`);
-      }
-    }
-
-    // Ensure we're using the DATA directory structure
-    if (!resolvedFilePath.includes('DATA') && !resolvedFilePath.includes(this.documentsDir)) {
-      // If the path doesn't include DATA, try to construct it
-      if (document.user_id && document.id) {
-        const fileName = path.basename(resolvedFilePath);
-        resolvedFilePath = path.join(this.documentsDir, document.user_id, fileName);
-        console.log(`Constructed new path: ${resolvedFilePath}`);
-      }
-    }
-
-    console.log(`Extracting text from ${resolvedFilePath} (${file_type})`);
-
-    // Check if the file actually exists
-    if (!fs.existsSync(resolvedFilePath)) {
-      console.error(`File not found at ${resolvedFilePath}`);
-      
-      // Try alternative paths
-      const alternatives = [
-        // Try with the original filename in the user directory
-        path.join(this.documentsDir, document.user_id, document.original_name),
-        // Try with just the basename in the user directory
-        path.join(this.documentsDir, document.user_id, path.basename(file_path)),
-        // Try the original path as-is (in case it's correct)
-        file_path
-      ];
-
-      for (const altPath of alternatives) {
-        if (fs.existsSync(altPath)) {
-          console.log(`Found file at alternative path: ${altPath}`);
-          resolvedFilePath = altPath;
-          break;
-        }
-      }
-
-      // If still not found, return an error
-      if (!fs.existsSync(resolvedFilePath)) {
-        return {
-          success: false,
-          error: `File not found. Tried paths: ${resolvedFilePath}, ${alternatives.join(', ')}`
-        };
-      }
-    }
-
     try {
-      let text = '';
-
-      // Extract based on file type
-      switch (file_type.toLowerCase()) {
-        case 'application/pdf':
-        case 'pdf':
-          text = await this.extractPdfText(resolvedFilePath);
-          break;
-
-        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        case 'docx':
-          text = await this.extractDocxText(resolvedFilePath);
-          break;
-
-        case 'text/plain':
-        case 'txt':
-          text = await readFile(resolvedFilePath, 'utf8');
-          break;
-
-        default:
-          return {
-            success: false,
-            error: `Unsupported file type: ${file_type}`
-          };
-      }
-
-      // Check if we got any text back
-      if (!text || text.length === 0) {
+      console.log(`Extracting text from ${document.file_type} document: ${document.original_name}`);
+      
+      // Store current document context for service calls
+      this.currentDocumentId = document.id;
+      this.currentUserId = document.user_id;
+      this.currentSessionId = document.session_id;
+      
+      // Get config to check if we should use containerized service
+      const config = require('../utils/config');
+      const textConfig = config.getSection('text_processor');
+      const useService = textConfig.use_service === 'true';
+      
+      let result;
+      
+      if (document.file_type === 'application/pdf' || document.file_type === 'pdf') {
+        console.log(`Processing PDF document: ${document.file_path}`);
+        
+        // Try containerized service first if enabled
+        if (useService) {
+          try {
+            // Check if we should extract tables
+            const extractTables = textConfig.extract_tables === 'true';
+            
+            if (extractTables) {
+              console.log('Using table extraction service');
+              result = await this.extractTextWithTablesService(document.file_path);
+            } else {
+              console.log('Using basic text extraction service');
+              result = await this.extractTextWithService(document.file_path);
+            }
+            
+            // If service call succeeded, return the result
+            if (result && result.success) {
+              console.log(`Service extraction successful: ${result.pageCount || 0} pages`);
+              return {
+                success: true,
+                text: result.text,
+                pageCount: result.pageCount || 0
+              };
+            }
+            
+            // Otherwise fall through to local processing
+            console.log(`Service call failed: ${result?.error || 'Unknown error'}, falling back to local processing`);
+          } catch (serviceError) {
+            console.error('Error using text processing service:', serviceError);
+            console.log('Falling back to local processing');
+          }
+        }
+        
+        // Fall back to local processing
+        result = await this.extractPdfText(document.file_path);
         return {
-          success: false,
-          error: 'No text could be extracted from the document'
+          success: true,
+          text: result,
+          pageCount: (result.match(/\[Page \d+ of \d+\]/g) || []).length
+        };
+      } else if (document.file_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                document.file_type === 'docx') {
+        console.log(`Processing DOCX document: ${document.file_path}`);
+        const text = await this.extractDocxText(document.file_path);
+        return {
+          text: text,
+          pageCount: 1 // DOCX doesn't have reliable page count
+        };
+      } else {
+        console.warn(`Unsupported document type: ${document.file_type}`);
+        return {
+          text: `[Unsupported document type: ${document.file_type}]`,
+          pageCount: 0
         };
       }
-
-      console.log(`Successfully extracted ${text.length} characters from ${resolvedFilePath}`);
-
-      return {
-        success: true,
-        text,
-        length: text.length
-      };
     } catch (error) {
-      console.error(`Error extracting text from ${resolvedFilePath}:`, error);
-      return {
-        success: false,
-        error: `Failed to extract text: ${error.message}`
-      };
+      console.error(`Error extracting text from document ${document.id}:`, error);
+      throw new Error(`Failed to extract text: ${error.message}`);
+    } finally {
+      // Clear document context
+      this.currentDocumentId = null;
+      this.currentUserId = null;
+      this.currentSessionId = null;
     }
+  }
+
+  /**
+   * Extract text from PDF using containerized text processing service
+   * @param {string} filePath - Path to the PDF file
+   * @returns {Promise<Object>} - Result with extracted text or error
+   */
+  async extractTextWithService(filePath) {
+    return new Promise(async (resolve) => {
+      try {
+        console.log(`Using containerized text processing service for ${filePath}`);
+        
+        // Check if the PDF file exists and is accessible
+        if (!fs.existsSync(filePath)) {
+          console.warn(`PDF file not found at ${filePath}`);
+          return resolve({
+            success: false,
+            error: `PDF file not found at ${filePath}`
+          });
+        }
+
+        // Get text processor URL from config
+        const config = require('../utils/config');
+        const textConfig = config.getSection('text_processor');
+        
+        // Build service URL from config components
+        const protocol = textConfig.protocol || 'http';
+        const host = textConfig.host || 'localhost';
+        const port = textConfig.port || '3580';
+        const textProcessorUrl = textConfig.url || `${protocol}://${host}:${port}`;
+        
+        console.log(`Calling text processor service at ${textProcessorUrl}/extract-text`);
+        
+        // Create form data for the file upload
+        const FormData = require('form-data');
+        const formData = new FormData();
+        formData.append('document', fs.createReadStream(filePath));
+        
+        // Add metadata if available
+        if (this.currentUserId) {
+          formData.append('userId', this.currentUserId);
+        }
+        
+        if (this.currentSessionId) {
+          formData.append('sessionId', this.currentSessionId);
+        }
+        
+        if (this.currentDocumentId) {
+          formData.append('documentId', this.currentDocumentId);
+        }
+        
+        // Send request to the text processing service
+        const fetch = require('node-fetch');
+        const response = await fetch(`${textProcessorUrl}/extract-text`, {
+          method: 'POST',
+          body: formData,
+          timeout: parseInt(textConfig.request_timeout) || 60000 // Use timeout from config or default to 60 seconds
+        });
+        
+        if (!response.ok) {
+          console.warn(`Text processing service returned status ${response.status}: ${response.statusText}`);
+          throw new Error(`Service returned status ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+          console.warn(`Text processing service reported failure: ${result.error}`);
+          return resolve({
+            success: false,
+            error: result.error || 'Unknown error in text processing service'
+          });
+        }
+        
+        console.log(`Successfully extracted ${result.page_count} pages with text processing service`);
+        
+        return resolve({
+          success: true,
+          text: result.text,
+          pageCount: result.page_count,
+          pages: result.pages
+        });
+        
+      } catch (error) {
+        console.error('Error calling text processing service:', error);
+        
+        // If service call fails, try falling back to local Python
+        console.log('Falling back to local Python extraction');
+        const fallbackResult = await this.extractTextSmart(filePath);
+        return resolve(fallbackResult);
+      }
+    });
+  }
+
+  /**
+   * Extract text with tables from PDF using containerized text processing service
+   * @param {string} filePath - Path to the PDF file
+   * @returns {Promise<Object>} - Result with extracted text or error
+   */
+  async extractTextWithTablesService(filePath) {
+    return new Promise(async (resolve) => {
+      try {
+        console.log(`Using containerized text processing service for tables extraction from ${filePath}`);
+        
+        // Check if the PDF file exists and is accessible
+        if (!fs.existsSync(filePath)) {
+          console.warn(`PDF file not found at ${filePath}`);
+          return resolve({
+          success: false,
+            error: `PDF file not found at ${filePath}`
+          });
+        }
+
+        // Get text processor URL from config
+        const config = require('../utils/config');
+        const textConfig = config.getSection('text_processor');
+        
+        // Build service URL from config components
+        const protocol = textConfig.protocol || 'http';
+        const host = textConfig.host || 'localhost';
+        const port = textConfig.port || '3580';
+        const textProcessorUrl = textConfig.url || `${protocol}://${host}:${port}`;
+        
+        console.log(`Calling text processor service at ${textProcessorUrl}/extract-tables`);
+        
+        // Create form data for the file upload
+        const FormData = require('form-data');
+        const formData = new FormData();
+        formData.append('document', fs.createReadStream(filePath));
+        
+        // Add metadata if available
+        if (this.currentUserId) {
+          formData.append('userId', this.currentUserId);
+        }
+        
+        if (this.currentSessionId) {
+          formData.append('sessionId', this.currentSessionId);
+        }
+        
+        if (this.currentDocumentId) {
+          formData.append('documentId', this.currentDocumentId);
+        }
+        
+        // Send request to the text processing service
+        const fetch = require('node-fetch');
+        const response = await fetch(`${textProcessorUrl}/extract-tables`, {
+          method: 'POST',
+          body: formData,
+          timeout: parseInt(textConfig.request_timeout) || 120000 // Use timeout from config or default to 2 minutes
+        });
+        
+        if (!response.ok) {
+          console.warn(`Text processing service returned status ${response.status}: ${response.statusText}`);
+          throw new Error(`Service returned status ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+          console.warn(`Text processing service reported failure: ${result.error}`);
+          return resolve({
+            success: false,
+            error: result.error || 'Unknown error in text processing service'
+          });
+        }
+        
+        console.log(`Successfully extracted ${result.page_count} pages with tables using text processing service`);
+        
+        return resolve({
+          success: true,
+          text: result.text,
+          pageCount: result.page_count,
+          has_tables: result.has_tables
+        });
+        
+      } catch (error) {
+        console.error('Error calling text processing service for tables:', error);
+        
+        // If service call fails, try falling back to local Python
+        console.log('Falling back to local Python extraction');
+        
+        // We don't have a direct fallback for tables extraction, so use basic text extraction
+        const fallbackResult = await this.extractTextSmart(filePath);
+        return resolve(fallbackResult);
+      }
+    });
   }
 
   /**

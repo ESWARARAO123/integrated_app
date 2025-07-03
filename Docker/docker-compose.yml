@@ -73,6 +73,74 @@ services:
       retries: 3
       start_period: 40s
 
+  text-processor:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.text-processor
+    container_name: productdemo-text-processor
+    ports:
+      - "${TEXT_PROCESSOR_HOST_PORT:-3580}:3580"
+    environment:
+      - NODE_ENV=production
+      - PORT=3580
+      - MAX_FILE_SIZE=50MB
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX_REQUESTS=100
+    volumes:
+      - ../logs:/app/logs
+    tmpfs:
+      - /tmp/uploads:exec,mode=1777
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3580/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - productdemo-network
+
+  mcp-orchestrator:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.mcp-orchestrator
+    container_name: productdemo-mcp-orchestrator
+    ports:
+      - "${MCP_ORCHESTRATOR_HOST_PORT:-3581}:3581"
+    environment:
+      - NODE_ENV=production
+      - PORT=3581
+      - MCP_SERVER_URL=${MCP_SERVER_URL:-http://localhost:8080}
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX_REQUESTS=100
+    volumes:
+      - ../logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.2'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3581/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - productdemo-network
+
   doc-workers:
     build:
       context: ..
@@ -90,6 +158,8 @@ services:
       - CHROMADB_HOST=localhost
       - CHROMADB_PORT=8001
       - EMBEDDING_SERVICE_URL=http://localhost:3579
+      - TEXT_PROCESSOR_URL=http://localhost:3580
+      - MCP_ORCHESTRATOR_URL=http://localhost:3581
     extra_hosts:
       - "host.docker.internal:192.168.2.111"
     volumes:
@@ -103,6 +173,10 @@ services:
       chromadb:
         condition: service_started
       embedding-service:
+        condition: service_healthy
+      text-processor:
+        condition: service_healthy
+      mcp-orchestrator:
         condition: service_healthy
     restart: unless-stopped
     deploy:
@@ -179,6 +253,8 @@ volumes:
   redis_data:
     driver: local
   image_collections:
+    driver: local
+  text_processor_tmp:
     driver: local
 
 networks:
