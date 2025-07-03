@@ -1,20 +1,19 @@
 FROM node:20-slim
 
-# Install Python 3.9.7 and required dependencies
+# Install Python 3.11 and required dependencies
 RUN apt-get update && apt-get install -y \
-    python3.9 \
-    python3.9-venv \
+    python3 \
+    python3-venv \
     python3-pip \
-    python3.9-dev \
+    python3-dev \
     build-essential \
     curl \
     git \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create symbolic links for python3.9
-RUN ln -sf /usr/bin/python3.9 /usr/bin/python3 \
-    && ln -sf /usr/bin/python3.9 /usr/bin/python
+# Create symbolic links for python3
+RUN ln -sf /usr/bin/python3 /usr/bin/python
 
 # Set working directory
 WORKDIR /app
@@ -58,4 +57,4 @@ EXPOSE 5640
 ENTRYPOINT ["/app/Docker/docker-entrypoint.sh"]
 
 # Command to run the application
-CMD ["npm", "run", "dev"] 
+CMD ["npm", "start"] 

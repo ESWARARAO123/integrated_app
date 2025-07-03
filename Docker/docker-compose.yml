@@ -66,9 +66,14 @@ services:
       - CHROMADB_URL=http://chromadb:${CHROMADB_CONTAINER_PORT:-8000}
       - EMBEDDING_SERVICE_URL=http://embedding-service:${EMBEDDING_CONTAINER_PORT:-3579}
       - TEXT_PROCESSOR_URL=http://text-processor:${TEXT_PROCESSOR_PORT:-3580}
+      # Use host IP for PostgreSQL
+      - DATABASE_HOST=172.17.0.1
+      - OLLAMA_HOST=172.17.0.1
     restart: unless-stopped
     networks:
       - productdemo-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   text-processor:
     build:
@@ -124,9 +129,9 @@ services:
       - EMBEDDING_SERVICE_URL=http://embedding-service:${EMBEDDING_CONTAINER_PORT:-3579}
       - TEXT_PROCESSOR_URL=http://text-processor:${TEXT_PROCESSOR_PORT:-3580}
       - MCP_ORCHESTRATOR_URL=http://mcp-orchestrator:${MCP_ORCHESTRATOR_PORT:-3581}
-      # Use host.docker.internal to connect to services on the host machine
-      - DATABASE_HOST=host.docker.internal
-      - OLLAMA_HOST=host.docker.internal
+      # Use host IP for PostgreSQL and Ollama
+      - DATABASE_HOST=172.17.0.1
+      - OLLAMA_HOST=172.17.0.1
     restart: unless-stopped
     networks:
       - productdemo-network
