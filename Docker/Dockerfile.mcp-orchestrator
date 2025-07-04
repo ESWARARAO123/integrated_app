@@ -37,8 +37,6 @@ RUN npm install --production
 
 # Copy API server code
 COPY Docker/mcp-orchestrator-api/server.js ./
-COPY Docker/mcp-orchestrator-api/routes ./routes
-COPY Docker/mcp-orchestrator-api/utils ./utils
 
 # Create non-root user
 RUN groupadd -r mcporchestrator && useradd -r -g mcporchestrator mcporchestrator

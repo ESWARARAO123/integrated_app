@@ -100,7 +100,7 @@ app.post('/execute', async (req, res) => {
  */
 function listTools(serverUrl) {
   return new Promise((resolve, reject) => {
-    const pythonScript = '/app/python/orchestrator.py';
+    const pythonScript = '/app/python/terminal-mcp-orchestrator/orchestrator.py';
     
     console.log(`Listing tools from server: ${serverUrl}`);
     
@@ -185,29 +185,40 @@ function listTools(serverUrl) {
  */
 function executeCommand(serverUrl, tool, parameters) {
   return new Promise((resolve, reject) => {
-    const pythonScript = '/app/python/orchestrator.py';
+    const pythonScript = '/app/python/terminal-mcp-orchestrator/orchestrator.py';
     
     console.log(`Executing command on server: ${serverUrl}`);
     console.log(`Tool: ${tool}`);
     console.log(`Parameters: ${JSON.stringify(parameters)}`);
     
-    // Convert parameters to JSON string
+    // Convert parameters to JSON string and properly escape it
     const parametersJson = JSON.stringify(parameters);
-    
+
+    console.log(`Received parameters: ${JSON.stringify(parameters, null, 2)}`);
+    console.log(`JSON string to send via stdin: ${parametersJson}`);
+
+    // Use stdio to pass the JSON parameters instead of command line arguments
+    // This avoids shell interpretation issues with special characters
     const pythonProcess = spawn('python', [
       pythonScript,
       '--server', serverUrl,
       tool,
-      parametersJson
-    ]);
+      '--stdin'  // Signal to read parameters from stdin
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe']  // Enable stdin pipe
+    });
     
     let stdout = '';
     let stderr = '';
-    
+
+    // Send the JSON parameters via stdin
+    pythonProcess.stdin.write(parametersJson);
+    pythonProcess.stdin.end();
+
     pythonProcess.stdout.on('data', (data) => {
       stdout += data.toString();
     });
-    
+
     pythonProcess.stderr.on('data', (data) => {
       stderr += data.toString();
       console.error(`Python stderr: ${data.toString()}`);
@@ -225,17 +236,86 @@ function executeCommand(serverUrl, tool, parameters) {
       
       try {
         // Try to parse JSON from the output
-        const jsonStart = stdout.indexOf('{');
-        if (jsonStart >= 0) {
-          const jsonOutput = stdout.substring(jsonStart);
-          const result = JSON.parse(jsonOutput);
-          return resolve(result);
+        // Look for the last line that might be JSON, or find JSON blocks
+        const lines = stdout.trim().split('\n');
+        let jsonResult = null;
+
+        // Try to find JSON in the output (could be last line or embedded)
+        // First try to find multi-line JSON blocks
+        const jsonStartIndex = stdout.lastIndexOf('{');
+        const jsonEndIndex = stdout.lastIndexOf('}');
+
+        if (jsonStartIndex >= 0 && jsonEndIndex > jsonStartIndex) {
+          const jsonCandidate = stdout.substring(jsonStartIndex, jsonEndIndex + 1);
+          try {
+            jsonResult = JSON.parse(jsonCandidate);
+          } catch (e) {
+            // If multi-line JSON fails, try single lines
+            for (let i = lines.length - 1; i >= 0; i--) {
+              const line = lines[i].trim();
+              if (line.startsWith('{') || line.startsWith('[')) {
+                try {
+                  jsonResult = JSON.parse(line);
+                  break;
+                } catch (e) {
+                  // Continue searching
+                }
+              }
+            }
+          }
         }
-        
-        // If no JSON found, return the raw output
+
+        // If we found JSON, return it
+        if (jsonResult) {
+          return resolve(jsonResult);
+        }
+
+        // Try to find JSON anywhere in the output
+        const jsonStart = stdout.indexOf('{');
+        const jsonEnd = stdout.lastIndexOf('}');
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+          const jsonOutput = stdout.substring(jsonStart, jsonEnd + 1);
+          try {
+            const result = JSON.parse(jsonOutput);
+            return resolve(result);
+          } catch (e) {
+            // Fall through to raw output handling
+          }
+        }
+
+        // If no JSON found, check if the output looks like a simple result
+        const outputLines = stdout.trim().split('\n');
+        const lastLine = outputLines[outputLines.length - 1].trim();
+
+        // Check if the last line is a simple result (number, short text, etc.)
+        if (lastLine && !lastLine.includes('ERROR') && !lastLine.includes('Error') &&
+            !lastLine.includes('Connecting') && !lastLine.includes('Executing') &&
+            !lastLine.includes('Disconnected') && lastLine.length < 1000) {
+          // If it's a simple output (like a number), treat it as success
+          return resolve({
+            success: true,
+            output: lastLine,
+            result: lastLine
+          });
+        }
+
+        // If we have multiple lines, try to find the actual result
+        const cleanOutput = stdout.trim();
+        if (cleanOutput && !cleanOutput.includes('ERROR') && !cleanOutput.includes('Error')) {
+          // Return the full output but mark it as potentially needing parsing
+          return resolve({
+            success: true,
+            output: cleanOutput,
+            result: lastLine || cleanOutput,
+            rawOutput: cleanOutput
+          });
+        }
+
+        // Return the raw output as an error case
         return resolve({
-          success: true,
-          output: stdout
+          success: false,
+          error: 'No valid JSON output found',
+          rawOutput: stdout.substring(0, 500)
         });
       } catch (error) {
         console.error('Error parsing Python output:', error);

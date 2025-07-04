@@ -188,19 +188,38 @@ export const MCPAgentProvider: React.FC<MCPAgentProviderProps> = ({ children }) 
   useEffect(() => {
     const handleToolResult = (data: any) => {
       console.log('Tool result received in MCPAgentContext:', data);
+
+      // Handle improved error messages from WebSocket service
+      let hasError = false;
+      let errorMessage = '';
+
+      if (data.error) {
+        hasError = true;
+        errorMessage = data.error;
+      } else if (data.result && data.result.type === 'error') {
+        hasError = true;
+        errorMessage = data.result.error?.message || 'Unknown error from MCP server';
+
+        // If this is a JSON parsing error, provide more context
+        if (data.result.error?.details && data.result.error.details.includes('JSON')) {
+          errorMessage = `MCP server sent malformed data: ${data.result.error.details}`;
+        }
+      }
+
       const commandId = data.commandId || data.metadata?.commandId || 'unknown';
       const commandResult: CommandResult = {
         id: `result-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         commandId,
-        success: !data.error,
-        result: data.result || data,
-        error: data.error,
+        success: !hasError,
+        result: hasError ? null : (data.result || data),
+        error: hasError ? errorMessage : undefined,
         timestamp: Date.now(),
-        needsAnalysis: true,
+        needsAnalysis: !hasError,
         isAnalyzed: false
       };
+
       addCommandResult(commandResult);
-      if (!data.error) {
+      if (!hasError) {
         addToPendingAnalysis(commandResult);
       }
     };

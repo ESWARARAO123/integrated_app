@@ -10,10 +10,13 @@ const config = require('../utils/config');
 class VectorStoreService {
   constructor(overrides = {}) {
     // Read ChromaDB configuration from config.ini
+    const chromaConfig = config.getSection('chromadb');
     const dockerConfig = config.getSection('docker');
-    const protocol = dockerConfig['chromadb_protocol'] || config.get('docker.chromadb_protocol', 'http');
-    const host = dockerConfig['chromadb_host'] || config.get('docker.chromadb_host', 'localhost');
-    const port = dockerConfig['chromadb_port'] || config.get('docker.chromadb_port', '8001');
+
+    // Try chromadb section first, then docker section, then defaults
+    const protocol = chromaConfig['protocol'] || dockerConfig['chromadb_protocol'] || config.get('docker.chromadb_protocol', 'http');
+    const host = chromaConfig['host'] || dockerConfig['chromadb_host'] || config.get('docker.chromadb_host', 'localhost');
+    const port = chromaConfig['port'] || dockerConfig['chromadb_port'] || config.get('docker.chromadb_port', '8001');
     const chromaUrl = `${protocol}://${host}:${port}`;
 
     this.config = {
@@ -38,10 +41,12 @@ class VectorStoreService {
 
     try {
       console.log('Connecting to ChromaDB server at:', `${this.config.protocol}://${this.config.host}:${this.config.port}`);
-      
+
       this.chromaClient = new ChromaClient({
         path: `${this.config.protocol}://${this.config.host}:${this.config.port}`
       });
+
+      console.log('ChromaClient created, testing connection...');
 
       // Test connection
       await this.chromaClient.heartbeat();
@@ -51,7 +56,9 @@ class VectorStoreService {
       return true;
     } catch (error) {
       console.error('Failed to connect to ChromaDB:', error);
+      console.error('Error details:', error.message);
       this.isInitialized = false;
+      this.chromaClient = null;
       throw error;
     }
   }
@@ -61,6 +68,11 @@ class VectorStoreService {
    */
   async getUserCollection(userId) {
     try {
+      // Ensure initialization before using chromaClient
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
       const collectionName = `user_${userId.replace(/-/g, '_')}_docs`;
 
       try {
@@ -93,6 +105,11 @@ class VectorStoreService {
    */
   async getUserImageCollection(userId) {
     try {
+      // Ensure initialization before using chromaClient
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
       const collectionName = `user_${userId.replace(/-/g, '_')}_images`;
 
       try {
@@ -486,9 +503,14 @@ class VectorStoreService {
    */
   async getAggregateStats() {
     try {
+      // Ensure initialization before using chromaClient
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
       let totalChunks = 0;
       let totalDocuments = 0;
-      
+
       try {
         const collections = await this.chromaClient.listCollections();
         console.log(`Found ${collections.length} collections in ChromaDB`);

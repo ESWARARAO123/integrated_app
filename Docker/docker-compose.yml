@@ -40,6 +40,9 @@ services:
       - "${EMBEDDING_HOST_PORT:-3579}:${EMBEDDING_CONTAINER_PORT:-3579}"
     volumes:
       - embedding_models:/app/models
+      - ../conf:/app/conf
+    environment:
+      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.21}
     restart: unless-stopped
     networks:
       - productdemo-network
@@ -66,9 +69,10 @@ services:
       - CHROMADB_URL=http://chromadb:${CHROMADB_CONTAINER_PORT:-8000}
       - EMBEDDING_SERVICE_URL=http://embedding-service:${EMBEDDING_CONTAINER_PORT:-3579}
       - TEXT_PROCESSOR_URL=http://text-processor:${TEXT_PROCESSOR_PORT:-3580}
-      # Use host IP for PostgreSQL
-      - DATABASE_HOST=172.17.0.1
-      - OLLAMA_HOST=172.17.0.1
+      - IMAGE_PROCESSOR_URL=http://image-processor:8430
+      # Use host IP for PostgreSQL and Ollama
+      - DATABASE_HOST=${HOST_MACHINE_IP:-172.16.16.21}
+      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.21}
     restart: unless-stopped
     networks:
       - productdemo-network
@@ -103,6 +107,24 @@ services:
     networks:
       - productdemo-network
 
+  image-processor:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.image-processor
+    container_name: productdemo-image-processor
+    ports:
+      - "${IMAGE_PROCESSOR_PORT:-8430}:8430"
+    volumes:
+      - ../DATA:/app/data
+      - ../python:/app/python
+    environment:
+      - IMAGE_PROCESSOR_HOST=0.0.0.0
+      - IMAGE_PROCESSOR_PORT=8430
+      - IMAGE_PROCESSOR_DATA_DIR=/app/data
+    restart: unless-stopped
+    networks:
+      - productdemo-network
+
   app:
     build:
       context: ..
@@ -129,9 +151,10 @@ services:
       - EMBEDDING_SERVICE_URL=http://embedding-service:${EMBEDDING_CONTAINER_PORT:-3579}
       - TEXT_PROCESSOR_URL=http://text-processor:${TEXT_PROCESSOR_PORT:-3580}
       - MCP_ORCHESTRATOR_URL=http://mcp-orchestrator:${MCP_ORCHESTRATOR_PORT:-3581}
+      - IMAGE_PROCESSOR_URL=http://image-processor:8430
       # Use host IP for PostgreSQL and Ollama
-      - DATABASE_HOST=172.17.0.1
-      - OLLAMA_HOST=172.17.0.1
+      - DATABASE_HOST=${HOST_MACHINE_IP:-172.16.16.21}
+      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.21}
     restart: unless-stopped
     networks:
       - productdemo-network

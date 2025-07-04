@@ -94,7 +94,7 @@ async function startServer() {
 
     // Configure CORS based on config
     const corsOptions = {
-      origin: config.security.allow_embedding ? true : config.frontend.app_sub_url || true,
+      origin: config.security?.allow_embedding ? true : (config.frontend && config.frontend.app_sub_url) || true,
       credentials: true
     };
     app.use(cors(corsOptions));
@@ -105,14 +105,14 @@ async function startServer() {
 
     // Session configuration
     const sessionOptions = {
-      secret: config.security.secret_key,
+      secret: config.security?.secret_key || 'your_session_secret_here',
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: config.security.cookie_secure === 'true',
+        secure: config.security?.cookie_secure === 'true' || false, // Default to false for development
         httpOnly: true,
-        sameSite: config.security.cookie_samesite,
-        maxAge: parseInt(config.security.cookie_max_age)
+        sameSite: config.security?.cookie_samesite || 'lax',
+        maxAge: parseInt(config.security?.cookie_max_age) || 86400000
       },
       rolling: true // Resets the cookie expiration on every response
     };
@@ -159,7 +159,7 @@ async function startServer() {
     app.use('/settings/mcp', mcpPagesRoutes);
 
     // Serve static files from client/build
-    const staticPath = config.server.static_root_path || path.join(__dirname, '../client/build');
+    const staticPath = path.join(__dirname, '../client/build');
     console.log(`Serving static files from: ${staticPath}`);
 
     if (fs.existsSync(staticPath)) {
@@ -190,8 +190,8 @@ async function startServer() {
     });
 
     // Create HTTP server from Express app
-    const port = config.server.port || 5634;
-    const host = config.server.domain || 'localhost';
+    const port = config.server?.port || 5640;
+    const host = config.server?.domain || '0.0.0.0';
 
     // Create HTTP server
     const server = http.createServer(app);
@@ -238,8 +238,8 @@ async function startServer() {
 
     // Start HTTP server
     server.listen(port, host, () => {
-      console.log(`Server running on ${config.server.protocol}://${host}:${port}`);
-      console.log(`WebSocket server running on ${config.server.protocol === 'https' ? 'wss' : 'ws'}://${host}:${port}/ws`);
+      console.log(`Server running on http://${host}:${port}`);
+      console.log(`WebSocket server running on ws://${host}:${port}/ws`);
     }).on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         console.error(`Port ${port} is already in use. Please use a different port.`);

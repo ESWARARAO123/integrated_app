@@ -177,6 +177,9 @@ class DocumentProcessor {
         return false;
       }
 
+      // Initialize the vector store service (connect to ChromaDB)
+      await vectorStoreService.initialize();
+
       this.vectorStoreService = vectorStoreService;
       console.log('VectorStoreService initialized for document processing');
       return true;
@@ -1576,21 +1579,50 @@ class DocumentProcessor {
           '/app/data'
         );
 
-        // Prepare the command to execute in Docker container
-        const command = [
-          'docker', 'compose', 'exec', '-T', 'image-processor',
-          'python', 'image-processing/user_isolated_image_processor.py',
-          dockerFilePath, userId, '--session-id', sessionId
-        ];
+        // Check if we're running in a Docker container
+        const isInContainer = process.env.NODE_ENV === 'production' &&
+                             (process.env.DOCKER_CONTAINER || fs.existsSync('/.dockerenv'));
 
-        console.log(`Executing image processing: ${command.join(' ')}`);
-
+        let command, childProcess;
         const { spawn } = require('child_process');
-        const childProcess = spawn(command[0], command.slice(1), {
-          stdio: ['pipe', 'pipe', 'pipe'],
-          cwd: path.resolve(process.cwd(), 'Docker'), // Execute from Docker directory
-          maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large JSON output
-        });
+
+        if (isInContainer) {
+          // We're in a container - call the image processor service via HTTP API
+          console.log('Running in container - using HTTP API communication');
+
+          this.callImageProcessorAPI(dockerFilePath, userId, sessionId)
+            .then(result => {
+              console.log(`Image processing API result: ${JSON.stringify(result)}`);
+              resolve(result);
+            })
+            .catch(apiError => {
+              console.error('Image processing API failed:', apiError);
+              resolve({
+                success: false,
+                images: [],
+                message: `Image processing API failed: ${apiError.message}`,
+                total_count: 0,
+                error: apiError.message
+              });
+            });
+          return;
+
+        } else {
+          // We're running locally - use docker compose exec
+          command = [
+            'docker', 'compose', 'exec', '-T', 'image-processor',
+            'python', 'image-processing/user_isolated_image_processor.py',
+            dockerFilePath, userId, '--session-id', sessionId
+          ];
+
+          console.log(`Executing image processing: ${command.join(' ')}`);
+
+          childProcess = spawn(command[0], command.slice(1), {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: path.resolve(process.cwd(), 'Docker'), // Execute from Docker directory
+            maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large JSON output
+          });
+        }
 
         let stdout = '';
         let stderr = '';
@@ -1765,6 +1797,69 @@ class DocumentProcessor {
         reject(error);
       }
     });
+  }
+
+  /**
+   * Call the Image Processor HTTP API for container-to-container communication
+   * @param {string} filePath - Path to the PDF file (container path)
+   * @param {string} userId - User ID for isolation
+   * @param {string} sessionId - Session ID for context
+   * @returns {Promise<Object>} - Processing result
+   */
+  async callImageProcessorAPI(filePath, userId, sessionId) {
+    const axios = require('axios');
+
+    try {
+      // Get image processor service URL from environment or default
+      const imageProcessorUrl = process.env.IMAGE_PROCESSOR_URL || 'http://image-processor:8430';
+
+      console.log(`🔗 Calling Image Processor API at: ${imageProcessorUrl}`);
+      console.log(`📄 Processing file: ${filePath} for user: ${userId}, session: ${sessionId}`);
+
+      const requestData = {
+        pdf_path: filePath,
+        user_id: userId,
+        session_id: sessionId,
+        min_size_kb: 5,
+        min_width: 100,
+        min_height: 100
+      };
+
+      // Make HTTP request to image processor service
+      const response = await axios.post(`${imageProcessorUrl}/process`, requestData, {
+        timeout: 300000, // 5 minutes timeout for large PDFs
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.status === 200 && response.data) {
+        console.log(`✅ Image Processor API success: ${response.data.total_count} images processed`);
+        return {
+          success: response.data.success,
+          images: response.data.images || [],
+          total_count: response.data.total_count || 0,
+          message: response.data.message || 'Images processed via API',
+          stats: response.data.stats || {
+            processed: response.data.total_count || 0,
+            total_found: response.data.total_count || 0,
+            skipped: 0
+          }
+        };
+      } else {
+        throw new Error(`Unexpected response status: ${response.status}`);
+      }
+
+    } catch (error) {
+      console.error('❌ Image Processor API error:', error.message);
+
+      if (error.response) {
+        console.error('API Response status:', error.response.status);
+        console.error('API Response data:', error.response.data);
+      }
+
+      throw new Error(`Image Processor API failed: ${error.message}`);
+    }
   }
 
   /**

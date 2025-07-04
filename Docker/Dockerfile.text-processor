@@ -39,8 +39,6 @@ RUN npm install --production
 
 # Copy API server code
 COPY Docker/text-processor-api/server.js ./
-COPY Docker/text-processor-api/routes ./routes
-COPY Docker/text-processor-api/utils ./utils
 
 # Create non-root user
 RUN groupadd -r textprocessor && useradd -r -g textprocessor textprocessor

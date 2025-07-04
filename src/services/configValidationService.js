@@ -60,13 +60,15 @@ class ConfigValidationService {
    * Validate server configuration
    */
   validateServerConfig() {
+    // Try to read from [server] section first (new format), fallback to [app] section (legacy)
     const serverConfig = config.getSection('server');
-    
+    const appConfig = config.getSection('app');
+
     const validated = {
-      protocol: this.validateRequired('server.protocol', serverConfig.protocol, 'http'),
-      domain: this.validateRequired('server.domain', serverConfig.domain, 'localhost'),
-      port: this.validatePort('server.port', serverConfig.port, 5634),
-      staticRootPath: this.validateRequired('server.static_root_path', serverConfig.static_root_path, './client/build'),
+      protocol: serverConfig.protocol || 'http',
+      domain: serverConfig.domain || appConfig.host || '0.0.0.0',
+      port: this.validatePort('server.port', serverConfig.port || appConfig.port, 5640),
+      staticRootPath: serverConfig.static_root_path || './client/build',
       serveFromSubPath: this.validateBoolean('server.serve_from_sub_path', serverConfig.serve_from_sub_path, false)
     };
 

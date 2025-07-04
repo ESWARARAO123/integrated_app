@@ -436,20 +436,59 @@ function setupSSEConnection(host, port, connectionId, ws, connection) {
     // Handle general SSE messages
     es.onmessage = (event) => {
       try {
-        // Parse the message data
-        const data = JSON.parse(event.data);
+        // Check if event.data is empty or invalid
+        if (!event.data || event.data.trim() === '') {
+          logger.debug(`WebSocket: Received empty SSE message from ${host}:${port}, skipping`);
+          return;
+        }
+
+        // Check for common SSE control messages that aren't JSON
+        const trimmedData = event.data.trim();
+        if (trimmedData === 'ping' || trimmedData === 'heartbeat' || trimmedData.startsWith('retry:')) {
+          logger.debug(`WebSocket: Received SSE control message from ${host}:${port}: ${trimmedData}`);
+          return;
+        }
+
+        // Parse the message data with better error handling
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (parseError) {
+          logger.warn(`WebSocket: Failed to parse SSE message from ${host}:${port}: ${parseError.message}. Raw data: ${event.data.substring(0, 200)}...`);
+
+          // Try to extract any useful information from malformed JSON
+          if (event.data.includes('clientId')) {
+            const clientIdMatch = event.data.match(/["']?clientId["']?\s*:\s*["']?([^"',}\s]+)/);
+            if (clientIdMatch && clientIdMatch[1] && !connection.clientId) {
+              logger.info(`WebSocket: Extracted clientId ${clientIdMatch[1]} from malformed JSON`);
+              connection.clientId = clientIdMatch[1];
+              clearTimeout(connectionTimeout);
+
+              // Notify the client with the extracted clientId
+              ws.send(JSON.stringify({
+                type: 'mcp_connected',
+                connectionId,
+                clientId: clientIdMatch[1],
+                host,
+                port
+              }));
+            }
+          }
+          return; // Skip further processing for malformed JSON
+        }
+
         logger.debug(`WebSocket: SSE message received from ${host}:${port}: ${JSON.stringify(data)}`);
-        
+
         // Check for clientId in the message
         if (data.type === 'connected' && data.clientId) {
           logger.info(`WebSocket: Received clientId ${data.clientId} from MCP server ${host}:${port}`);
-          
+
           // Store the clientId
           connection.clientId = data.clientId;
-          
+
           // Clear the connection timeout
           clearTimeout(connectionTimeout);
-          
+
           // Notify the client
           ws.send(JSON.stringify({
             type: 'mcp_connected',
@@ -466,33 +505,66 @@ function setupSSEConnection(host, port, connectionId, ws, connection) {
             result: data
           }));
         }
-        
-        // Forward all SSE events to the client as well
-        ws.send(JSON.stringify({
-          type: 'mcp_sse_event',
-          connectionId,
-          event: data
-        }));
+
+        // Forward all SSE events to the client as well (only if data is valid)
+        if (data && typeof data === 'object') {
+          ws.send(JSON.stringify({
+            type: 'mcp_sse_event',
+            connectionId,
+            event: data
+          }));
+        }
       } catch (error) {
-        logger.error(`WebSocket: Error parsing SSE message: ${error.message}`);
+        logger.error(`WebSocket: Error processing SSE message from ${host}:${port}: ${error.message}`);
+        // Don't forward malformed messages to the client
       }
     };
     
     // Listen specifically for the 'connected' event
     es.addEventListener('connected', (event) => {
       try {
-        const data = JSON.parse(event.data);
+        // Check if event.data is valid
+        if (!event.data || event.data.trim() === '') {
+          logger.warn(`WebSocket: Received empty 'connected' event from ${host}:${port}`);
+          return;
+        }
+
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (parseError) {
+          logger.warn(`WebSocket: Failed to parse 'connected' event from ${host}:${port}: ${parseError.message}. Raw data: ${event.data.substring(0, 200)}...`);
+
+          // Try to extract clientId from malformed JSON
+          const clientIdMatch = event.data.match(/["']?clientId["']?\s*:\s*["']?([^"',}\s]+)/);
+          if (clientIdMatch && clientIdMatch[1] && !connection.clientId) {
+            logger.info(`WebSocket: Extracted clientId ${clientIdMatch[1]} from malformed 'connected' event`);
+            connection.clientId = clientIdMatch[1];
+            clearTimeout(connectionTimeout);
+
+            // Notify the client with the extracted clientId
+            ws.send(JSON.stringify({
+              type: 'mcp_connected',
+              connectionId,
+              clientId: clientIdMatch[1],
+              host,
+              port
+            }));
+          }
+          return;
+        }
+
         logger.info(`WebSocket: Received 'connected' event from ${host}:${port}: ${JSON.stringify(data)}`);
-        
+
         if (data.clientId) {
           logger.info(`WebSocket: Received clientId ${data.clientId} from 'connected' event`);
-          
+
           // Store the clientId
           connection.clientId = data.clientId;
-          
+
           // Clear the connection timeout
           clearTimeout(connectionTimeout);
-          
+
           // Notify the client
           ws.send(JSON.stringify({
             type: 'mcp_connected',
@@ -503,15 +575,41 @@ function setupSSEConnection(host, port, connectionId, ws, connection) {
           }));
         }
       } catch (error) {
-        logger.error(`WebSocket: Error parsing 'connected' event: ${error.message}`);
+        logger.error(`WebSocket: Error processing 'connected' event from ${host}:${port}: ${error.message}`);
       }
     });
     
     // Listen for tool result events
     es.addEventListener('tool_result', (event) => {
       try {
-        const data = JSON.parse(event.data);
-        
+        // Check if event.data is valid
+        if (!event.data || event.data.trim() === '') {
+          logger.warn(`WebSocket: Received empty 'tool_result' event from ${host}:${port}`);
+          return;
+        }
+
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (parseError) {
+          logger.warn(`WebSocket: Failed to parse 'tool_result' event from ${host}:${port}: ${parseError.message}. Raw data: ${event.data.substring(0, 200)}...`);
+
+          // For tool results, we can try to send a partial result with error information
+          ws.send(JSON.stringify({
+            type: 'mcp_tool_result',
+            connectionId,
+            result: {
+              type: 'error',
+              error: {
+                message: 'Failed to parse tool result from MCP server',
+                details: parseError.message,
+                rawData: event.data.substring(0, 500)
+              }
+            }
+          }));
+          return;
+        }
+
         // Forward tool results to the client
         ws.send(JSON.stringify({
           type: 'mcp_tool_result',
@@ -519,7 +617,24 @@ function setupSSEConnection(host, port, connectionId, ws, connection) {
           result: data
         }));
       } catch (error) {
-        logger.error(`WebSocket: Error parsing 'tool_result' event: ${error.message}`);
+        logger.error(`WebSocket: Error processing tool result from ${host}:${port}: ${error.message}`);
+
+        // Send error result to client
+        try {
+          ws.send(JSON.stringify({
+            type: 'mcp_tool_result',
+            connectionId,
+            result: {
+              type: 'error',
+              error: {
+                message: 'Error processing tool result',
+                details: error.message
+              }
+            }
+          }));
+        } catch (sendError) {
+          logger.error(`WebSocket: Failed to send error result to client: ${sendError.message}`);
+        }
       }
     });
   } catch (error) {

@@ -507,6 +507,10 @@ router.post('/execute', requireAuth, async (req, res) => {
   try {
     const { serverId, toolName, parameters } = req.body;
 
+    // Log the incoming request for debugging
+    logger.info(`MCP tool execution request: serverId=${serverId}, toolName=${toolName}`);
+    logger.info(`MCP tool parameters: ${JSON.stringify(parameters, null, 2)}`);
+
     if (!serverId || !toolName) {
       return res.status(400).json({ error: 'Server ID and tool name are required' });
     }
@@ -906,8 +910,15 @@ router.post('/chat', requireAuth, async (req, res) => {
     }));
 
     try {
-      // Get the modelId from request or use default
-      let selectedModel = modelId || ollamaService.settings?.default_model || process.env.DEFAULT_OLLAMA_MODEL || 'llama3';
+      // Get the modelId from request or use default from Ollama service
+      let selectedModel = modelId || ollamaService.settings?.default_model || process.env.DEFAULT_OLLAMA_MODEL;
+
+      // If no model is configured, return an error instead of defaulting to llama3
+      if (!selectedModel) {
+        return res.status(400).json({
+          error: 'No AI model configured. Please configure a default model in Ollama settings.'
+        });
+      }
 
       // If the modelId looks like a UUID (frontend model selector ID), try to get the actual model name
       if (selectedModel && selectedModel.includes('-') && selectedModel.length > 20) {
@@ -922,11 +933,11 @@ router.post('/chat', requireAuth, async (req, res) => {
             logger.info(`Found actual model name: ${selectedModel}`);
           } else {
             logger.warn(`Model ID ${modelId} not found in database, using default`);
-            selectedModel = ollamaService.settings?.default_model || process.env.DEFAULT_OLLAMA_MODEL || 'llama3';
+            selectedModel = ollamaService.settings?.default_model || process.env.DEFAULT_OLLAMA_MODEL;
           }
         } catch (dbError) {
           logger.error(`Error looking up model in database: ${dbError.message}`);
-          selectedModel = ollamaService.settings?.default_model || process.env.DEFAULT_OLLAMA_MODEL || 'llama3';
+          selectedModel = ollamaService.settings?.default_model || process.env.DEFAULT_OLLAMA_MODEL;
         }
       }
 

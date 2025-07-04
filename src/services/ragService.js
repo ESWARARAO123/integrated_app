@@ -27,14 +27,21 @@ class RAGService {
    */
   async initializeServices() {
     try {
+      // Initialize VectorStoreService first
+      if (this.vectorStoreService) {
+        await this.vectorStoreService.initialize();
+        logger.info('RAG: VectorStoreService initialized successfully');
+        console.log('RAG: VectorStoreService initialized successfully');
+      }
+
       // Initialize OllamaService
       await this.ollamaService.initialize();
       logger.info('RAG: OllamaService initialized successfully');
       console.log('RAG: OllamaService initialized successfully');
       this.initialized = true;
     } catch (err) {
-      logger.error(`RAG: Failed to initialize OllamaService: ${err.message}`);
-      console.error(`RAG: Failed to initialize OllamaService: ${err.message}`);
+      logger.error(`RAG: Failed to initialize services: ${err.message}`);
+      console.error(`RAG: Failed to initialize services: ${err.message}`);
       this.initialized = false;
     }
   }
