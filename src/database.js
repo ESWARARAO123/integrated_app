@@ -11,6 +11,11 @@ const configPath = process.argv.find(arg => arg.startsWith('--config='))
 
 console.log(`Database loading configuration from: ${configPath}`);
 const config = ini.parse(fs.readFileSync(path.resolve(configPath), 'utf-8'));
+console.log('Database config sections:', Object.keys(config));
+console.log('Admin section exists:', !!config.admin);
+if (config.admin) {
+  console.log('Admin config:', config.admin);
+}
 
 // Docker-aware host resolution
 function resolveDbHost(configHost) {
@@ -194,15 +199,18 @@ async function initializeDatabase() {
     }
 
     // Check if admin user exists, if not create default admin
-    const userQuery = await pool.query("SELECT * FROM users WHERE username = $1", [config.admin.default_username]);
+    const defaultUsername = config.admin?.default_username || 'admin';
+    const userQuery = await pool.query("SELECT * FROM users WHERE username = $1", [defaultUsername]);
 
     if (userQuery.rows.length === 0) {
-      const hashedPassword = bcrypt.hashSync(config.admin.default_password, 10);
+      const defaultPassword = config.admin?.default_password || 'admin';
+      const defaultEmail = config.admin?.default_email || 'admin@localhost';
+      const hashedPassword = bcrypt.hashSync(defaultPassword, 10);
 
       // Modified query to include name field
       await pool.query(
         "INSERT INTO users (username, password, email, role, name) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-        [config.admin.default_username, hashedPassword, config.admin.default_email || 'admin@local.host', 'admin', 'Administrator']
+        [defaultUsername, hashedPassword, defaultEmail, 'admin', 'Administrator']
       );
       console.log('Default admin user created');
     } else {
@@ -210,7 +218,7 @@ async function initializeDatabase() {
       if (userQuery.rows[0].name === null || userQuery.rows[0].name === undefined) {
         await pool.query(
           "UPDATE users SET name = $1 WHERE username = $2",
-          ['Administrator', config.admin.default_username]
+          ['Administrator', defaultUsername]
         );
         console.log('Updated admin user with name');
       }

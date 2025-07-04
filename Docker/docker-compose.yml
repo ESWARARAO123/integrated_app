@@ -26,14 +26,8 @@ services:
       - redis_data:/data
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
     networks:
       - productdemo-network
 
@@ -41,145 +35,135 @@ services:
     build:
       context: ..
       dockerfile: Docker/Dockerfile.embedding-service
-    network_mode: host
-    environment:
-      - NODE_ENV=production
-      - EMBEDDING_SERVICE_PORT=3579
-      - REDIS_HOST=localhost
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - OLLAMA_HOST=localhost
-      - OLLAMA_PORT=11434
+    container_name: productdemo-embedding-service
+    ports:
+      - "${EMBEDDING_HOST_PORT:-3579}:${EMBEDDING_CONTAINER_PORT:-3579}"
     volumes:
-      - ../logs:/app/logs
+      - embedding_models:/app/models
       - ../conf:/app/conf
-    depends_on:
-      redis:
-        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.21}
     restart: unless-stopped
-    deploy:
-      replicas: 1  # Reduced to 1 for testing to avoid port conflicts
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-        reservations:
-          memory: 512M
-          cpus: '0.5'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3579/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    networks:
+      - productdemo-network
 
   doc-workers:
     build:
       context: ..
       dockerfile: Docker/Dockerfile.workers
     container_name: productdemo-doc-workers
-    network_mode: host
-    env_file:
-      - env.docker
-    environment:
-      - NODE_ENV=production
-      - REDIS_HOST=localhost
-      - REDIS_PORT=6379
-      - DOC_WORKER_CONCURRENCY=3
-      - QUEUE_MAX_RETRIES=3
-      - CHROMADB_HOST=localhost
-      - CHROMADB_PORT=8001
-      - EMBEDDING_SERVICE_URL=http://localhost:3579
-    extra_hosts:
-      - "host.docker.internal:192.168.2.111"
+    depends_on:
+      - redis
+      - chromadb
+      - embedding-service
+      - text-processor
+      - mcp-orchestrator
     volumes:
       - ../DATA:/app/DATA
-      - ../conf:/app/conf
-      - ../logs:/app/logs
       - ../python:/app/python
-    depends_on:
-      redis:
-        condition: service_healthy
-      chromadb:
-        condition: service_started
-      embedding-service:
-        condition: service_healthy
+      - ../conf:/app/conf
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_CONTAINER_PORT:-6379}
+      - CHROMADB_URL=http://chromadb:${CHROMADB_CONTAINER_PORT:-8000}
+      - EMBEDDING_SERVICE_URL=http://embedding-service:${EMBEDDING_CONTAINER_PORT:-3579}
+      - TEXT_PROCESSOR_URL=http://text-processor:${TEXT_PROCESSOR_PORT:-3580}
+      - IMAGE_PROCESSOR_URL=http://image-processor:8430
+      # Use host IP for PostgreSQL and Ollama
+      - DATABASE_HOST=${HOST_MACHINE_IP:-172.16.16.21}
+      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.21}
     restart: unless-stopped
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-        reservations:
-          memory: 512M
-          cpus: '0.5'
+    networks:
+      - productdemo-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  text-processor:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.text-processor
+    container_name: productdemo-text-processor
+    ports:
+      - "${TEXT_PROCESSOR_PORT:-3580}:3580"
+    volumes:
+      - ../DATA:/app/data
+    restart: unless-stopped
+    networks:
+      - productdemo-network
+    tmpfs:
+      - /tmp/uploads:exec
+
+  mcp-orchestrator:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.mcp-orchestrator
+    container_name: productdemo-mcp-orchestrator
+    ports:
+      - "${MCP_ORCHESTRATOR_PORT:-3581}:3581"
+    volumes:
+      - ../python:/app/python
+    restart: unless-stopped
+    networks:
+      - productdemo-network
 
   image-processor:
     build:
       context: ..
       dockerfile: Docker/Dockerfile.image-processor
     container_name: productdemo-image-processor
-    env_file:
-      - env.docker
-    environment:
-      - TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
-      - TESSERACT_CMD=/usr/bin/tesseract
-      - PYTHONPATH=/app
+    ports:
+      - "${IMAGE_PROCESSOR_PORT:-8430}:8430"
     volumes:
       - ../DATA:/app/data
-      - ../python/RAG-MODULE/image-processing:/app/image-processing
-      - image_collections:/app/data/collections
+      - ../python:/app/python
+    environment:
+      - IMAGE_PROCESSOR_HOST=0.0.0.0
+      - IMAGE_PROCESSOR_PORT=8430
+      - IMAGE_PROCESSOR_DATA_DIR=/app/data
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-          cpus: '1.5'
-        reservations:
-          memory: 1G
-          cpus: '0.5'
     networks:
       - productdemo-network
 
-  chat2sql:
+  app:
     build:
       context: ..
-      dockerfile: Docker/Dockerfile.chat2sql
-    container_name: productdemo-chat2sql
+      dockerfile: Docker/Dockerfile.app
+    container_name: productdemo-app
     ports:
-      - "5000:5000"
-    environment:
-      # Python configuration only - no database overrides
-      - PYTHONUNBUFFERED=1
-    extra_hosts:
-      - "host.docker.internal:192.168.2.111"
-    networks:
-      - productdemo-network
+      - "${APP_PORT:-5640}:5640"
+    volumes:
+      - ../DATA:/app/DATA
+      - ../logs:/app/logs
+      - ../conf:/app/conf
+      - ../assets:/app/assets
     depends_on:
       - redis
       - chromadb
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-        reservations:
-          memory: 512M
-          cpus: '0.5'
+      - embedding-service
+      - text-processor
+      - mcp-orchestrator
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_CONTAINER_PORT:-6379}
+      - CHROMADB_URL=http://chromadb:${CHROMADB_CONTAINER_PORT:-8000}
+      - EMBEDDING_SERVICE_URL=http://embedding-service:${EMBEDDING_CONTAINER_PORT:-3579}
+      - TEXT_PROCESSOR_URL=http://text-processor:${TEXT_PROCESSOR_PORT:-3580}
+      - MCP_ORCHESTRATOR_URL=http://mcp-orchestrator:${MCP_ORCHESTRATOR_PORT:-3581}
+      - IMAGE_PROCESSOR_URL=http://image-processor:8430
+      # Use host IP for PostgreSQL and Ollama
+      - DATABASE_HOST=${HOST_MACHINE_IP:-172.16.16.21}
+      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.21}
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    networks:
+      - productdemo-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   redis_data:
-    driver: local
-  image_collections:
-    driver: local
+  embedding_models:
 
 networks:
   productdemo-network:

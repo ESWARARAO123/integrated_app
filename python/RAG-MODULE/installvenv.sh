@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Initialize variables
-PYTHON_VERSION="python3.9"
+PYTHON_VERSION="python3"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 VENV_PATH="${PARENT_DIR}/venv"
@@ -22,11 +22,11 @@ if [[ $(basename "${SCRIPT_DIR}") != "RAG-MODULE" ]]; then
     echo ""
 fi
 
-# Check if Python 3.9 is installed
+# Check if Python 3 is installed
 if ! command -v $PYTHON_VERSION &> /dev/null
 then
     echo "Error: $PYTHON_VERSION is not installed or not in PATH"
-    echo "Please install Python 3.9 and try again"
+    echo "Please install Python 3 and try again"
     exit 1
 fi
 
@@ -34,9 +34,9 @@ fi
 $PYTHON_VERSION -c "import venv" &> /dev/null
 if [ $? -ne 0 ]; then
     echo "Error: Python venv module is not available"
-    echo "Please install python3.9-venv package if needed"
-    echo "Example: apt-get install python3.9-venv (Debian/Ubuntu)"
-    echo "Example: yum install python3.9-venv (RHEL/CentOS)"
+    echo "Please install python3-venv package if needed"
+    echo "Example: apt-get install python3-venv (Debian/Ubuntu)"
+    echo "Example: yum install python3-venv (RHEL/CentOS)"
     exit 1
 fi
 
@@ -56,7 +56,7 @@ fi
 if [ ! -f "$EXTRACT_SCRIPT" ]; then
     echo "extract_text.py not found, creating it..."
     cat > "$EXTRACT_SCRIPT" << 'EOL'
-#!/usr/bin/env python3.9
+#!/usr/bin/env python3
 
 import sys
 import json

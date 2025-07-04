@@ -1,0 +1,61 @@
+# MCP Orchestrator Service Dockerfile
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    libffi-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js for the API server
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python requirements and install dependencies
+COPY python/terminal-mcp-orchestrator/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy Python orchestrator scripts
+COPY python/terminal-mcp-orchestrator/orchestrator.py ./python/
+COPY python/terminal-mcp-orchestrator/mcp_client.py ./python/
+COPY python/terminal-mcp-orchestrator/tools/ ./python/tools/
+
+# Create API server directory
+RUN mkdir -p ./api
+
+# Create package.json for Node.js API server
+COPY Docker/mcp-orchestrator-api/package*.json ./api/
+
+# Install Node.js dependencies
+WORKDIR /app/api
+RUN npm install --production
+
+# Copy API server code
+COPY Docker/mcp-orchestrator-api/server.js ./
+
+# Create non-root user
+RUN groupadd -r mcporchestrator && useradd -r -g mcporchestrator mcporchestrator
+RUN chown -R mcporchestrator:mcporchestrator /app
+
+# Switch to non-root user
+USER mcporchestrator
+
+# Expose API port
+EXPOSE 3581
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3581/health || exit 1
+
+# Start API server
+CMD ["node", "server.js"]
+
+# Labels
+LABEL maintainer="ProductDemo Team"
+LABEL description="MCP Orchestrator Service for RAG System"
+LABEL version="1.0.0" 

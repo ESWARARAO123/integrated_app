@@ -36,8 +36,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy the image processing scripts
 COPY python/RAG-MODULE/image-processing/ /app/image-processing/
 
-# Create necessary directories
-RUN mkdir -p /app/data/input /app/data/output /app/data/collections && \
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/data/input /app/data/output /app/data/collections /app/data/uploads && \
     chown -R imageprocessor:imageprocessor /app
 
 # Set environment variables for Tesseract
@@ -51,8 +51,11 @@ USER imageprocessor
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD tesseract --version || exit 1
 
-# Default command - keep container running
-CMD ["tail", "-f", "/dev/null"]
+# Expose port for HTTP API
+EXPOSE 8430
+
+# Default command - run the HTTP API server
+CMD ["python", "image-processing/image_processor_api.py"]
 
 # Labels
 LABEL maintainer="ProductDemo Team"

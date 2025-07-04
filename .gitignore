@@ -59,3 +59,4 @@ venv/
 
 python/CHATSQL-MODULE/venv/
 python/CHATSQL-MODULE/.venv
+python/terminal-mcp-orchestrator/__pycache__/mcp_client.cpython-39.pyc

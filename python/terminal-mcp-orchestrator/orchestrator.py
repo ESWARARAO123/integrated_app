@@ -107,6 +107,7 @@ def parse_arguments():
     parser.add_argument("tool_name", nargs="?", help="Name of the tool to execute")
     parser.add_argument("parameters", nargs="?", help="Tool parameters as JSON string")
     parser.add_argument("--list", action="store_true", help="List available tools")
+    parser.add_argument("--stdin", action="store_true", help="Read parameters from stdin instead of command line")
 
     args = parser.parse_args()
 
@@ -127,7 +128,16 @@ def parse_arguments():
 
     # Parse parameters
     parameters = {}
-    if args.parameters:
+    if args.stdin:
+        # Read parameters from stdin
+        try:
+            stdin_data = sys.stdin.read().strip()
+            if stdin_data:
+                parameters = json.loads(stdin_data)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing JSON from stdin: {e}")
+            parameters = {}
+    elif args.parameters:
         try:
             # First try to parse as JSON directly
             parameters = json.loads(args.parameters)

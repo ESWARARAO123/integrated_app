@@ -1,0 +1,63 @@
+# Text Processing Service Dockerfile
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpoppler-cpp-dev \
+    pkg-config \
+    libmagic1 \
+    libffi-dev \
+    libssl-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js for the API server
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python requirements and install dependencies
+COPY python/RAG-MODULE/requirements.txt ./python_requirements.txt
+RUN pip install --no-cache-dir -r python_requirements.txt
+
+# Copy Python extraction scripts
+COPY python/RAG-MODULE/extract_text.py ./python/
+COPY python/RAG-MODULE/extract_text_with_tables.py ./python/
+
+# Create API server directory
+RUN mkdir -p ./api
+
+# Create package.json for Node.js API server
+COPY Docker/text-processor-api/package*.json ./api/
+
+# Install Node.js dependencies
+WORKDIR /app/api
+RUN npm install --production
+
+# Copy API server code
+COPY Docker/text-processor-api/server.js ./
+
+# Create non-root user
+RUN groupadd -r textprocessor && useradd -r -g textprocessor textprocessor
+RUN chown -R textprocessor:textprocessor /app
+
+# Switch to non-root user
+USER textprocessor
+
+# Expose API port
+EXPOSE 3580
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3580/health || exit 1
+
+# Start API server
+CMD ["node", "server.js"]
+
+# Labels
+LABEL maintainer="ProductDemo Team"
+LABEL description="Text Processing Service for RAG System"
+LABEL version="1.0.0" 

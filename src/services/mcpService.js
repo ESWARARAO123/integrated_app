@@ -177,9 +177,38 @@ async function connectToMCP(serverConfig) {
     
     sse.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
+        // Check if event.data is empty or invalid
+        if (!event.data || event.data.trim() === '') {
+          logger.debug(`MCP: Received empty SSE message, skipping`);
+          return;
+        }
+
+        // Check for common SSE control messages that aren't JSON
+        const trimmedData = event.data.trim();
+        if (trimmedData === 'ping' || trimmedData === 'heartbeat' || trimmedData.startsWith('retry:')) {
+          logger.debug(`MCP: Received SSE control message: ${trimmedData}`);
+          return;
+        }
+
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (parseError) {
+          logger.warn(`MCP: Failed to parse SSE message: ${parseError.message}. Raw data: ${event.data.substring(0, 200)}...`);
+
+          // Try to extract clientId from malformed JSON if we don't have one yet
+          if (!connection.clientId && event.data.includes('clientId')) {
+            const clientIdMatch = event.data.match(/["']?clientId["']?\s*:\s*["']?([^"',}\s]+)/);
+            if (clientIdMatch && clientIdMatch[1]) {
+              logger.info(`MCP: Extracted clientId ${clientIdMatch[1]} from malformed JSON`);
+              connection.clientId = clientIdMatch[1];
+            }
+          }
+          return; // Skip further processing for malformed JSON
+        }
+
         logger.debug(`MCP message received: ${JSON.stringify(data)}`);
-        
+
         // Handle different message types
         if (data.type === 'connected') {
           connection.clientId = data.clientId;
@@ -187,7 +216,7 @@ async function connectToMCP(serverConfig) {
           // Store tool results
         }
       } catch (err) {
-        logger.error(`Error parsing MCP SSE message: ${err.message}`);
+        logger.error(`Error processing MCP SSE message: ${err.message}`);
       }
     };
     

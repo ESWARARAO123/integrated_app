@@ -180,23 +180,54 @@ export const containsShellCommandToolCall = (content: string): boolean => {
  */
 export const extractShellCommand = (content: string): string | null => {
   if (!content) return null;
-  
+
   try {
-    // Look for JSON format first
-    const jsonPattern = /\{\s*"tool":\s*"runshellcommand"\s*,\s*"parameters":\s*\{\s*"command":\s*"([^"]+)"/i;
-    const jsonMatch = content.match(jsonPattern);
-    if (jsonMatch && jsonMatch[1]) {
-      return jsonMatch[1];
+    // First, try to find JSON objects that contain runshellcommand tool
+    // Use a more robust approach that finds JSON boundaries properly
+
+    // Look for code block with JSON first (most reliable)
+    const codeBlockPattern = /```(?:json)?\s*(\{[\s\S]*?"tool":\s*"runshellcommand"[\s\S]*?\})\s*```/i;
+    const codeBlockMatch = content.match(codeBlockPattern);
+    if (codeBlockMatch && codeBlockMatch[1]) {
+      try {
+        const parsed = JSON.parse(codeBlockMatch[1]);
+        if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
+          return parsed.parameters.command;
+        }
+      } catch (e) {
+        console.warn('Failed to parse JSON from code block:', e);
+      }
     }
 
-    // Look for multiline JSON format (replace 's' flag with [\s\S])
-    const multilinePattern = /\{\s*"tool":\s*"runshellcommand"\s*,\s*"parameters":\s*\{\s*"command":\s*"([^"]+)"\s*\}\s*\}/i;
-    const multilineMatch = content.match(multilinePattern);
-    if (multilineMatch && multilineMatch[1]) {
-      return multilineMatch[1];
+    // Try to find JSON objects in the content using proper JSON parsing
+    // Look for potential JSON objects that contain runshellcommand
+    const jsonObjectPattern = /\{[^{}]*"tool"[^{}]*"runshellcommand"[^{}]*\}/gi;
+    const matches = content.match(jsonObjectPattern);
+
+    if (matches) {
+      for (const match of matches) {
+        try {
+          const parsed = JSON.parse(match);
+          if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
+            return parsed.parameters.command;
+          }
+        } catch (e) {
+          // Try to fix common JSON issues and parse again
+          try {
+            // Handle escaped quotes and other common issues
+            const fixed = match.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            const parsed = JSON.parse(fixed);
+            if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
+              return parsed.parameters.command;
+            }
+          } catch (e2) {
+            // Continue to next match
+          }
+        }
+      }
     }
 
-    // Try to parse as JSON if it looks like a tool call
+    // Try to parse each line as JSON if it looks like a tool call
     const lines = content.split('\n');
     for (const line of lines) {
       const trimmed = line.trim();
@@ -212,23 +243,27 @@ export const extractShellCommand = (content: string): string | null => {
       }
     }
 
-    // Look for code block with JSON (replace [\s\S] for cross-line matching)
-    const codeBlockPattern = /```(?:json)?\s*(\{[\s\S]*?"tool":\s*"runshellcommand"[\s\S]*?\})\s*```/i;
-    const codeBlockMatch = content.match(codeBlockPattern);
-    if (codeBlockMatch && codeBlockMatch[1]) {
-      try {
-        const parsed = JSON.parse(codeBlockMatch[1]);
-        if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
-          return parsed.parameters.command;
+    // Last resort: try to find nested JSON objects
+    // This handles cases where the JSON might be embedded in other content
+    const nestedJsonPattern = /\{[\s\S]*?"tool":\s*"runshellcommand"[\s\S]*?\}/gi;
+    const nestedMatches = content.match(nestedJsonPattern);
+
+    if (nestedMatches) {
+      for (const match of nestedMatches) {
+        try {
+          const parsed = JSON.parse(match);
+          if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
+            return parsed.parameters.command;
+          }
+        } catch (e) {
+          // Continue to next match
         }
-      } catch (e) {
-        // Failed to parse JSON
       }
     }
 
   } catch (error) {
     console.error('Error extracting shell command:', error);
   }
-  
+
   return null;
 };
