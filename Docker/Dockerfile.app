@@ -24,14 +24,26 @@ COPY package*.json ./
 # Install Node.js dependencies
 RUN npm install
 
-# Copy Python requirements
+# Copy Python requirements and RAG module first
 COPY python/requirements.txt ./python/requirements.txt
+COPY python/RAG-MODULE/ ./python/RAG-MODULE/
 
-# Setup Python virtual environment
+# Setup Python virtual environment for main app
 RUN python3 -m venv /app/python/venv
 ENV PATH="/app/python/venv/bin:$PATH"
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r python/requirements.txt
+
+# Make Python scripts executable and setup RAG module environment
+RUN chmod +x python/RAG-MODULE/installvenv.sh
+
+# Setup RAG module virtual environment (separate from main app venv)
+# This will create python/RAG-MODULE/venv for the RAG module specifically
+WORKDIR /app/python/RAG-MODULE
+RUN ./installvenv.sh
+
+# Back to app root
+WORKDIR /app
 
 # Copy the rest of the application
 COPY . .
@@ -43,18 +55,14 @@ RUN npm install && npm run build
 # Back to app root
 WORKDIR /app
 
-# Make Python scripts executable
-RUN chmod +x python/RAG-MODULE/installvenv.sh
-RUN ./python/RAG-MODULE/installvenv.sh
-
 # Make entrypoint script executable
-RUN chmod +x /app/Docker/docker-entrypoint.sh
+RUN chmod +x Docker/docker-entrypoint.sh
 
-# Expose the application port
+# Expose port
 EXPOSE 5640
 
-# Set the entrypoint
-ENTRYPOINT ["/app/Docker/docker-entrypoint.sh"]
+# Set entrypoint
+ENTRYPOINT ["./Docker/docker-entrypoint.sh"]
 
 # Command to run the application
-CMD ["npm", "start"] 
+CMD ["npm", "start"]
