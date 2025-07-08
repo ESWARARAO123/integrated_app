@@ -50,7 +50,7 @@ COPY . .
 
 # Build client application
 WORKDIR /app/client
-RUN npm install && npm run build
+RUN npm install && npm run build &&npm install axios && npm install react-router-dom && npm install @heroicons/react
 
 # Back to app root
 WORKDIR /app
@@ -59,7 +59,7 @@ WORKDIR /app
 RUN chmod +x Docker/docker-entrypoint.sh
 
 # Expose port
-EXPOSE 5640
+EXPOSE 5641
 
 # Set entrypoint
 ENTRYPOINT ["./Docker/docker-entrypoint.sh"]
