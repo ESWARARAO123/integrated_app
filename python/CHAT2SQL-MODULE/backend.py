@@ -14,8 +14,7 @@ import logging
 import re
 import requests
 import os
-from psycopg2 import pool
-
+import configparser
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -71,13 +70,82 @@ class QueryResponse(BaseModel):
     columns: List[str]
 
 def get_app_db_connection():
-    return psycopg2.connect(
-        host=os.environ.get("APP_DB_HOST", "172.16.16.21"),
-        database=os.environ.get("APP_DB_NAME", "copilot"),
-        user=os.environ.get("APP_DB_USER", "postgres"),
-        password=os.environ.get("APP_DB_PASSWORD", "root"),
-        port=int(os.environ.get("APP_DB_PORT", 5432))
-    )
+    """Get database connection using configuration file - NO HARDCODED VALUES"""
+    try:
+        # Load configuration from config.ini
+        config = configparser.ConfigParser()
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'conf', 'config.ini')
+        
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        
+        config.read(config_path)
+        logger.info(f"Loaded configuration from: {config_path}")
+        
+        # Check if Chat2SQL has specific database configuration
+        if 'chat2sql' in config:
+            chat2sql_config = config['chat2sql']
+            use_app_database = chat2sql_config.get('use_app_database', 'true').lower() == 'true'
+            
+            if use_app_database and 'database' in config:
+                # Use main application database configuration
+                db_config = config['database']
+                logger.info("Using main application database configuration")
+                
+                # Validate required fields
+                required_fields = ['database-host', 'database-name', 'database-user', 'database-password', 'database-port']
+                for field in required_fields:
+                    if not db_config.get(field):
+                        raise ValueError(f"Missing required database configuration: {field}")
+                
+                return psycopg2.connect(
+                    host=os.environ.get("APP_DB_HOST") or db_config['database-host'],
+                    database=os.environ.get("APP_DB_NAME") or db_config['database-name'],
+                    user=os.environ.get("APP_DB_USER") or db_config['database-user'],
+                    password=os.environ.get("APP_DB_PASSWORD") or db_config['database-password'],
+                    port=int(os.environ.get("APP_DB_PORT") or db_config['database-port'])
+                )
+            else:
+                # Use Chat2SQL fallback database configuration
+                logger.info("Using Chat2SQL fallback database configuration")
+                
+                # Validate required fields
+                required_fields = ['fallback_database_host', 'fallback_database_name', 'fallback_database_user', 'fallback_database_password', 'fallback_database_port']
+                for field in required_fields:
+                    if not chat2sql_config.get(field):
+                        raise ValueError(f"Missing required Chat2SQL database configuration: {field}")
+                
+                return psycopg2.connect(
+                    host=os.environ.get("CHAT2SQL_DB_HOST") or chat2sql_config['fallback_database_host'],
+                    database=os.environ.get("CHAT2SQL_DB_NAME") or chat2sql_config['fallback_database_name'],
+                    user=os.environ.get("CHAT2SQL_DB_USER") or chat2sql_config['fallback_database_user'],
+                    password=os.environ.get("CHAT2SQL_DB_PASSWORD") or chat2sql_config['fallback_database_password'],
+                    port=int(os.environ.get("CHAT2SQL_DB_PORT") or chat2sql_config['fallback_database_port'])
+                )
+        elif 'database' in config:
+            # Fallback to main database configuration
+            db_config = config['database']
+            logger.info("Using main database configuration (Chat2SQL section not found)")
+            
+            # Validate required fields
+            required_fields = ['database-host', 'database-name', 'database-user', 'database-password', 'database-port']
+            for field in required_fields:
+                if not db_config.get(field):
+                    raise ValueError(f"Missing required database configuration: {field}")
+            
+            return psycopg2.connect(
+                host=os.environ.get("APP_DB_HOST") or db_config['database-host'],
+                database=os.environ.get("APP_DB_NAME") or db_config['database-name'],
+                user=os.environ.get("APP_DB_USER") or db_config['database-user'],
+                password=os.environ.get("APP_DB_PASSWORD") or db_config['database-password'],
+                port=int(os.environ.get("APP_DB_PORT") or db_config['database-port'])
+            )
+        else:
+            raise ValueError("No database configuration found in config.ini")
+            
+    except Exception as e:
+        logger.error(f"Failed to get database connection: {str(e)}")
+        raise Exception(f"Database configuration error: {str(e)}")
 
 def get_user_db_config(user_id):
     conn = get_app_db_connection()
@@ -185,7 +253,7 @@ def get_connection(user_config=None):
             return conn
         else:
             logger.info("Getting connection from pool...")
-            conn = connection_pool.getconn()
+            conn = get_app_db_connection()
             logger.info("Connection obtained from pool")
             return conn
     except Exception as e:
@@ -195,7 +263,7 @@ def get_connection(user_config=None):
 def release_connection(conn):
     """Release a connection back to the pool"""
     try:
-        connection_pool.putconn(conn)
+        conn.close()
         logger.info("Connection released back to pool")
     except Exception as e:
         logger.error(f"Failed to release connection to pool: {str(e)}")
