@@ -1,5 +1,5 @@
 import { api } from './api';
-import { getUsername } from '../utils/chat2sqlApi';
+// import { getUsername } from '../utils/chat2sqlApi'; // Commented out as it's not exported
 
 export interface TableInfo {
   table_name: string;

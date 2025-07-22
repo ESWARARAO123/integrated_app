@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { DatabaseConnection } from '../services/flowtrackService';
-import { useTheme } from '../contexts/ThemeContext';
+import { DatabaseConnection } from '../../services/flowtrackService';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface DatabaseConnectionModalProps {
   isOpen: boolean;

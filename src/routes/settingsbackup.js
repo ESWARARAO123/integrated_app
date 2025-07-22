@@ -175,16 +175,4 @@ router.get('/api-key', isAuthenticated, (req, res) => {
   }
 });
 
-// Import prediction routes
-const predictionRoutes = require('./settings.prediction');
-
-// Import RunStatus routes
-const runstatusRoutes = require('./settings.runstatus');
-
-// Mount prediction routes
-router.use('/', predictionRoutes);
-
-// Mount RunStatus routes
-router.use('/', runstatusRoutes);
-
-module.exports = router;
+module.exports = router; 

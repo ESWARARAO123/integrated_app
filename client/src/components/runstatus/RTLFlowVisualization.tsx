@@ -7,7 +7,7 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
-import { RTLFlowData, RTLVersionAnalysis } from '../services/flowtrackService';
+import { RTLFlowData, RTLVersionAnalysis } from '../../services/flowtrackService';
 import BranchFlowVisualization from './BranchFlowVisualization';
 import './RTLFlowVisualization.css';
 

@@ -27,6 +27,10 @@ const contextAgentRoutes = require('./routes/contextAgent');
 const chat2sqlRoutes = require('./routes/chat2sql');
 const { setSessionStore } = require('./services/sessionService');
 const { getWebSocketService } = require('./services/webSocketService');
+const flowtrackRoutes = require('./routes/flowtrack');
+const runStatusDbRoutes = require('./routes/runStatusDb');
+const predictionDbRoutes = require('./routes/predictionDb');
+const csvDownloadRoutes = require('./routes/csvDownload');
 
 // Try to require the documents routes, but don't fail if they're not available
 let documentsRoutes;
@@ -151,6 +155,10 @@ async function startServer() {
     apiRouter.use('/context-agent', contextAgentRoutes);
     apiRouter.use('/chat2sql', chat2sqlRoutes);
     apiRouter.use('/', configRoutes(config)); // Add config routes at the API root
+    apiRouter.use('/flowtrack', flowtrackRoutes);
+    apiRouter.use('/runstatus-db', runStatusDbRoutes);
+    apiRouter.use('/prediction-db', predictionDbRoutes); // Add prediction DB routes
+    apiRouter.use('/csv', csvDownloadRoutes); // Add CSV download routes
 
     // Mount all API routes under /api
     app.use('/api', apiRouter);

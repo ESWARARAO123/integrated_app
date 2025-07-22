@@ -19,10 +19,10 @@ import runService from '../services/runService';
 import userService from '../services/userService';
 import flowtrackService, { DatabaseConnection, DatabaseFile, SimpleFlowAnalysisResult, BranchFlowAnalysisResult, RTLFlowAnalysisResult } from '../services/flowtrackService';
 import runStatusDbService, { RunStatusTable, RunStatusDbStatus, SimpleFlowAnalysisResult as RunStatusSimpleFlowResult, BranchFlowAnalysisResult as RunStatusBranchFlowResult, RTLFlowAnalysisResult as RunStatusRTLFlowResult } from '../services/runStatusDbService';
-import DatabaseConnectionModal from '../components/DatabaseConnectionModal';
-import SimpleFlowVisualization from '../components/SimpleFlowVisualization';
-import BranchFlowVisualization from '../components/BranchFlowVisualization';
-import RTLFlowVisualization from '../components/RTLFlowVisualization';
+import DatabaseConnectionModal from '../components/runstatus/DatabaseConnectionModal';
+import SimpleFlowVisualization from '../components/runstatus/SimpleFlowVisualization';
+import BranchFlowVisualization from '../components/runstatus/BranchFlowVisualization';
+import RTLFlowVisualization from '../components/runstatus/RTLFlowVisualization';
 
 // Types for our run data
 interface RunStep {

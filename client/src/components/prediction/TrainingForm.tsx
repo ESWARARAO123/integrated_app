@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Heading, FormControl, FormLabel, Input, Button, Text, Select, VStack, HStack, Badge, Spinner } from '@chakra-ui/react';
-import predictorService, { AvailableTablesResponse, TrainingSet } from '../services/predictiorService';
+import { Heading, FormControl, FormLabel, Input, Button, Text, Select, Badge, Spinner } from '@chakra-ui/react';
+import { Box, VStack, HStack } from '@chakra-ui/layout';
+import predictorService, { AvailableTablesResponse, TrainingSet } from '../../services/predictorService';
 import TrainingProgress from './TrainingProgress';
 
 interface TrainingFormProps {

@@ -178,6 +178,39 @@ services:
     networks:
       - productdemo-network
 
+  runstatus:
+
+    build:
+
+      context: ..
+
+      dockerfile: Docker/Dockerfile.runstatus
+
+    container_name: productdemo-runstatus
+
+    env_file:
+
+      - .env
+
+    ports:
+
+      - "${RUNSTATUS_PORT:-5003}:5003"
+
+    volumes:
+
+      - ../conf/config.ini:/conf/config.ini
+
+    extra_hosts:
+
+      - "host.docker.internal:host-gateway"
+
+    restart: unless-stopped
+
+    networks:
+
+      - productdemo-network
+
+      
 volumes:
   redis_data:
   embedding_models:

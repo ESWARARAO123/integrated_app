@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FlowChartLayout, FlowChartNode, FlowChartConnection } from '../services/flowtrackService';
-import { useTheme } from '../contexts/ThemeContext';
+import { FlowChartLayout, FlowChartNode, FlowChartConnection } from '../../services/flowtrackService';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface FlowChartProps {
   data: FlowChartLayout;

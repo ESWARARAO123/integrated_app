@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { BranchFlowData, BranchNode, BranchConnection } from '../services/flowtrackService';
+import { BranchFlowData, BranchNode, BranchConnection } from '../../services/flowtrackService';
 import './BranchFlowVisualization.css';
 
 interface BranchFlowVisualizationProps {

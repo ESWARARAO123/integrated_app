@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TableCellsIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface DatabaseTableListProps {
   tables: string[];

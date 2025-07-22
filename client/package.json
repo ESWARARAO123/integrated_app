@@ -11,6 +11,7 @@
   "dependencies": {
     "@chakra-ui/card": "^2.2.0",
     "@chakra-ui/icons": "^2.2.4",
+    "@chakra-ui/layout": "^2.3.1",
     "@chakra-ui/react": "^2.8.0",
     "@chakra-ui/table": "^2.1.0",
     "@emotion/react": "^11.14.0",

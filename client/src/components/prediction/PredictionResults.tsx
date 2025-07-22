@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
   Table,
   Thead,
   Tbody,
@@ -8,8 +7,6 @@ import {
   Th,
   Td,
   Text,
-  VStack,
-  HStack,
   Badge,
   Button,
   Spinner,
@@ -23,6 +20,7 @@ import {
   Divider,
   useToast
 } from '@chakra-ui/react';
+import { Box, VStack, HStack } from '@chakra-ui/layout';
 import { DownloadIcon } from '@chakra-ui/icons';
 
 interface PredictionResult {

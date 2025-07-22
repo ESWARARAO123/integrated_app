@@ -20,7 +20,7 @@ import {
 import TrainingForm from './TrainingForm';
 import PredictionForm from './PredictionForm';
 import PredictionResults from './PredictionResults';
-import predictorService from '../services/predictiorService';
+import predictorService from '../../services/predictorService';
 
 interface DatabaseStatus {
   configured: boolean;

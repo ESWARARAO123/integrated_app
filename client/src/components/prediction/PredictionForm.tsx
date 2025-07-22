@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
   Heading,
   FormControl,
   FormLabel,
@@ -8,8 +7,6 @@ import {
   Button,
   Text,
   Select,
-  VStack,
-  HStack,
   Badge,
   Spinner,
   Alert,
@@ -17,7 +14,8 @@ import {
   Progress,
   Divider
 } from '@chakra-ui/react';
-import predictorService, { AvailableTablesResponse, TableInfo } from '../services/predictiorService';
+import { Box, VStack, HStack } from '@chakra-ui/layout';
+import predictorService, { AvailableTablesResponse, TableInfo } from '../../services/predictorService';
 
 interface PredictionFormProps {
   onPredictionComplete?: (result: any) => void;

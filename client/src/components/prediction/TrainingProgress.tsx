@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
   Progress,
   Text,
-  VStack,
-  HStack,
   Badge,
   Alert,
   AlertIcon,
@@ -16,6 +13,7 @@ import {
   StatHelpText,
   SimpleGrid
 } from '@chakra-ui/react';
+import { Box, VStack, HStack } from '@chakra-ui/layout';
 
 interface TrainingStatus {
   is_training: boolean;
