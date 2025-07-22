@@ -357,10 +357,26 @@ const runMigrations = async () => {
           const description = file.replace(/\.js$/, '').replace(/^\d+_/, '').replace(/_/g, ' ');
           
           // Insert with both name and version for compatibility
-          await pool.query(
-            'INSERT INTO schema_migrations (name, version, description) VALUES ($1, $2, $3)',
-            [file, version, description]
-          );
+          try {
+            await pool.query(
+              'INSERT INTO schema_migrations (name, version, description) VALUES ($1, $2, $3) ON CONFLICT (version) DO NOTHING',
+              [file, version, description]
+            );
+            console.log(`Migration ${file} recorded successfully`);
+          } catch (insertError) {
+            // If there's still an error after using ON CONFLICT, try with just the name
+            console.warn(`Warning: Could not record migration with version ${version}, trying with name only`);
+            try {
+              await pool.query(
+                'INSERT INTO schema_migrations (name, description) VALUES ($1, $2)',
+                [file, description]
+              );
+              console.log(`Migration ${file} recorded with name only`);
+            } catch (nameError) {
+              console.error(`Warning: Failed to record migration ${file}, but continuing:`, nameError.message);
+              // Continue execution - the migration ran successfully even if we couldn't record it
+            }
+          }
           
           console.log(`Migration ${file} completed successfully`);
         } catch (error) {

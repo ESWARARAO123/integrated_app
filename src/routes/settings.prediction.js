@@ -13,35 +13,91 @@ const isAuthenticated = (req, res, next) => {
 
 // ===== PREDICTION DATABASE ROUTES =====
 
-// Helper function to ensure prediction_db_settings table exists
+// Helper function to ensure prediction_db_settings table exists (FALLBACK ONLY)
+// This should ONLY be used when migrations fail - normal operation should rely on migration 031
 async function ensurePredictionDbSettingsTable() {
   try {
-    // Try to create the table if it doesn't exist
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS prediction_db_settings (
-        id SERIAL PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        username TEXT NOT NULL DEFAULT 'default',
-        host TEXT NOT NULL,
-        database TEXT NOT NULL,
-        "user" TEXT NOT NULL,
-        password TEXT NOT NULL,
-        port INTEGER NOT NULL DEFAULT 5432,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
+    // First, check if table already exists to avoid unnecessary operations
+    const tableCheck = await db.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'prediction_db_settings'
+      );
     `);
     
-    // Create index for faster lookups
-    await db.query(`
-      CREATE INDEX IF NOT EXISTS idx_prediction_db_settings_user_id_username 
-      ON prediction_db_settings(user_id, username)
+    if (tableCheck.rows[0].exists) {
+      console.log('ℹ️  prediction_db_settings table already exists (created by migration)');
+      return true;
+    }
+    
+    // Check if migration 031 was applied but failed
+    const migrationCheck = await db.query(`
+      SELECT name FROM schema_migrations 
+      WHERE name = '031_create_prediction_db_settings_table.js' 
+      OR version = '031'
     `);
     
-    console.log('✅ prediction_db_settings table ensured');
-    return true;
+    if (migrationCheck.rows.length > 0) {
+      console.log('⚠️  Migration 031 was applied but table is missing - this indicates a migration failure');
+    } else {
+      console.log('⚠️  Migration 031 has not run yet - table missing, using FALLBACK');
+    }
+    
+    console.log('🔄 Creating prediction_db_settings table as FALLBACK mechanism...');
+    
+    // Use a transaction for the fallback to ensure atomicity
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // FALLBACK: Create the table if it doesn't exist (this should normally be done by migration)
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS prediction_db_settings (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          username TEXT NOT NULL DEFAULT 'default',
+          host TEXT NOT NULL,
+          database TEXT NOT NULL,
+          "user" TEXT NOT NULL,
+          password TEXT NOT NULL,
+          port INTEGER NOT NULL DEFAULT 5432,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      // Create index for faster lookups
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_prediction_db_settings_user_id_username 
+        ON prediction_db_settings(user_id, username)
+      `);
+      
+      // Try to record this as if it were a migration
+      try {
+        await client.query(`
+          INSERT INTO schema_migrations (name, version, description, applied_at) 
+          VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+          ON CONFLICT (version) DO NOTHING
+        `, ['031_create_prediction_db_settings_table.js', '031', 'create prediction db settings table']);
+        console.log('✅ Recorded fallback as migration 031');
+      } catch (migError) {
+        console.log('⚠️  Could not record fallback as migration (non-critical):', migError.message);
+      }
+      
+      await client.query('COMMIT');
+      console.log('✅ prediction_db_settings table created via FALLBACK mechanism');
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('❌ Error in fallback table creation:', error);
+      console.error('📋 Fallback creation failed - this indicates a serious database issue');
+      return false;
+    } finally {
+      client.release();
+    }
   } catch (error) {
-    console.error('❌ Error ensuring prediction_db_settings table:', error);
+    console.error('❌ Error checking table existence:', error);
     return false;
   }
 }
@@ -51,13 +107,32 @@ router.get('/prediction-db-config', isAuthenticated, async (req, res) => {
   try {
     console.log('Getting prediction database config for user:', req.session.userId);
     
-    // Ensure table exists before querying
-    await ensurePredictionDbSettingsTable();
-    
-    const result = await db.query(
-      'SELECT host, port, database, "user", password FROM prediction_db_settings WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
-      [req.session.userId]
-    );
+    // Try the normal database query first (migration should have created the table)
+    let result;
+    try {
+      result = await db.query(
+        'SELECT host, port, database, "user", password FROM prediction_db_settings WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+        [req.session.userId]
+      );
+    } catch (queryError) {
+      // If table doesn't exist (42P01), try fallback table creation
+      if (queryError.code === '42P01') {
+        console.log('📊 Table missing, attempting fallback creation...');
+        const fallbackSuccess = await ensurePredictionDbSettingsTable();
+        
+        if (fallbackSuccess) {
+          // Retry the query after table creation
+          result = await db.query(
+            'SELECT host, port, database, "user", password FROM prediction_db_settings WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+            [req.session.userId]
+          );
+        } else {
+          throw queryError; // Re-throw original error if fallback failed
+        }
+      } else {
+        throw queryError; // Re-throw non-table-missing errors
+      }
+    }
     
     if (result.rows.length === 0) {
       return res.json({
@@ -132,21 +207,41 @@ router.post('/prediction-db-config', isAuthenticated, async (req, res) => {
       }
     }
     
-    // Ensure table exists before saving
-    await ensurePredictionDbSettingsTable();
-    
     // Get username from users table
     const userResult = await db.query('SELECT username FROM users WHERE id = ?', [req.session.userId]);
     const username = userResult.rows[0]?.username || 'default';
     
-    // Delete existing configuration for this user before inserting new one
-    await db.query('DELETE FROM prediction_db_settings WHERE user_id = ?', [req.session.userId]);
-    
-    // Save to database with proper column names and user_id
-    await db.query(`
-      INSERT INTO prediction_db_settings (user_id, username, host, port, database, "user", password, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `, [req.session.userId, username, host, parseInt(port), database, user, password]);
+    // Try normal database operations first (migration should have created the table)
+    try {
+      // Delete existing configuration for this user before inserting new one
+      await db.query('DELETE FROM prediction_db_settings WHERE user_id = ?', [req.session.userId]);
+      
+      // Save to database with proper column names and user_id
+      await db.query(`
+        INSERT INTO prediction_db_settings (user_id, username, host, port, database, "user", password, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `, [req.session.userId, username, host, parseInt(port), database, user, password]);
+      
+    } catch (dbError) {
+      // If table doesn't exist (42P01), try fallback table creation
+      if (dbError.code === '42P01') {
+        console.log('📊 Table missing during save, attempting fallback creation...');
+        const fallbackSuccess = await ensurePredictionDbSettingsTable();
+        
+        if (fallbackSuccess) {
+          // Retry the operations after table creation
+          await db.query('DELETE FROM prediction_db_settings WHERE user_id = ?', [req.session.userId]);
+          await db.query(`
+            INSERT INTO prediction_db_settings (user_id, username, host, port, database, "user", password, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          `, [req.session.userId, username, host, parseInt(port), database, user, password]);
+        } else {
+          throw dbError; // Re-throw original error if fallback failed
+        }
+      } else {
+        throw dbError; // Re-throw non-table-missing errors
+      }
+    }
     
     console.log('Prediction database configuration saved successfully');
     
@@ -212,14 +307,22 @@ router.post('/prediction-db-disconnect', isAuthenticated, async (req, res) => {
   try {
     console.log('Disconnecting prediction database for user:', req.session.userId);
     
-    // Ensure table exists before deleting
-    await ensurePredictionDbSettingsTable();
-    
-    // Clear the prediction database configuration for this user
-    await db.query(
-      'DELETE FROM prediction_db_settings WHERE user_id = ?',
-      [req.session.userId]
-    );
+    // Try normal database operations first (migration should have created the table)
+    try {
+      // Clear the prediction database configuration for this user
+      await db.query(
+        'DELETE FROM prediction_db_settings WHERE user_id = ?',
+        [req.session.userId]
+      );
+    } catch (dbError) {
+      // If table doesn't exist (42P01), that's actually fine for disconnect
+      if (dbError.code === '42P01') {
+        console.log('📊 Table missing during disconnect - treating as already disconnected');
+        // Don't create table for disconnect operation, just continue
+      } else {
+        throw dbError; // Re-throw non-table-missing errors
+      }
+    }
     
     // Disconnect the prediction database service
     try {
