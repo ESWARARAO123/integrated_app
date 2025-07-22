@@ -1,0 +1,435 @@
+.branch-flow-container {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.branch-flow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.branch-flow-header h3 {
+  color: var(--color-text);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.branch-flow-legend {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text); /* Use theme text color */
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Ensure legend text is visible in all themes using proper theme classes */
+.theme-dark .legend-item,
+.theme-midnight .legend-item {
+  color: var(--color-text) !important; /* Use theme text color for dark themes */
+}
+
+.theme-light .legend-item {
+  color: var(--color-text) !important; /* Use theme text color for light theme */
+}
+
+/* Additional fallback for direct theme application */
+html.theme-dark .legend-item,
+html.theme-midnight .legend-item {
+  color: #e2e8f0 !important; /* Light text for dark themes */
+}
+
+html.theme-light .legend-item {
+  color: #374151 !important; /* Dark text for light theme */
+}
+
+/* Root level theme classes */
+:root.theme-dark .legend-item,
+:root.theme-midnight .legend-item {
+  color: #e2e8f0 !important;
+}
+
+:root.theme-light .legend-item {
+  color: #374151 !important;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid;
+}
+
+.legend-color.linear {
+  background-color: var(--color-info-10);
+  border-color: var(--color-info);
+  box-shadow: 0 0 8px var(--color-info-20);
+}
+
+.legend-color.branch {
+  background-color: var(--color-warning-10);
+  border-color: var(--color-warning);
+  box-shadow: 0 0 8px var(--color-warning-20);
+}
+
+.legend-line {
+  width: 24px;
+  height: 2px;
+  position: relative;
+}
+
+.legend-line.curved {
+  background: var(--color-warning);
+  border-radius: 1px;
+}
+
+.legend-line.curved::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: -2px;
+  width: 0;
+  height: 0;
+  border-left: 4px solid var(--color-warning);
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+}
+
+.branch-flow-content {
+  position: relative;
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: auto;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  max-height: 600px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.4) rgba(0, 0, 0, 0.1);
+}
+
+.branch-flow-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.branch-flow-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.branch-flow-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.branch-flow-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.branch-flow-svg {
+  display: block;
+  min-width: 100%;
+  min-height: 100%;
+  cursor: grab;
+  transition: transform 0.2s ease;
+}
+
+.branch-flow-svg:active {
+  cursor: grabbing;
+}
+
+.branch-flow-svg.zoomed {
+  transform-origin: top left;
+}
+
+.branch-node {
+  cursor: pointer;
+  /* Removed vibrating transition effects */
+}
+
+/* Removed hover scaling and brightness effects to prevent vibration */
+
+.node-details-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 250px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.node-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.node-details-header h4 {
+  color: #000000;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #6c757d;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.close-button:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #000000;
+}
+
+.node-details-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.detail-label {
+  color: #6c757d;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.detail-value {
+  color: #212529;
+  font-size: 0.875rem;
+  font-weight: 400;
+  text-align: right;
+  max-width: 150px;
+  word-break: break-word;
+}
+
+.detail-value.branch {
+  color: #ff8f00;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.detail-value.linear {
+  color: #0277bd;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.branch-flow-debug {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(248, 249, 250, 0.9);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.branch-flow-debug h4 {
+  color: #212529;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.debug-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.debug-stats span {
+  color: #495057;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .branch-flow-container {
+    padding: 12px;
+  }
+
+  .branch-flow-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .branch-flow-legend {
+    gap: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .legend-item {
+    font-size: 0.75rem;
+  }
+
+  /* Ensure responsive legend text is also theme-aware */
+  .theme-dark .legend-item,
+  .theme-midnight .legend-item {
+    color: #e2e8f0 !important;
+  }
+
+  .theme-light .legend-item {
+    color: #374151 !important;
+  }
+
+  /* Additional responsive fallbacks */
+  html.theme-dark .legend-item,
+  html.theme-midnight .legend-item {
+    color: #e2e8f0 !important;
+  }
+
+  html.theme-light .legend-item {
+    color: #374151 !important;
+  }
+
+  .node-details-panel {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin-top: 16px;
+    min-width: auto;
+    padding: 12px;
+  }
+
+  .debug-stats {
+    gap: 6px;
+    flex-direction: column;
+  }
+
+  .debug-stats span {
+    font-size: 0.7rem;
+    padding: 3px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .branch-flow-container {
+    padding: 8px;
+  }
+
+  .branch-flow-header h3 {
+    font-size: 1rem;
+  }
+
+  .branch-flow-content {
+    max-height: 400px;
+  }
+
+  .node-details-panel {
+    padding: 8px;
+    min-width: 200px;
+  }
+}
+
+/* Removed branch connection pulse animation to prevent vibration */
+
+/* Removed vibrating hover effects - nodes will show info on hover without visual effects */
+
+/* Simple clean text styling for branch nodes - Pure black, bold, Roboto font - ALL CAPITAL */
+.branch-flow-svg text {
+  font-size: 14px !important;
+  font-weight: bold !important;
+  font-family: 'Roboto', Arial, sans-serif !important;
+  fill: #000000 !important;
+  text-transform: uppercase !important; /* FORCE ALL TEXT TO CAPITAL */
+  /* Remove all stroke, shadow, and letter-spacing effects for clean appearance */
+}
+
+/* Enhanced arrow visibility */
+.branch-flow-svg marker {
+  z-index: 1000 !important;
+}
+
+/* COPIED tooltip styles - removed animations to prevent vibration */
+.copied-tooltip {
+  transition: opacity 0.3s ease !important;
+  pointer-events: none;
+}
+
+.copied-tooltip rect {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  /* Removed glow animation */
+}
+
+/* Removed pulse animation from tooltip text */
+
+/* Removed enhanced node hover effects to prevent vibration */
+
+/* RUN indicator styles - removed animation to prevent vibration */
+
+/* Improved arrow visibility */
+.branch-flow-svg path[marker-end] {
+  z-index: 999 !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.branch-flow-svg path[marker-end] {
+  z-index: 999 !important;
+}
+
+.branch-flow-svg line[marker-end] {
+  z-index: 999 !important;
+}
+
+/* Ensure arrows are always visible outside nodes */
+.branch-flow-svg marker polygon {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* Simple light color scheme for branch nodes */
+.branch-node rect[fill*="#f39c12"],
+.branch-node rect[fill*="#ffd700"] {
+  fill: #fef7e0 !important;
+  stroke: #d69e2e !important;
+  stroke-width: 1px !important;
+}
+
+.branch-node rect[fill*="#3498db"] {
+  fill: #ebf8ff !important;
+  stroke: #3182ce !important;
+  stroke-width: 1px !important;
+}
