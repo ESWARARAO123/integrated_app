@@ -2,8 +2,6 @@ import React, { useRef, useEffect, useState } from 'react';
 import { animations } from '../components/chat/chatStyles';
 import {
   ArrowPathIcon,
-  PencilIcon,
-  CheckIcon,
   PlusIcon
 } from '@heroicons/react/24/outline';
 import { containsReadContextToolCall } from '../utils/toolParser';
@@ -25,16 +23,13 @@ import { useChatMessaging } from '../hooks/useChatMessaging';
 import { useContextHandling } from '../hooks/useContextHandling';
 import { ExtendedChatMessage } from '../types';
 import { chatbotService } from '../services/chatbotService';
-import TrainingForm from '../components/TrainingForm'; // Added for predictor training form
 import UserIcon from '../components/UserIcon';
+import ChatbotPrediction from '../components/prediction/ChatbotPrediction';
 
 const Chatbot: React.FC = () => {
   const { isExpanded: isMainSidebarExpanded } = useSidebar();
-
-  // Use a ref to track if context rules have been loaded
   const contextRulesLoadedRef = useRef<{[key: string]: boolean}>({});
-  
-  // Get chat sessions functionality
+
   const {
     sessions,
     activeSessionId,
@@ -62,7 +57,6 @@ const Chatbot: React.FC = () => {
     resetChat
   } = useChatSessions();
 
-  // Get chat messaging functionality
   const {
     isLoading,
     isStreaming,
@@ -76,7 +70,6 @@ const Chatbot: React.FC = () => {
     stopGeneration
   } = useChatMessaging();
 
-  // Get context handling functionality
   const {
     isRagAvailable,
     isRagEnabled,
@@ -89,19 +82,14 @@ const Chatbot: React.FC = () => {
     showRagAvailableNotification
   } = useContextHandling(activeSessionId);
 
-  // Model selection state
   const [selectedModelId, setSelectedModelId] = React.useState<string | undefined>(() => {
     return localStorage.getItem('selectedModelId') || undefined;
   });
 
-  // Get MCP functionality from the actual contexts
   const { isConnected: isMCPConnected, defaultServer, connectToServer, mcpConnection } = useMCP();
   const { isAgentEnabled: isMCPEnabled, toggleAgent: toggleMCPEnabled } = useMCPAgent();
   
-  // MCP Server selector state
   const [showServerSelector, setShowServerSelector] = useState(false);
-
-  // Chat2SQL state - Added with persistence
   const [isChat2SqlEnabled, setIsChat2SqlEnabled] = useState(() => {
     try {
       const saved = localStorage.getItem('chat2sql_mode_enabled');
@@ -111,7 +99,6 @@ const Chatbot: React.FC = () => {
     }
   });
 
-  // Predictor state - Added with persistence
   const [isPredictorEnabled, setIsPredictorEnabled] = useState(() => {
     try {
       const saved = localStorage.getItem('predictor_mode_enabled');
@@ -120,47 +107,18 @@ const Chatbot: React.FC = () => {
       return false;
     }
   });
-  const [showTrainingForm, setShowTrainingForm] = useState(false);
 
-  // Helper functions for predictor message persistence
-  const savePredictorMessage = (sessionId: string, message: ExtendedChatMessage) => {
-    try {
-      const key = `predictor_messages_${sessionId}`;
-      const existing = localStorage.getItem(key);
-      let messages = existing ? JSON.parse(existing) : [];
-      
-      // Add the new message
-      messages.push({
-        ...message,
-        timestamp: message.timestamp.toISOString() // Convert Date to string for storage
-      });
-      
-      // Keep only the last 50 messages per session to prevent localStorage bloat
-      if (messages.length > 50) {
-        messages = messages.slice(-50);
-      }
-      
-      localStorage.setItem(key, JSON.stringify(messages));
-      console.log('Predictor message saved to localStorage:', message.id);
-    } catch (error) {
-      console.error('Error saving predictor message to localStorage:', error);
-    }
-  };
-
-  // Helper functions for Chat2SQL message persistence
   const saveChat2SqlMessage = (sessionId: string, message: ExtendedChatMessage) => {
     try {
       const key = `chat2sql_messages_${sessionId}`;
       const existing = localStorage.getItem(key);
       let messages = existing ? JSON.parse(existing) : [];
       
-      // Add the new message
       messages.push({
         ...message,
-        timestamp: message.timestamp.toISOString() // Convert Date to string for storage
+        timestamp: message.timestamp.toISOString()
       });
       
-      // Keep only the last 50 messages per session to prevent localStorage bloat
       if (messages.length > 50) {
         messages = messages.slice(-50);
       }
@@ -172,23 +130,6 @@ const Chatbot: React.FC = () => {
     }
   };
 
-  const loadPredictorMessages = (sessionId: string): ExtendedChatMessage[] => {
-    try {
-      const key = `predictor_messages_${sessionId}`;
-      const stored = localStorage.getItem(key);
-      if (stored) {
-        const messages = JSON.parse(stored);
-        return messages.map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp) // Convert string back to Date
-        }));
-      }
-    } catch (error) {
-      console.error('Error loading predictor messages from localStorage:', error);
-    }
-    return [];
-  };
-
   const loadChat2SqlMessages = (sessionId: string): ExtendedChatMessage[] => {
     try {
       const key = `chat2sql_messages_${sessionId}`;
@@ -197,23 +138,13 @@ const Chatbot: React.FC = () => {
         const messages = JSON.parse(stored);
         return messages.map((msg: any) => ({
           ...msg,
-          timestamp: new Date(msg.timestamp) // Convert string back to Date
+          timestamp: new Date(msg.timestamp)
         }));
       }
     } catch (error) {
       console.error('Error loading Chat2SQL messages from localStorage:', error);
     }
     return [];
-  };
-
-  const clearPredictorMessages = (sessionId: string) => {
-    try {
-      const key = `predictor_messages_${sessionId}`;
-      localStorage.removeItem(key);
-      console.log('Predictor messages cleared for session:', sessionId);
-    } catch (error) {
-      console.error('Error clearing predictor messages:', error);
-    }
   };
 
   const clearChat2SqlMessages = (sessionId: string) => {
@@ -226,16 +157,14 @@ const Chatbot: React.FC = () => {
     }
   };
 
-  // Function to get session title based on active mode
   const getSessionTitleForMode = () => {
-    if (isPredictorEnabled) return 'Predictor Chat';
+    if (isPredictorEnabled) return 'Predictor Session';
     if (isChat2SqlEnabled) return 'Chat2SQL Session';
     if (isRagEnabled) return 'RAG Chat';
     if (isMCPEnabled) return 'MCP Chat';
     return 'New Chat';
   };
 
-  // Enhanced MCP helper functions
   const selectServer = async (serverId: string) => {
     console.log('Selected MCP server:', serverId);
     
@@ -278,13 +207,12 @@ const Chatbot: React.FC = () => {
   ) => {
     console.log('MCP Chat message handling:', content);
     console.log('MCP connection state:', { 
-    isMCPConnected,
+      isMCPConnected,
       defaultServer: !!defaultServer, 
       mcpConnectionClientId: mcpConnection?.clientId,
       mcpConnectionState: mcpConnection 
     });
     
-    // Check if we have MCP connection details - improved check
     if (!defaultServer) {
       console.error('No default MCP server configured');
       throw new Error('No MCP server configured');
@@ -298,7 +226,6 @@ const Chatbot: React.FC = () => {
     setIsStreaming(true);
     setIsLoading(true);
 
-    // Create the assistant message placeholder
     const assistantMessageId = `assistant-${Date.now()}`;
     const assistantMessage: ExtendedChatMessage = {
       id: assistantMessageId,
@@ -312,16 +239,12 @@ const Chatbot: React.FC = () => {
     streamedContentRef.current[assistantMessageId] = '';
 
     try {
-      // Import the MCP system prompt
       const { mcpSystemPrompt } = await import('../prompts/mcpSystemPrompt');
-
-      // Prepare messages for MCP chat service
       const mcpMessages = messages.map(msg => ({
         role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content
       }));
 
-      // Add the MCP system prompt at the beginning if not already present
       const hasSystemPrompt = mcpMessages.some(msg =>
         msg.role === 'system' &&
         (msg.content.includes('runshellcommand') || msg.content.includes('SHELL COMMAND TOOL'))
@@ -334,16 +257,12 @@ const Chatbot: React.FC = () => {
         });
       }
 
-      // Add the current user message
       mcpMessages.push({
         role: 'user',
         content: content
       });
 
-      // Import mcpChatService
       const mcpChatServiceModule = await import('../services/mcpChatService');
-
-      // Stream the response using MCP chat service
       const abortFunction = await mcpChatServiceModule.default.streamChatCompletion(
         {
           modelId: selectedModel.id,
@@ -359,7 +278,6 @@ const Chatbot: React.FC = () => {
             max_tokens: 2000
           }
         },
-        // onChunk
         (chunk) => {
           if (chunk.choices?.[0]?.delta?.content) {
             streamedContentRef.current[assistantMessageId] += chunk.choices[0].delta.content;
@@ -371,7 +289,6 @@ const Chatbot: React.FC = () => {
             ));
           }
         },
-        // onComplete
         async () => {
           const finalContent = streamedContentRef.current[assistantMessageId];
           
@@ -381,7 +298,6 @@ const Chatbot: React.FC = () => {
               : msg
           ));
 
-          // Save the assistant message to database
           if (activeSessionId && finalContent) {
             try {
               console.log('Attempting to save MCP assistant message to database:', {
@@ -405,7 +321,6 @@ const Chatbot: React.FC = () => {
                 data: error.response?.data
               });
 
-              // If it's an authentication error, show a more helpful message
               if (error.response?.status === 401) {
                 console.warn('Authentication error when saving MCP assistant message - user may need to log in again');
               } else if (error.response?.status === 400) {
@@ -419,7 +334,6 @@ const Chatbot: React.FC = () => {
           abortFunctionRef.current = null;
           delete streamedContentRef.current[assistantMessageId];
         },
-        // onError
         (error) => {
           console.error('MCP chat streaming error:', error);
           
@@ -437,7 +351,6 @@ const Chatbot: React.FC = () => {
         }
       );
 
-      // Store abort function for potential cancellation
       abortFunctionRef.current = abortFunction;
 
     } catch (error: any) {
@@ -459,12 +372,10 @@ const Chatbot: React.FC = () => {
     }
   };
 
-  // Tool execution state
   const { isExecutingTool, currentTool, executeTool } = useToolExecution();
 
-  // Toggle Chat2SQL mode
   const handleToggleChat2Sql = () => {
-    setIsChat2SqlEnabled(prev => {
+    setIsChat2SqlEnabled((prev: boolean) => {
       const newValue = !prev;
       try {
         localStorage.setItem('chat2sql_mode_enabled', JSON.stringify(newValue));
@@ -475,21 +386,8 @@ const Chatbot: React.FC = () => {
     });
   };
 
-  // Listen for predictor messages from TrainingForm - Added
-  useEffect(() => {
-    const handlePredictorMessage = (event: CustomEvent) => {
-      setMessages((prev) => [...prev, event.detail.message]);
-    };
-
-    window.addEventListener('addPredictorMessage', handlePredictorMessage as EventListener);
-    return () => {
-      window.removeEventListener('addPredictorMessage', handlePredictorMessage as EventListener);
-    };
-  }, [setMessages]);
-
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch sessions on component mount and ensure WebSocket connection
   useEffect(() => {
     fetchSessions();
     checkRagAvailability();
@@ -519,7 +417,7 @@ const Chatbot: React.FC = () => {
               isContextMessage: true
             };
             
-              setMessages(prev => {
+            setMessages(prev => {
               const hasSimilarMessage = prev.some(msg => 
                 msg.role === 'system' && 
                 msg.content.includes('User context loaded:')
@@ -527,22 +425,21 @@ const Chatbot: React.FC = () => {
               
               if (hasSimilarMessage) {
                 console.log('Similar system message already exists, not adding another one');
-                  return prev;
-                }
+                return prev;
+              }
 
               return [...prev, systemContextMessage];
             });
             
             contextRulesLoadedRef.current[activeSessionId] = true;
-              }
-            }
-          } catch (error) {
+          }
+        }
+      } catch (error) {
         console.error('Error checking for stored context rules:', error);
       }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch messages when active session changes
   useEffect(() => {
     if (activeSessionId) {
       fetchSessionMessages(activeSessionId);
@@ -591,9 +488,9 @@ const Chatbot: React.FC = () => {
               
               contextRulesLoadedRef.current[activeSessionId] = true;
             }, 500);
+          }
         }
-      }
-    } catch (error) {
+      } catch (error) {
         console.error('Error checking for stored context rules:', error);
       }
     } else {
@@ -601,7 +498,6 @@ const Chatbot: React.FC = () => {
     }
   }, [activeSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Listen for refreshMessages events
   useEffect(() => {
     const handleRefreshMessages = (event: CustomEvent<{ conversationId: string; source?: string }>) => {
       const { conversationId, source } = event.detail;
@@ -623,7 +519,7 @@ const Chatbot: React.FC = () => {
       const { message } = event.detail;
       console.log('Adding system message to conversation:', message);
       
-        setMessages(prev => {
+      setMessages(prev => {
         const hasSimilarMessage = prev.some(msg => 
           msg.role === 'system' && 
           msg.content.includes('User context loaded:')
@@ -658,24 +554,6 @@ const Chatbot: React.FC = () => {
     };
   }, [activeSessionId, fetchSessionMessages]);
 
-  // Load predictor messages when session changes
-  useEffect(() => {
-    if (activeSessionId && isPredictorEnabled) {
-      console.log('Loading predictor messages for session:', activeSessionId);
-      const predictorMessages = loadPredictorMessages(activeSessionId);
-      if (predictorMessages.length > 0) {
-        console.log(`Found ${predictorMessages.length} predictor messages in localStorage`);
-        // Merge predictor messages with existing messages, avoiding duplicates
-        setMessages(prev => {
-          const existingIds = new Set(prev.map(msg => msg.id));
-          const newMessages = predictorMessages.filter(msg => !existingIds.has(msg.id));
-          return [...prev, ...newMessages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-        });
-      }
-    }
-  }, [activeSessionId, isPredictorEnabled]);
-
-  // WebSocket reconnection
   const { connected: wsConnected, reconnect: wsReconnect } = useWebSocket();
   useEffect(() => {
     const periodicCheckInterval = setInterval(() => {
@@ -696,7 +574,6 @@ const Chatbot: React.FC = () => {
     };
   }, [wsConnected, wsReconnect, ragNotificationShown]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Focus title input when editing
   useEffect(() => {
     if (editingTitle) {
       titleInputRef.current?.focus();
@@ -706,122 +583,6 @@ const Chatbot: React.FC = () => {
   const handleSendMessage = async (content: string, file?: File, meta?: any) => {
     if ((content.trim() === '' && !file) || isLoading || isUploading) return;
 
-    // Handle Predictor messages - Added
-    if (isPredictorEnabled) {
-      if (content.toLowerCase().trim() === 'train') {
-        setShowTrainingForm(true);
-        return;
-      }
-    }
-
-    // Handle Predictor messages
-    if (meta?.predictor) {
-      console.log('Handling Predictor response in Chatbot.tsx...', meta);
-      
-      if (meta.isServerResponse) {
-        const aiMessage: ExtendedChatMessage = {
-          id: meta.id,
-          role: 'assistant',
-          content: meta.error ? `Error: ${meta.error}` : meta.content,
-          timestamp: new Date(meta.timestamp),
-          predictor: true,
-          predictions: meta.predictions,
-          error: meta.error,
-          showDownloadButton: meta.showDownloadButton
-        };
-        
-        console.log('Predictor result message:', aiMessage);
-        setMessages(prev => [...prev, aiMessage]);
-        
-        // Save predictor AI response to database and localStorage
-        let sessionId = activeSessionId;
-        if (!sessionId) {
-          // Create a new session if none exists
-          try {
-            const newSession = await createNewSession('Predictor Session');
-            sessionId = newSession.id;
-            setActiveSessionId(sessionId);
-            await fetchSessions(); // Refresh the sessions list
-            console.log('Created new session for predictor:', sessionId);
-          } catch (error) {
-            console.error('Error creating new session for predictor:', error);
-          }
-        }
-        
-        if (sessionId) {
-          try {
-            await chatbotService.sendPredictorMessage(
-              '', // Empty user message since this is AI response
-              sessionId,
-              meta.error ? `Error: ${meta.error}` : meta.content,
-              {
-                predictor: aiMessage.predictor,
-                predictions: aiMessage.predictions,
-                error: aiMessage.error,
-                showDownloadButton: aiMessage.showDownloadButton,
-                isServerResponse: aiMessage.isServerResponse
-              }
-            );
-            console.log('Predictor AI message saved to database');
-          } catch (error) {
-            console.error('Error saving predictor AI message to database:', error);
-          }
-          savePredictorMessage(sessionId, aiMessage);
-        }
-        return;
-      }
-      
-      if (meta.isUserCommand) {
-        const userMessage: ExtendedChatMessage = {
-          id: meta.id,
-          role: 'user',
-          content: content.trim(),
-          timestamp: new Date(meta.timestamp),
-          predictor: true,
-          isUserCommand: true
-        };
-
-        console.log('User predictor command message:', userMessage);
-        setMessages(prev => [...prev, userMessage]);
-        
-        // Save predictor user command to database and localStorage
-        let sessionId = activeSessionId;
-        if (!sessionId) {
-          // Create a new session if none exists
-          try {
-            const newSession = await createNewSession('Predictor Session');
-            sessionId = newSession.id;
-            setActiveSessionId(sessionId);
-            await fetchSessions(); // Refresh the sessions list
-            console.log('Created new session for predictor:', sessionId);
-          } catch (error) {
-            console.error('Error creating new session for predictor:', error);
-          }
-        }
-        
-        if (sessionId) {
-          try {
-            await chatbotService.sendPredictorMessage(
-              content.trim(),
-              sessionId,
-              '', // Empty response since this is user message
-              {
-                isUserCommand: userMessage.isUserCommand
-              }
-            );
-            console.log('Predictor user command saved to database');
-          } catch (error) {
-            console.error('Error saving predictor user command to database:', error);
-          }
-          savePredictorMessage(sessionId, userMessage);
-        }
-        return;
-      }
-
-      return;
-    }
-
-    // Handle Chat2SQL messages
     if (meta?.chat2sql) {
       console.log('Handling Chat2SQL response in Chatbot.tsx...', meta);
       
@@ -838,20 +599,17 @@ const Chatbot: React.FC = () => {
         console.log('SQL result message:', aiMessage);
         setMessages(prev => [...prev, aiMessage]);
         
-        // Save Chat2SQL AI message to localStorage
         if (activeSessionId) {
           saveChat2SqlMessage(activeSessionId, aiMessage);
         }
         
-        // Save Chat2SQL AI response to database
         let sessionId = activeSessionId;
         if (!sessionId) {
-          // Create a new session if none exists
           try {
             const newSession = await createNewSession('Chat2SQL Session');
             sessionId = newSession.id;
             setActiveSessionId(sessionId);
-            await fetchSessions(); // Refresh the sessions list
+            await fetchSessions();
             console.log('Created new session for Chat2SQL:', sessionId);
           } catch (error) {
             console.error('Error creating new session for Chat2SQL:', error);
@@ -861,7 +619,7 @@ const Chatbot: React.FC = () => {
         if (sessionId) {
           try {
             await chatbotService.sendPredictorMessage(
-              '', // Empty user message since this is AI response
+              '',
               sessionId,
               meta.error ? `Error: ${meta.error}` : meta.content,
               {
@@ -892,20 +650,17 @@ const Chatbot: React.FC = () => {
         console.log('User SQL query message:', userMessage);
         setMessages(prev => [...prev, userMessage]);
 
-        // Save Chat2SQL user message to localStorage
         if (activeSessionId) {
           saveChat2SqlMessage(activeSessionId, userMessage);
         }
 
-        // Save Chat2SQL user message to database
         let sessionId = activeSessionId;
         if (!sessionId) {
-          // Create a new session if none exists
           try {
             const newSession = await createNewSession('Chat2SQL Session');
             sessionId = newSession.id;
             setActiveSessionId(sessionId);
-            await fetchSessions(); // Refresh the sessions list
+            await fetchSessions();
             console.log('Created new session for Chat2SQL:', sessionId);
           } catch (error) {
             console.error('Error creating new session for Chat2SQL:', error);
@@ -917,7 +672,7 @@ const Chatbot: React.FC = () => {
             await chatbotService.sendPredictorMessage(
               content.trim(),
               sessionId,
-              '', // Empty response since this is user message
+              '',
               {
                 chat2sql: true,
                 isSqlQuery: true,
@@ -936,11 +691,9 @@ const Chatbot: React.FC = () => {
       return;
     }
 
-    // Special handling for read_context command
     if (content.trim().toLowerCase() === 'read_context') {
       console.log('Detected exact read_context command, triggering context tool directly');
       
-      // Create user message for the command
       const userMessage: ExtendedChatMessage = {
         id: `user-${Date.now()}`,
         role: 'user',
@@ -949,11 +702,9 @@ const Chatbot: React.FC = () => {
       };
       setMessages(prev => [...prev, userMessage]);
       
-      // Create AI response message
       const aiMessage = createContextToolMessage();
       setMessages(prev => [...prev, aiMessage]);
       
-      // Save both messages to database
       let sessionId = activeSessionId;
       if (!sessionId) {
         try {
@@ -984,7 +735,6 @@ const Chatbot: React.FC = () => {
       return;
     }
     
-    // Handle MCP messages
     if (isMCPEnabled && !file && content.trim() !== '') {
       try {
         const userMessage: ExtendedChatMessage = {
@@ -995,15 +745,13 @@ const Chatbot: React.FC = () => {
         };
         setMessages(prev => [...prev, userMessage]);
 
-        // Save MCP user message to database
         let sessionId = activeSessionId;
         if (!sessionId) {
-          // Create a new session if none exists
           try {
             const newSession = await createNewSession('MCP Session');
             sessionId = newSession.id;
             setActiveSessionId(sessionId);
-            await fetchSessions(); // Refresh the sessions list
+            await fetchSessions();
             console.log('Created new session for MCP:', sessionId);
           } catch (error) {
             console.error('Error creating new session for MCP:', error);
@@ -1021,7 +769,7 @@ const Chatbot: React.FC = () => {
             await chatbotService.sendMessage(
               content.trim(),
               sessionId,
-              '', // Empty response since this is user message
+              '',
               false
             );
             console.log('MCP user message saved to database successfully');
@@ -1033,7 +781,6 @@ const Chatbot: React.FC = () => {
               data: error.response?.data
             });
 
-            // If it's an authentication error, show a more helpful message
             if (error.response?.status === 401) {
               console.warn('Authentication error when saving MCP message - user may need to log in again');
             } else if (error.response?.status === 400) {
@@ -1067,7 +814,6 @@ const Chatbot: React.FC = () => {
         };
         setMessages(prev => [...prev, errorMessage]);
         
-        // Save MCP error message to database
         if (activeSessionId) {
           try {
             console.log('Attempting to save MCP error message to database:', {
@@ -1090,7 +836,6 @@ const Chatbot: React.FC = () => {
               data: dbError.response?.data
             });
 
-            // If it's an authentication error, show a more helpful message
             if (dbError.response?.status === 401) {
               console.warn('Authentication error when saving MCP error message - user may need to log in again');
             } else if (dbError.response?.status === 400) {
@@ -1099,24 +844,10 @@ const Chatbot: React.FC = () => {
           }
         }
         
-        // Return early to prevent falling back to normal chat
         return;
       }
     }
 
-    // Skip regular chat if predictor mode is enabled (predictor handles its own messages)
-    if (isPredictorEnabled && !meta) {
-      console.log('Predictor mode enabled but no meta data - skipping regular chat');
-      return;
-    }
-
-    // Skip regular chat if this is a Chat2SQL message (Chat2SQL handles its own messages)
-    if (meta?.chat2sql) {
-      console.log('Chat2SQL message detected - skipping regular chat');
-      return;
-    }
-
-    // Regular chat message handling
     const result = await sendChatMessage(
       content, 
       file, 
@@ -1134,12 +865,11 @@ const Chatbot: React.FC = () => {
     }
   };
 
-  // Toggle MCP mode
   const handleToggleMCP = () => {
     if (!isMCPEnabled && !isMCPConnected) {
       setShowServerSelector(true);
     } else {
-    toggleMCPEnabled();
+      toggleMCPEnabled();
     }
   };
 
@@ -1175,10 +905,7 @@ const Chatbot: React.FC = () => {
         width: isMainSidebarExpanded ? 'calc(100% - 64px)' : 'calc(100% - 50px)'
       }}
     >
-      {/* Processing Toast Notifications */}
       <ProcessingToast />
-
-      {/* MCP Server Selector */}
       <MCPServerSelector
         isOpen={showServerSelector}
         onClose={() => setShowServerSelector(false)}
@@ -1195,13 +922,13 @@ const Chatbot: React.FC = () => {
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-3">
             <UserIcon size={36} variant="default" />
-              <h2
-                className="text-base md:text-lg font-semibold truncate max-w-[200px] md:max-w-none"
-                style={{ color: 'var(--color-text)' }}
-              >
-                {activeSessionId ? sessionTitle : 'New Chat'}
-              </h2>
-            </div>
+            <h2
+              className="text-base md:text-lg font-semibold truncate max-w-[200px] md:max-w-none"
+              style={{ color: 'var(--color-text)' }}
+            >
+              {activeSessionId ? sessionTitle : 'New Chat'}
+            </h2>
+          </div>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -1296,15 +1023,6 @@ const Chatbot: React.FC = () => {
             conversationId={activeSessionId || undefined}
           />
 
-          {/* Training Form (shown when triggered) - Added */}
-          {showTrainingForm && (
-            <div className="px-4 py-2">
-              <TrainingForm
-                onTrainingComplete={() => setShowTrainingForm(false)}
-              />
-            </div>
-          )}
-
           <div
             className={`${isEmpty ? "absolute left-1/2 bottom-[10%] transform -translate-x-1/2" : "absolute bottom-0 left-0 right-0"}
             ${!isEmpty && ""} py-4 px-4 md:px-8 lg:px-16 xl:px-24`}
@@ -1315,6 +1033,17 @@ const Chatbot: React.FC = () => {
               backgroundColor: 'transparent'
             }}
           >
+            <ChatbotPrediction
+              activeSessionId={activeSessionId}
+              messages={messages}
+              setMessages={setMessages}
+              isPredictorEnabled={isPredictorEnabled}
+              setIsPredictorEnabled={setIsPredictorEnabled}
+              setIsLoading={setIsLoading}
+              createNewSession={createNewSession}
+              fetchSessions={fetchSessions}
+            />
+
             <ChatInput
               onSendMessage={handleSendMessage}
               isLoading={isLoading}
@@ -1331,43 +1060,6 @@ const Chatbot: React.FC = () => {
               onToggleMCP={handleToggleMCP}
               isChat2SqlEnabled={isChat2SqlEnabled}
               onToggleChat2Sql={handleToggleChat2Sql}
-              // Added predictor props
-              isPredictorEnabled={isPredictorEnabled}
-              onTogglePredictor={() => {
-                setIsPredictorEnabled((prev) => {
-                  const newValue = !prev;
-                  try {
-                    localStorage.setItem('predictor_mode_enabled', JSON.stringify(newValue));
-                  } catch (error) {
-                    console.error('Error saving predictor mode to localStorage:', error);
-                  }
-                  
-                  if (newValue) {
-                    // Send welcome message when predictor is activated
-                    const welcomeMessage = {
-                      id: `predictor-welcome-${Date.now()}`,
-                      role: 'assistant' as const,
-                      content: `🤖 **Predictor Mode Activated**
-
-I'm ready to help you train models and make predictions! 
-
-To get started, you can:
-- Type: "To obtain the results, I need to train and then make a prediction using the 3 csvs"
-- Or simply type: "train" to start training
-- Or type: "predict" to make predictions (after training)
-
-What would you like to do?`,
-                      timestamp: new Date(),
-                      predictor: true,
-                      isServerResponse: true,
-                    };
-                    
-                    setMessages(prev => [...prev, welcomeMessage]);
-                  }
-                  setShowTrainingForm(false);
-                  return newValue;
-                });
-              }}
             />
 
             {isEmpty && (

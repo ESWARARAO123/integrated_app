@@ -119,8 +119,9 @@ trained_place_feature_columns = []
 trained_cts_feature_columns = []
 trained_target_columns = {'cts_target': None, 'route_target': None}
 
-# Required columns for slack prediction
-REQUIRED_SLACK_COLUMNS = ['endpoint', 'slack']
+# Minimum required columns for slack prediction (only endpoint identifier and target)
+# These are the absolute minimum - endpoint for identification and a target column
+MINIMUM_REQUIRED_COLUMNS = ['endpoint']  # Only endpoint is truly required, target will be auto-detected
 
 # Global training status tracker
 training_status = {
@@ -185,11 +186,19 @@ def normalize_endpoint(endpoint):
     return str(endpoint).strip().lower()
 
 def validate_table_for_slack_prediction(data, table_name):
-    """Validate that a table has the required columns for slack prediction"""
+    """Validate that a table has the minimum required columns for slack prediction"""
     if data is None or len(data) == 0:
-        return False, REQUIRED_SLACK_COLUMNS
+        return False, ["No data available"]
     
-    missing_columns = [col for col in REQUIRED_SLACK_COLUMNS if col not in data.columns]
+    # Check for minimum required columns (only endpoint is truly required)
+    missing_columns = [col for col in MINIMUM_REQUIRED_COLUMNS if col not in data.columns]
+    
+    # Check if we have at least one numeric column that could be a target
+    numeric_columns = [col for col in data.columns if data[col].dtype in ['float64', 'int64', 'float32', 'int32']]
+    
+    if not numeric_columns:
+        missing_columns.append("at least one numeric column for target prediction")
+    
     return len(missing_columns) == 0, missing_columns
 
 def get_target_column(data):
@@ -219,9 +228,11 @@ def detect_feature_columns(data, target_col=None):
     for col in data.columns:
         if col not in exclude_columns:
             try:
-                # Try to convert to numeric
-                pd.to_numeric(data[col], errors='raise')
-                feature_columns.append(col)
+                # Try to convert to numeric, coercing invalid values to NaN
+                numeric_series = pd.to_numeric(data[col], errors='coerce')
+                # Check if we have any valid numeric values (not all NaN)
+                if numeric_series.notna().sum() > 0:
+                    feature_columns.append(col)
             except:
                 # Skip non-numeric columns
                 continue
@@ -332,6 +343,66 @@ def fetch_data_from_db(table_name, username='default'):
         logging.error(f"Error fetching data from table {table_name}: {e}")
         raise
 
+def clean_data_for_training(data, table_name):
+    """Clean data to handle 'na', null values, and other data quality issues"""
+    if data is None or len(data) == 0:
+        return data
+    
+    logging.info(f"?? Cleaning data for table {table_name}...")
+    cleaned_data = data.copy()
+    
+    # Handle string 'na' values and other common null representations
+    null_representations = ['na', 'NA', 'n/a', 'N/A', 'null', 'NULL', 'none', 'None', '', ' ']
+    
+    for col in cleaned_data.columns:
+        if col == 'endpoint':
+            # Don't clean the endpoint column
+            continue
+            
+        # Replace string null representations with actual NaN
+        cleaned_data[col] = cleaned_data[col].replace(null_representations, np.nan)
+        
+        # Try to convert to numeric if possible
+        if cleaned_data[col].dtype == 'object':
+            try:
+                # Convert to numeric, coercing errors to NaN
+                numeric_series = pd.to_numeric(cleaned_data[col], errors='coerce')
+                # Only replace if we got some valid numeric values
+                if numeric_series.notna().sum() > 0:
+                    cleaned_data[col] = numeric_series
+                    logging.info(f"? Converted column '{col}' to numeric")
+            except:
+                pass
+    
+    # Fill NaN values with appropriate defaults
+    for col in cleaned_data.columns:
+        if col == 'endpoint':
+            # Fill missing endpoints with a default value
+            cleaned_data[col] = cleaned_data[col].fillna('unknown_endpoint')
+        elif cleaned_data[col].dtype in ['float64', 'int64', 'float32', 'int32']:
+            # Fill numeric columns with 0 or median
+            if cleaned_data[col].notna().sum() > 0:
+                median_val = cleaned_data[col].median()
+                cleaned_data[col] = cleaned_data[col].fillna(median_val)
+            else:
+                cleaned_data[col] = cleaned_data[col].fillna(0)
+        else:
+            # Fill other columns with empty string
+            cleaned_data[col] = cleaned_data[col].fillna('')
+    
+    # Log cleaning results
+    original_shape = data.shape
+    cleaned_shape = cleaned_data.shape
+    logging.info(f"?? Data cleaning completed for {table_name}")
+    logging.info(f"   Original shape: {original_shape}")
+    logging.info(f"   Cleaned shape: {cleaned_shape}")
+    
+    # Log data types after cleaning
+    numeric_cols = [col for col in cleaned_data.columns if cleaned_data[col].dtype in ['float64', 'int64', 'float32', 'int32']]
+    logging.info(f"   Numeric columns after cleaning: {numeric_cols}")
+    
+    return cleaned_data
+
 def ensure_database_config(username='default'):
     """Ensure database configuration is loaded"""
     global DB_CONFIG
@@ -440,8 +511,28 @@ async def setup_database():
         raise
 
 def load_main_database_config():
-    """Load main application database configuration from config.ini"""
+    """Load main application database configuration from environment variables or config.ini"""
     try:
+        # Check if running in Docker with environment variables
+        if os.getenv('DATABASE_HOST'):
+            logging.info("?? Loading main database configuration from environment variables (Docker mode)")
+            main_db_config = {
+                'type': 'postgresql',
+                'host': os.getenv('DATABASE_HOST', 'localhost'),
+                'port': os.getenv('DATABASE_PORT', '5432'),
+                'dbname': os.getenv('DATABASE_NAME', 'copilot'),
+                'user': os.getenv('DATABASE_USER', 'postgres'),
+                'password': os.getenv('DATABASE_PASSWORD', '')
+            }
+            
+            logging.info(f"? Loaded PostgreSQL database config from environment variables")
+            logging.info(f"   Database: {main_db_config['dbname']} at {main_db_config['host']}:{main_db_config['port']}")
+            logging.info(f"   User: {main_db_config['user']}")
+            return main_db_config
+        
+        # Fallback to config.ini
+        logging.info("?? Loading main database configuration from config.ini")
+        
         # Get the path to config.ini relative to this file
         current_dir = os.path.dirname(os.path.abspath(__file__))
         config_path = os.path.join(current_dir, '../../conf/config.ini')
@@ -513,27 +604,8 @@ def load_database_config(username='default'):
     DB_CONFIG = None
     OUTPUT_DB_CONFIG = None
     
-    # Check if running in Docker with environment variables
-    if os.getenv('DATABASE_HOST') and os.getenv('DATABASE_NAME'):
-        logging.info("?? Loading database configuration from environment variables (Docker mode)")
-        DB_CONFIG = {
-            'dbname': os.getenv('DATABASE_NAME', 'algodb'),
-            'user': os.getenv('DATABASE_USER', 'postgres'),
-            'password': os.getenv('DATABASE_PASSWORD', 'Welcom@123'),
-            'host': os.getenv('DATABASE_HOST', 'localhost'),
-            'port': str(os.getenv('DATABASE_PORT', '5432')),
-        }
-        
-        OUTPUT_DB_CONFIG = {
-            "host": os.getenv('DATABASE_HOST', 'localhost'),
-            "port": str(os.getenv('DATABASE_PORT', '5432')),
-            "dbname": os.getenv('DATABASE_NAME', 'algodb'),
-            "user": os.getenv('DATABASE_USER', 'postgres'),
-            "password": os.getenv('DATABASE_PASSWORD', 'Welcom@123')
-        }
-        
-        logging.info(f"? Docker database configuration loaded: {DB_CONFIG['dbname']} at {DB_CONFIG['host']}:{DB_CONFIG['port']}")
-        return True
+    # Always try to load from prediction_db_settings first (this is the correct approach)
+    # Environment variables are only used for connecting to the main application database
     
     try:
         # Connect directly to the main application database to get prediction config
@@ -561,6 +633,7 @@ def load_database_config(username='default'):
         
         # Connect to main database and get prediction database configuration
         main_engine = create_engine(main_conn_str)
+        response_data = None
         
         with main_engine.connect() as conn:
             # Get the most recent prediction database configuration
@@ -858,14 +931,9 @@ last_trained_tables = {
     'cts_table': None,
     'route_table': None
 }
-# Required columns for slack prediction (these must exist in tables)
-REQUIRED_SLACK_COLUMNS = [
-    'fanout', 'netcount', 'netdelay', 'invdelay', 'bufdelay', 
-    'seqdelay', 'skew', 'combodelay', 'wirelength', 'slack', 'endpoint'
-]
-
 # Dynamic feature detection - will be updated based on actual table columns
-base_feature_columns = REQUIRED_SLACK_COLUMNS.copy()  # Start with required columns
+# No hardcoded columns - everything will be detected dynamically
+base_feature_columns = []  # Will be populated dynamically from table data
 # Store exact feature columns used during training
 trained_place_feature_columns = []
 trained_cts_feature_columns = []
@@ -874,17 +942,37 @@ trained_target_columns = {
     'route_target': None
 }
 
-def validate_table_for_slack_prediction(df, table_name):
-    """Validate that a table has all required columns for slack prediction"""
-    missing_cols = [col for col in REQUIRED_SLACK_COLUMNS if col not in df.columns]
+def validate_table_for_slack_prediction_v2(df, table_name):
+    """Validate that a table has minimum required columns for slack prediction"""
+    # Check for minimum required columns (only endpoint is truly required)
+    missing_cols = [col for col in MINIMUM_REQUIRED_COLUMNS if col not in df.columns]
+    
+    # Check if we have at least one numeric column that could be a target
+    numeric_columns = [col for col in df.columns if df[col].dtype in ['float64', 'int64', 'float32', 'int32']]
+    
+    if not numeric_columns:
+        missing_cols.append("at least one numeric column for target prediction")
+    
     if missing_cols:
         logging.error(f"Table '{table_name}' missing required columns: {missing_cols}")
         return False, missing_cols
     return True, []
 
 def get_available_feature_columns(df):
-    """Get available feature columns from dataframe (excluding slack and endpoint)"""
-    feature_cols = [col for col in REQUIRED_SLACK_COLUMNS if col in df.columns and col not in ['slack', 'endpoint']]
+    """Get available feature columns from dataframe (excluding target and endpoint columns)"""
+    # Detect target column dynamically
+    target_col = get_target_column(df)
+    
+    # Exclude endpoint and target columns, get all numeric columns as features
+    exclude_cols = ['endpoint']
+    if target_col:
+        exclude_cols.append(target_col)
+    
+    feature_cols = []
+    for col in df.columns:
+        if col not in exclude_cols and df[col].dtype in ['float64', 'int64', 'float32', 'int32']:
+            feature_cols.append(col)
+    
     return feature_cols
 
 def find_compatible_table(reference_table, target_type, username='default'):
@@ -912,7 +1000,7 @@ def find_compatible_table(reference_table, target_type, username='default'):
                     # Check if this table has required columns
                     try:
                         test_data = fetch_data_from_db(table_name, username)
-                        is_valid, _ = validate_table_for_slack_prediction(test_data, table_name)
+                        is_valid, _ = validate_table_for_slack_prediction_v2(test_data, table_name)
                         if is_valid:
                             logging.info(f"[Predictor] Found compatible CTS table: {table_name}")
                             return table_name
@@ -926,7 +1014,7 @@ def find_compatible_table(reference_table, target_type, username='default'):
                     # Check if this table has required columns
                     try:
                         test_data = fetch_data_from_db(table_name, username)
-                        is_valid, _ = validate_table_for_slack_prediction(test_data, table_name)
+                        is_valid, _ = validate_table_for_slack_prediction_v2(test_data, table_name)
                         if is_valid:
                             logging.info(f"[Predictor] Found compatible place table: {table_name}")
                             return table_name
@@ -1475,10 +1563,10 @@ def check_and_integrate_csv_data():
                     # Read CSV file
                     df = pd.read_csv(csv_path)
                     
-                    # Check if it has the required columns for slack prediction
-                    required_cols = ['slack', 'endpoint']
-                    if not all(col in df.columns for col in required_cols):
-                        logging.info(f"CSV file {csv_file} doesn't have required columns, skipping")
+                    # Check if it has the minimum required columns for prediction
+                    is_valid, missing_cols = validate_table_for_slack_prediction(df, csv_file)
+                    if not is_valid:
+                        logging.info(f"CSV file {csv_file} doesn't have required columns ({missing_cols}), skipping")
                         continue
                     
                     # Generate table name from CSV filename
@@ -2365,28 +2453,31 @@ def apply_training_data_bounds(predictions, place_slacks, cts_slacks, route_stat
         # Dynamic bounds based on input characteristics
         # Route slack should be related to input slacks, not completely independent
         
-        # Primary bound: Route slack should be close to input slacks
-        input_based_lower = min_input - 0.05  # Allow 5% worse than worst input
-        input_based_upper = max_input + 0.03  # Allow 3% better than best input
-        
-        # Secondary bound: Stay within training data range (with some margin)
-        training_margin = training_std * 0.5  # Allow half standard deviation margin
+        # Primary bound: Use training data range with reasonable margin
+        training_margin = training_std * 1.0  # Allow one standard deviation margin
         training_based_lower = training_min - training_margin
         training_based_upper = training_max + training_margin
         
-        # Combine bounds (use the more restrictive ones)
-        final_lower = max(input_based_lower, training_based_lower)
-        final_upper = min(input_based_upper, training_based_upper)
+        # Secondary bound: Route slack can be worse than input slacks (more realistic)
+        input_based_lower = min_input - abs(min_input) * 0.5  # Allow 50% worse than worst input
+        input_based_upper = max_input + abs(max_input) * 0.2  # Allow 20% better than best input
+        
+        # Use the less restrictive bounds (give model more freedom)
+        final_lower = min(input_based_lower, training_based_lower)
+        final_upper = max(input_based_upper, training_based_upper)
         
         # Apply bounds
         bounded_pred = max(pred, final_lower)
         bounded_pred = min(bounded_pred, final_upper)
         
-        # Additional sanity check: If prediction is still way off, use realistic calculation
-        if abs(bounded_pred - min_input) > 0.2:  # If more than 0.2 different from critical path
-            # Fall back to realistic calculation
+        # Additional sanity check: Only override if prediction is extremely unrealistic
+        if abs(bounded_pred - min_input) > 2.0:  # Only if more than 2.0 different (very extreme)
+            # Fall back to realistic calculation only for extreme outliers
             bounded_pred = calculate_realistic_route_slack(place_slack, cts_slack)
-            logging.warning(f"[ACCURACY FIX] Prediction {pred:.6f} was too far from inputs, using realistic: {bounded_pred:.6f}")
+            logging.warning(f"[ACCURACY FIX] Prediction {pred:.6f} was extremely unrealistic, using fallback: {bounded_pred:.6f}")
+        else:
+            # Trust the model prediction within reasonable bounds
+            logging.debug(f"[MODEL PREDICTION] Using model prediction: {bounded_pred:.6f} for inputs place={place_slack:.6f}, cts={cts_slack:.6f}")
         
         bounded_predictions.append(bounded_pred)
     
@@ -2507,9 +2598,8 @@ async def predict(request: PredictRequest, http_request: Request):
                     raise HTTPException(status_code=400, detail=f"Table '{table_name}' exists but is empty")
                 
                 # Check if required columns exist
-                required_columns = ['endpoint', 'slack']
-                missing_columns = [col for col in required_columns if col not in test_data.columns]
-                if missing_columns:
+                is_valid, missing_columns = validate_table_for_slack_prediction(test_data, table_name)
+                if not is_valid:
                     logging.error(f"? [TABLE VALIDATION] Table '{table_name}' missing required columns: {missing_columns}")
                     raise HTTPException(status_code=400, detail=f"Table '{table_name}' is missing required columns: {missing_columns}")
                 
@@ -2550,23 +2640,29 @@ async def predict(request: PredictRequest, http_request: Request):
             # CRITICAL: Always fetch from separate tables to ensure consistent behavior
             logging.info(f"?? [DUAL TABLE FETCH] Fetching place data from: '{request.place_table}'")
             place_data = fetch_data_from_db(request.place_table, username)
+            place_data = clean_data_for_training(place_data, request.place_table)
+            
             logging.info(f"?? [DUAL TABLE FETCH] Fetching CTS data from: '{request.cts_table}'")
             cts_data = fetch_data_from_db(request.cts_table, username)
+            cts_data = clean_data_for_training(cts_data, request.cts_table)
             
             logging.info(f"[Predictor] ?? Dual table mode: fetched {len(place_data)} place rows and {len(cts_data)} CTS rows")
             logging.info(f"[Predictor] ? Using REAL slack values from both tables")
             
             # CRITICAL: Log original database values for verification
-            if 'slack' in place_data.columns and len(place_data) > 0:
-                first_few_place_slacks = place_data['slack'].head(10).tolist()
-                logging.info(f"[ORIGINAL DATABASE] ?? First 10 place slack values from '{request.place_table}': {[f'{x:.6f}' for x in first_few_place_slacks]}")
+            place_target_col = get_target_column(place_data)
+            cts_target_col = get_target_column(cts_data)
+            
+            if place_target_col and len(place_data) > 0:
+                first_few_place_targets = place_data[place_target_col].head(10).tolist()
+                logging.info(f"[ORIGINAL DATABASE] ?? First 10 place {place_target_col} values from '{request.place_table}': {[f'{x:.6f}' for x in first_few_place_targets]}")
                 
                 place_endpoints = place_data['endpoint'].head(5).tolist()
                 logging.info(f"[ORIGINAL DATABASE] ?? First 5 place endpoints from '{request.place_table}': {place_endpoints}")
             
-            if 'slack' in cts_data.columns and len(cts_data) > 0:
-                first_few_cts_slacks = cts_data['slack'].head(10).tolist()
-                logging.info(f"[ORIGINAL DATABASE] ?? First 10 CTS slack values from '{request.cts_table}': {[f'{x:.6f}' for x in first_few_cts_slacks]}")
+            if cts_target_col and len(cts_data) > 0:
+                first_few_cts_targets = cts_data[cts_target_col].head(10).tolist()
+                logging.info(f"[ORIGINAL DATABASE] ?? First 10 CTS {cts_target_col} values from '{request.cts_table}': {[f'{x:.6f}' for x in first_few_cts_targets]}")
                 
                 cts_endpoints = cts_data['endpoint'].head(5).tolist()
                 logging.info(f"[ORIGINAL DATABASE] ?? First 5 CTS endpoints from '{request.cts_table}': {cts_endpoints}")
@@ -2601,24 +2697,28 @@ async def predict(request: PredictRequest, http_request: Request):
                     original_cts_slacks_normalized[normalized_ep] = slack
                 logging.info(f"[Predictor] ?? Stored {len(original_cts_slacks)} ORIGINAL CTS slack values")
                 
-            # Log sample slack values from both tables for verification
+            # Log sample target values from both tables for verification
             if len(place_data) > 0 and len(cts_data) > 0:
-                place_sample_slack = place_data.iloc[0]['slack']
-                cts_sample_slack = cts_data.iloc[0]['slack']
-                logging.info(f"[Predictor] First place slack value: {place_sample_slack:.6f}")
-                logging.info(f"[Predictor] First CTS slack value: {cts_sample_slack:.6f}")
+                if place_target_col:
+                    place_sample_target = place_data.iloc[0][place_target_col]
+                    logging.info(f"[Predictor] First place {place_target_col} value: {place_sample_target:.6f}")
+                if cts_target_col:
+                    cts_sample_target = cts_data.iloc[0][cts_target_col]
+                    logging.info(f"[Predictor] First CTS {cts_target_col} value: {cts_sample_target:.6f}")
                 
-                # Show sample of slack values to verify they're from the correct tables
-                place_sample_slacks = place_data['slack'].head(5).tolist()
-                cts_sample_slacks = cts_data['slack'].head(5).tolist()
-                logging.info(f"[Predictor] Sample place slack values: {[f'{x:.6f}' for x in place_sample_slacks]}")
-                logging.info(f"[Predictor] Sample CTS slack values: {[f'{x:.6f}' for x in cts_sample_slacks]}")
+                # Show sample of target values to verify they're from the correct tables
+                if place_target_col:
+                    place_sample_targets = place_data[place_target_col].head(5).tolist()
+                    logging.info(f"[Predictor] Sample place {place_target_col} values: {[f'{x:.6f}' for x in place_sample_targets]}")
+                if cts_target_col:
+                    cts_sample_targets = cts_data[cts_target_col].head(5).tolist()
+                    logging.info(f"[Predictor] Sample CTS {cts_target_col} values: {[f'{x:.6f}' for x in cts_sample_targets]}")
             
             # Debug: Show data characteristics
             if len(place_data) > 0 and len(cts_data) > 0:
-                place_slack_unique = place_data['slack'].nunique() if 'slack' in place_data.columns else 0
-                cts_slack_unique = cts_data['slack'].nunique() if 'slack' in cts_data.columns else 0
-                logging.info(f"[Predictor] Unique slack values - Place: {place_slack_unique}, CTS: {cts_slack_unique}")
+                place_target_unique = place_data[place_target_col].nunique() if place_target_col else 0
+                cts_target_unique = cts_data[cts_target_col].nunique() if cts_target_col else 0
+                logging.info(f"[Predictor] Unique target values - Place ({place_target_col}): {place_target_unique}, CTS ({cts_target_col}): {cts_target_unique}")
                 
                 logging.info("[Predictor] Dual table mode - place and CTS data may be different")
                 
@@ -2632,15 +2732,16 @@ async def predict(request: PredictRequest, http_request: Request):
             logging.error(f"[Predictor] Place data missing required features: {missing_cols}")
             raise HTTPException(
                 status_code=400, 
-                detail=f"Place data must contain all required features: {REQUIRED_SLACK_COLUMNS}. Missing: {missing_cols}"
+                detail=f"Place data must contain minimum required features: {MINIMUM_REQUIRED_COLUMNS} and at least one numeric column. Missing: {missing_cols}"
             )
         
-        # Ensure CTS data has slack column
-        if 'slack' not in cts_data.columns:
-            logging.error(f"[Predictor] CTS data missing required 'slack' column")
+        # Ensure CTS data has a target column (dynamically detected)
+        cts_target_col = get_target_column(cts_data)
+        if not cts_target_col:
+            logging.error(f"[Predictor] CTS data missing target column")
             raise HTTPException(
                 status_code=400, 
-                detail="CTS data must contain 'slack' column"
+                detail="CTS data must contain at least one numeric column that can be used as target (e.g., 'slack', 'target', etc.)"
             )
         
         # Normalize endpoints for consistent processing
@@ -2698,25 +2799,29 @@ async def predict(request: PredictRequest, http_request: Request):
         # CRITICAL DEBUG: Analyze actual training data patterns
         if len(merged_data) > 0:
             first_row = merged_data.iloc[0]
-            slack_place = first_row.get('slack_place', 'N/A')
-            slack_cts = first_row.get('slack_cts', 'N/A')
-            logging.info(f"[Predictor] First merged row - slack_place: {slack_place}, slack_cts: {slack_cts}")
+            # Use dynamic column names based on detected target columns
+            place_col_name = f'{place_target_col}_place' if place_target_col else 'target_place'
+            cts_col_name = f'{cts_target_col}_cts' if cts_target_col else 'target_cts'
             
-            # Comprehensive slack analysis
-            if 'slack_place' in merged_data.columns and 'slack_cts' in merged_data.columns:
-                place_slacks = merged_data['slack_place'].values
-                cts_slacks = merged_data['slack_cts'].values
+            target_place = first_row.get(place_col_name, 'N/A')
+            target_cts = first_row.get(cts_col_name, 'N/A')
+            logging.info(f"[Predictor] First merged row - {place_col_name}: {target_place}, {cts_col_name}: {target_cts}")
+            
+            # Comprehensive target analysis
+            if place_col_name in merged_data.columns and cts_col_name in merged_data.columns:
+                place_targets = merged_data[place_col_name].values
+                cts_targets = merged_data[cts_col_name].values
                 
                 # Statistical analysis of actual training data
-                logging.info(f"[ACCURACY DEBUG] Place slack statistics:")
-                logging.info(f"   Min: {np.min(place_slacks):.6f}, Max: {np.max(place_slacks):.6f}")
-                logging.info(f"   Mean: {np.mean(place_slacks):.6f}, Std: {np.std(place_slacks):.6f}")
-                logging.info(f"   Median: {np.median(place_slacks):.6f}")
+                logging.info(f"[ACCURACY DEBUG] Place {place_target_col} statistics:")
+                logging.info(f"   Min: {np.min(place_targets):.6f}, Max: {np.max(place_targets):.6f}")
+                logging.info(f"   Mean: {np.mean(place_targets):.6f}, Std: {np.std(place_targets):.6f}")
+                logging.info(f"   Median: {np.median(place_targets):.6f}")
                 
-                logging.info(f"[ACCURACY DEBUG] CTS slack statistics:")
-                logging.info(f"   Min: {np.min(cts_slacks):.6f}, Max: {np.max(cts_slacks):.6f}")
-                logging.info(f"   Mean: {np.mean(cts_slacks):.6f}, Std: {np.std(cts_slacks):.6f}")
-                logging.info(f"   Median: {np.median(cts_slacks):.6f}")
+                logging.info(f"[ACCURACY DEBUG] CTS {cts_target_col} statistics:")
+                logging.info(f"   Min: {np.min(cts_targets):.6f}, Max: {np.max(cts_targets):.6f}")
+                logging.info(f"   Mean: {np.mean(cts_targets):.6f}, Std: {np.std(cts_targets):.6f}")
+                logging.info(f"   Median: {np.median(cts_targets):.6f}")
                 
                 # Check for realistic route slack patterns from training data
                 if hasattr(model_combined_to_route, '_training_route_stats'):
@@ -2726,13 +2831,13 @@ async def predict(request: PredictRequest, http_request: Request):
                     logging.info(f"   Mean: {route_stats['mean']:.6f}, Std: {route_stats['std']:.6f}")
                 
                 # Sample comparison
-                sample_size = min(10, len(place_slacks))
+                sample_size = min(10, len(place_targets))
                 logging.info(f"[ACCURACY DEBUG] Sample comparison (first {sample_size} values):")
                 for i in range(sample_size):
-                    expected_route = calculate_realistic_route_slack(place_slacks[i], cts_slacks[i])
-                    logging.info(f"   Row {i}: Place={place_slacks[i]:.6f}, CTS={cts_slacks[i]:.6f}, Expected_Route={expected_route:.6f}")
+                    expected_route = calculate_realistic_route_slack(place_targets[i], cts_targets[i])
+                    logging.info(f"   Row {i}: Place={place_targets[i]:.6f}, CTS={cts_targets[i]:.6f}, Expected_Route={expected_route:.6f}")
                 
-                if np.array_equal(place_slacks[:5], cts_slacks[:5]):
+                if np.array_equal(place_targets[:5], cts_targets[:5]):
                     logging.error("[Predictor] ?? CRITICAL: slack_place and slack_cts are identical in merged data!")
                 else:
                     logging.info("[Predictor] ? slack_place and slack_cts are different in merged data")
@@ -3859,26 +3964,25 @@ async def get_available_tables(request: Request, username: str = Query('default'
             query = text("""
                 SELECT t.table_name,
                        CASE WHEN c_endpoint.column_name IS NOT NULL THEN true ELSE false END as has_endpoint,
-                       CASE WHEN c_slack.column_name IS NOT NULL THEN true ELSE false END as has_slack,
+                       COUNT(CASE WHEN c.data_type IN ('integer', 'bigint', 'numeric', 'real', 'double precision') THEN 1 END) as numeric_columns_count,
                        ARRAY_AGG(DISTINCT c.column_name ORDER BY c.column_name) as all_columns
                 FROM information_schema.tables t
                 LEFT JOIN information_schema.columns c ON c.table_name = t.table_name
                 LEFT JOIN information_schema.columns c_endpoint ON c_endpoint.table_name = t.table_name AND c_endpoint.column_name = 'endpoint'
-                LEFT JOIN information_schema.columns c_slack ON c_slack.table_name = t.table_name AND c_slack.column_name = 'slack'
-                WHERE t.table_schema = 'public'
-                GROUP BY t.table_name, c_endpoint.column_name, c_slack.column_name
+                WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+                GROUP BY t.table_name, c_endpoint.column_name
                 ORDER BY t.table_name
             """)
             result = connection.execute(query)
             tables = []
             
-            # Required columns for training
-            required_base_features = set(REQUIRED_SLACK_COLUMNS)
+            # Required columns for training (minimum requirements)
+            required_base_features = set(MINIMUM_REQUIRED_COLUMNS)
             
             for row in result:
                 table_name = row[0]
                 has_endpoint = row[1]
-                has_slack = row[2]
+                numeric_columns_count = row[2]
                 all_columns = set(row[3]) if row[3] else set()
                 
                 # Get row count
@@ -3890,14 +3994,16 @@ async def get_available_tables(request: Request, username: str = Query('default'
                 
                 # Check if table has all required columns for training
                 has_required_features = required_base_features.issubset(all_columns)
-                suitable_for_training = has_endpoint and has_slack and has_required_features
+                has_numeric_target = numeric_columns_count > 0
+                suitable_for_training = has_endpoint and has_numeric_target and has_required_features
                 missing_features = required_base_features - all_columns if not has_required_features else set()
                 
                 tables.append({
                     "table_name": table_name,
                     "row_count": row_count,
                     "has_endpoint": has_endpoint,
-                    "has_slack": has_slack,
+                    "has_numeric_target": has_numeric_target,
+                    "numeric_columns_count": numeric_columns_count,
                     "has_required_features": has_required_features,
                     "missing_features": list(missing_features),
                     "suitable_for_training": suitable_for_training,
@@ -3972,15 +4078,15 @@ async def get_available_tables(request: Request, username: str = Query('default'
                 "detected_table_groups": table_groups,
                 "complete_training_sets": complete_training_sets,
                 "required_columns": {
-                    "mandatory": ["endpoint", "slack"],
-                    "features": REQUIRED_SLACK_COLUMNS
+                    "mandatory": ["endpoint"],
+                    "features": "Dynamic - all numeric columns will be used as features"
                 },
-                "message": f"Found {len(complete_training_sets)} complete training sets. Any new tables with the required columns will automatically work.",
+                "message": f"Found {len(complete_training_sets)} complete training sets. Any new tables with endpoint and numeric columns will automatically work.",
                 "example_usage": example_usage,
                 "instructions": {
-                    "training": "Use any complete set of 3 tables (place, cts, route) that have all required columns",
-                    "adding_new_tables": "New tables will automatically work if they contain: endpoint, slack, and all feature columns",
-                    "feature_columns_required": REQUIRED_SLACK_COLUMNS
+                    "training": "Use any complete set of 3 tables (place, cts, route) that have endpoint and numeric columns",
+                    "adding_new_tables": "New tables will automatically work if they contain: endpoint and at least one numeric column for prediction",
+                    "feature_columns_required": "Dynamic - all numeric columns except target will be used as features"
                 }
             })
             
@@ -4072,10 +4178,15 @@ async def train_model(request: TrainRequest, username: str = 'default'):
         
         logging.info(f"Fetching data from table: {request.place_table}")
         place_data = fetch_data_from_db(request.place_table, username)
+        place_data = clean_data_for_training(place_data, request.place_table)
+        
         logging.info(f"Fetching data from table: {request.cts_table}")
         cts_data = fetch_data_from_db(request.cts_table, username)
+        cts_data = clean_data_for_training(cts_data, request.cts_table)
+        
         logging.info(f"Fetching data from table: {request.route_table}")
         route_data = fetch_data_from_db(request.route_table, username)
+        route_data = clean_data_for_training(route_data, request.route_table)
         
         # Validate that all tables have required columns
         for table_name, data in [
@@ -4085,7 +4196,7 @@ async def train_model(request: TrainRequest, username: str = 'default'):
         ]:
             is_valid, missing_cols = validate_table_for_slack_prediction(data, table_name)
             if not is_valid:
-                raise ValueError(f"Table '{table_name}' is missing required columns: {missing_cols}. Required columns are: {REQUIRED_SLACK_COLUMNS}")
+                raise ValueError(f"Table '{table_name}' is missing required columns: {missing_cols}. Required: endpoint and at least one numeric column")
         
         logging.info(f"All tables have required columns. Proceeding with training...")
         

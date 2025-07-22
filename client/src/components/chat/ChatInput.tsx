@@ -111,9 +111,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     // Handle Predictor Mode requests
     if (isPredictorEnabled) {
-      console.log('Predictor mode enabled, processing command:', message);
+      console.log('?? Predictor mode enabled, sending command to Chatbot.tsx:', message);
       
-      // Send the user message as a predictor message (not regular chat)
+      // Send the command directly to Chatbot.tsx for processing
       onSendMessage(message, undefined, {
         predictor: true,
         isUserCommand: true,
@@ -121,238 +121,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
         id: `predictor-user-${Date.now()}`,
       });
       
-      setLocalLoading(true);
-      
-      try {
-        const command = message.toLowerCase().trim();
-        
-        // Handle initial activation message
-        if (command.includes('obtain the results') || command.includes('train and then make a prediction') || command.includes('train using') || command.includes('csvs')) {
-          const activationMessage = `🤖 **Route Prediction System Activated**
-
-I'm ready to help you train machine learning models and generate route predictions!
-
-📊 **Available Data Tables:**
-• Place table: ariane_place_sorted_csv
-• CTS table: ariane_cts_sorted_csv  
-• Route table: ariane_route_sorted_csv
-
-🔄 **Workflow:**
-1. **Train** → Use Place + CTS + Route tables to train the neural network model
-2. **Predict** → Generate Route table predictions from Place + CTS data
-3. **Download** → Use the download button in prediction results
-
-💬 **Quick Start Commands:**
-• Type **"train"** to start model training
-• Type **"predict"** to generate predictions (after training)
-• Click **Download** button in results to export CSV
-
-🎯 **What would you like to do?**`;
-          
-          onSendMessage(activationMessage, undefined, {
-            predictor: true,
-            isServerResponse: true,
-            content: activationMessage,
-            timestamp: new Date().toISOString(),
-            id: `predictor-activation-${Date.now()}`,
-          });
-        }
-        // Handle training requests
-        else if (command.includes('train') || command.includes('training')) {
-          // Send initial AI response about starting training
-          const startMessage = `🔧 **Starting Model Training**
-
-📊 **Training Configuration:**
-• Place table: ariane_place_sorted_csv
-• CTS table: ariane_cts_sorted_csv  
-• Route table: ariane_route_sorted_csv
-• Model type: Neural Network (Route Slack Prediction)
-
-⏳ Training in progress... This may take a few moments.`;
-          
-          onSendMessage(startMessage, undefined, {
-            predictor: true,
-            isServerResponse: true,
-            content: startMessage,
-            timestamp: new Date().toISOString(),
-            id: `predictor-train-start-${Date.now()}`,
-          });
-          
-          // Wait a moment for visual effect
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Trigger training via API
-          const response = await fetch('http://127.0.0.1:8088/slack-prediction/train', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              place_table: 'ariane_place_sorted_csv',
-              cts_table: 'ariane_cts_sorted_csv',
-              route_table: 'ariane_route_sorted_csv',
-            }),
-          });
-          
-          const result = await response.json();
-          
-          if (result.status === 'success') {
-            // Handle both nested and flat response formats
-            const metrics = result.place_to_cts || result;
-            const rmse = Math.sqrt(metrics.mse);
-            const mse = metrics.mse;
-            const r2 = metrics.r2_score;
-            
-            // Format the training completion message
-            const completionMessage = `✅ **Training Completed Successfully!**
-
-📊 **Model Performance Metrics:**
-• R² Score: ${r2.toFixed(4)} (${(r2 * 100).toFixed(2)}% accuracy)
-• Mean Absolute Error: ${metrics.mae?.toFixed(4) || '0.1006'}
-• Mean Squared Error: ${mse.toFixed(4)}
-• RMSE: ${rmse.toFixed(4)}
-
-🎯 **Next Steps:**
-The model is now ready for predictions! Type **"predict"** to generate route table predictions.`;
-            
-            onSendMessage(completionMessage, undefined, {
-              predictor: true,
-              isServerResponse: true,
-              content: completionMessage,
-              timestamp: new Date().toISOString(),
-              id: `predictor-train-complete-${Date.now()}`,
-            });
-          } else {
-            throw new Error(result.message || 'Training failed');
-          }
-        } else if (command.includes('predict')) {
-          // Send initial prediction message
-          const startPredictMessage = `🔮 **Generating Route Predictions**
-
-📊 **Input Data:**
-• Place table: ariane_place_sorted_csv
-• CTS table: ariane_cts_sorted_csv
-
-⚡ Processing data and generating route table predictions...`;
-          
-          onSendMessage(startPredictMessage, undefined, {
-            predictor: true,
-            isServerResponse: true,
-            content: startPredictMessage,
-            timestamp: new Date().toISOString(),
-            id: `predictor-predict-start-${Date.now()}`,
-          });
-          
-          // Wait a moment for visual effect
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          
-          // Trigger prediction via API
-          const response = await fetch('http://127.0.0.1:8088/slack-prediction/predict', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              place_table: 'ariane_place_sorted_csv',
-              cts_table: 'ariane_cts_sorted_csv',
-            }),
-          });
-          
-          // Check if the response is ok first
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error (${response.status}): ${errorText}`);
-          }
-          
-          const result = await response.json();
-          console.log('Prediction API response:', result);
-          
-          if (result.status === 'success') {
-            // Format the prediction completion message
-            const rmse = result.metrics && result.metrics.route_mse ? Math.sqrt(result.metrics.route_mse).toFixed(5) : 'N/A';
-            
-            // The table will be displayed by the ChatMessage component
-            const predictions = result.data || result.predictions || [];
-            console.log('Predictions data:', predictions);
-            console.log('Predictions length:', predictions.length);
-            
-            // Validate predictions data
-            if (!Array.isArray(predictions) || predictions.length === 0) {
-              console.warn('No valid predictions data received:', result);
-              throw new Error('No prediction data received from the server. The model may not have generated any results.');
-            }
-            
-            let predictionMessage = `✅ **Route Prediction Completed Successfully!**
-
-🎯 **Generated Route Table**
-📊 **Input Sources:**
-• Place table: ariane_place_sorted_csv
-• CTS table: ariane_cts_sorted_csv
-
-📈 **Results:**
-• Total predicted routes: ${result.total_predictions || predictions.length}
-• Preview: First 10 routes shown below
-• Full table: Available for download
-
-📊 **Model Performance:**
-• R² Score: ${result.metrics?.route_r2?.toFixed(4) || '0.9985'} (${((result.metrics?.route_r2 || 0.9985) * 100).toFixed(2)}% accuracy)
-• Mean Absolute Error: ${result.metrics?.route_mae?.toFixed(4) || '0.1006'}
-• Mean Squared Error: ${result.metrics?.route_mse?.toFixed(4) || '0.0180'}
-
-📋 **Route Table Preview** (showing first 10 of ${result.total_predictions || predictions.length} routes):`;
-            
-            onSendMessage(predictionMessage, undefined, {
-              predictor: true,
-              isServerResponse: true,
-              content: predictionMessage,
-              predictions: predictions,
-              timestamp: new Date().toISOString(),
-              id: `predictor-predict-complete-${Date.now()}`,
-              showDownloadButton: true,
-            });
-          } else {
-            throw new Error(result.message || 'Prediction failed');
-          }
-        } else {
-          // Unknown command
-          const errorMessage = `Unknown predictor command: "${message}". Available commands: "train", "predict".`;
-          onSendMessage(errorMessage, undefined, {
-            predictor: true,
-            isServerResponse: true,
-            content: errorMessage,
-            timestamp: new Date().toISOString(),
-            id: `predictor-error-${Date.now()}`,
-          });
-        }
-      } catch (error) {
-        console.error('Predictor error:', error);
-        
-        // Create detailed error message
-        let errorMessage = 'Failed to process predictor command';
-        if (error instanceof Error) {
-          errorMessage = error.message;
-          
-          // Add specific guidance for common errors
-          if (error.message.includes('Shape of passed values')) {
-            errorMessage += '\n\n🔧 **Troubleshooting:**\n- This appears to be a data shape mismatch in the backend\n- The model expects 11 columns but received 10\n- Please check that the training data and prediction data have matching schemas\n- Try running "train" command again before making predictions';
-          } else if (error.message.includes('500')) {
-            errorMessage += '\n\n🔧 **Server Error:**\n- The prediction service encountered an internal error\n- Check the backend logs for more details\n- Try training the model again with "train" command';
-          } else if (error.message.includes('fetch')) {
-            errorMessage += '\n\n🔧 **Connection Error:**\n- Unable to connect to the prediction service\n- Make sure the backend server is running on port 8088\n- Check your network connection';
-          }
-        }
-        
-        // Send error response
-        onSendMessage(`❌ **Prediction Error**\n\n${errorMessage}`, undefined, {
-          predictor: true,
-          isServerResponse: true,
-          error: error instanceof Error ? error.message : 'Failed to process predictor command',
-          timestamp: new Date().toISOString(),
-          id: `predictor-error-${Date.now()}`,
-        });
-      } finally {
-        setLocalLoading(false);
-      }
+      return; // Let Chatbot.tsx handle the predictor logic
     } else if (isChat2SqlEnabled) {
       console.log('Chat2SQL mode enabled, processing query:', message);
       
@@ -460,14 +229,14 @@ The model is now ready for predictions! Type **"predict"** to generate route tab
         }
 
         // Send a notification message to the chat about the queued upload
-        const uploadMessage = `📄 **${file.name}** has been uploaded and queued for processing.
+        const uploadMessage = `?? **${file.name}** has been uploaded and queued for processing.
 
 ${result.queue?.status === 'queued' 
-  ? `🔄 **Status:** Queued for processing${result.queue?.position ? ` (position ${result.queue.position} in queue)` : ''}
-⏱️ **Processing:** Will begin shortly and you'll see real-time progress updates below.` 
-  : '🔄 **Status:** Processing has started automatically'}
+  ? `?? **Status:** Queued for processing${result.queue?.position ? ` (position ${result.queue.position} in queue)` : ''}
+?? **Processing:** Will begin shortly and you'll see real-time progress updates below.` 
+  : '?? **Status:** Processing has started automatically'}
 
-📊 You can track the progress in the **Document Processing** section below. Once complete, the document will be available for Q&A and analysis.`;
+?? You can track the progress in the **Document Processing** section below. Once complete, the document will be available for Q&A and analysis.`;
 
         onSendMessage(uploadMessage, undefined, { 
           isUploadNotification: true, 
@@ -491,7 +260,7 @@ ${result.queue?.status === 'queued'
       }
 
       // Send error message to chat
-      const errorMessage = `❌ **Failed to upload ${file.name}**
+      const errorMessage = `? **Failed to upload ${file.name}**
 
 ${error instanceof Error ? error.message : 'Unknown error occurred'}
 

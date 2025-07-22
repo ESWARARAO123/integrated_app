@@ -179,35 +179,41 @@ services:
       - productdemo-network
 
   runstatus:
-
     build:
-
       context: ..
-
       dockerfile: Docker/Dockerfile.runstatus
-
     container_name: productdemo-runstatus
-
     env_file:
-
       - .env
-
     ports:
-
       - "${RUNSTATUS_PORT:-5003}:5003"
-
     volumes:
-
       - ../conf/config.ini:/conf/config.ini
-
     extra_hosts:
-
       - "host.docker.internal:host-gateway"
-
     restart: unless-stopped
-
     networks:
+      - productdemo-network
 
+  prediction:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.prediction
+    container_name: productdemo-prediction
+    ports:
+      - "${PREDICTION_PORT:-8088}:8088"
+    volumes:
+      - ../conf/config.ini:/conf/config.ini
+    environment:
+      - DATABASE_HOST=${DATABASE_HOST}
+      - DATABASE_PORT=${DATABASE_PORT}
+      - DATABASE_NAME=${DATABASE_NAME}
+      - DATABASE_USER=${DATABASE_USER}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
       - productdemo-network
 
       
