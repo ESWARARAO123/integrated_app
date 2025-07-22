@@ -3,6 +3,29 @@ import { ChatMessage, ChatSession, ChatSessionResponse, FileAttachment } from '.
 
 export interface ChatMessageResponse extends ChatMessage {
   sessionId: string;
+  predictorData?: {
+    predictor?: boolean;
+    predictions?: any[];
+    error?: string;
+    showDownloadButton?: boolean;
+    isUserCommand?: boolean;
+    isServerResponse?: boolean;
+    chat2sql?: boolean;
+    isSqlResult?: boolean;
+    isSqlQuery?: boolean;
+    isUserMessage?: boolean;
+    model_id?: string;
+    training_metrics?: any;
+    isTrainingComplete?: boolean;
+    followupMessage?: {
+      message: string;
+      isTrainingComplete: boolean;
+    };
+    showTrainingForm?: boolean;
+    data?: any;
+    metrics?: any;
+    total_predictions?: number;
+  };
 }
 
 export const chatbotService = {

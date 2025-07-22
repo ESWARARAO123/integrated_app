@@ -57,6 +57,15 @@ export interface ExtendedChatMessage extends Omit<ChatMessage, 'role'> {
   isServerResponse?: boolean; // Flag to indicate this is a server response in predictor mode
   chat2sql?: boolean; // Flag to indicate this is a Chat2SQL message
   isUserMessage?: boolean; // Flag to indicate this is a user message in Chat2SQL mode
+  model_id?: string; // Model ID for training results
+  training_metrics?: any; // Training metrics data
+  isTrainingComplete?: boolean; // Flag to indicate training completion
+  showTrainingForm?: boolean; // Flag to show training form
+  data?: any; // General data field for predictions and other data
+  metrics?: any; // Metrics data for predictions
+  total_predictions?: number; // Total number of predictions
+  csvData?: string; // CSV data for downloads
+  downloadFilename?: string; // Filename for downloads
 }
 
 export interface PredictionResult {

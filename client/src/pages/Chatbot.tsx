@@ -25,6 +25,7 @@ import { ExtendedChatMessage } from '../types';
 import { chatbotService } from '../services/chatbotService';
 import UserIcon from '../components/UserIcon';
 import ChatbotPrediction from '../components/prediction/ChatbotPrediction';
+import { usePredictorHandler } from '../components/prediction/ChatbotPrediction';
 
 const Chatbot: React.FC = () => {
   const { isExpanded: isMainSidebarExpanded } = useSidebar();
@@ -106,6 +107,18 @@ const Chatbot: React.FC = () => {
     } catch {
       return false;
     }
+  });
+
+  // Use the predictor handler from ChatbotPrediction.tsx
+  const { handlePredictorMessage } = usePredictorHandler({
+    activeSessionId,
+    messages,
+    setMessages,
+    isPredictorEnabled,
+    setIsLoading,
+    createNewSession,
+    fetchSessions,
+    setActiveSessionId,
   });
 
   const saveChat2SqlMessage = (sessionId: string, message: ExtendedChatMessage) => {
@@ -691,6 +704,14 @@ const Chatbot: React.FC = () => {
       return;
     }
 
+    // Handle Predictor Mode requests - delegate to ChatbotPrediction.tsx
+    if (meta?.predictor || (isPredictorEnabled && !file && content.trim() !== '')) {
+      const handled = await handlePredictorMessage(content, meta);
+      if (handled) {
+        return; // Predictor handled the message
+      }
+    }
+
     if (content.trim().toLowerCase() === 'read_context') {
       console.log('Detected exact read_context command, triggering context tool directly');
       
@@ -1042,6 +1063,7 @@ const Chatbot: React.FC = () => {
               setIsLoading={setIsLoading}
               createNewSession={createNewSession}
               fetchSessions={fetchSessions}
+              setActiveSessionId={setActiveSessionId}
             />
 
             <ChatInput
@@ -1060,6 +1082,18 @@ const Chatbot: React.FC = () => {
               onToggleMCP={handleToggleMCP}
               isChat2SqlEnabled={isChat2SqlEnabled}
               onToggleChat2Sql={handleToggleChat2Sql}
+              isPredictorEnabled={isPredictorEnabled}
+              onTogglePredictor={() => {
+                setIsPredictorEnabled((prev) => {
+                  const newValue = !prev;
+                  try {
+                    localStorage.setItem('predictor_mode_enabled', JSON.stringify(newValue));
+                  } catch (error) {
+                    console.error('Error saving predictor mode to localStorage:', error);
+                  }
+                  return newValue;
+                });
+              }}
             />
 
             {isEmpty && (

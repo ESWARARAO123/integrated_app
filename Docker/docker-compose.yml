@@ -42,7 +42,7 @@ services:
       - embedding_models:/app/models
       - ../conf:/app/conf
     environment:
-      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.21}
+      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.26}
     restart: unless-stopped
     networks:
       - productdemo-network
@@ -71,8 +71,8 @@ services:
       - TEXT_PROCESSOR_URL=http://text-processor:${TEXT_PROCESSOR_PORT:-3580}
       - IMAGE_PROCESSOR_URL=http://image-processor:8430
       # Use host IP for PostgreSQL and Ollama
-      - DATABASE_HOST=${HOST_MACHINE_IP:-172.16.16.21}
-      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.21}
+      - DATABASE_HOST=${HOST_MACHINE_IP:-172.16.16.26}
+      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.26}
     restart: unless-stopped
     networks:
       - productdemo-network
@@ -153,8 +153,8 @@ services:
       - MCP_ORCHESTRATOR_URL=http://mcp-orchestrator:${MCP_ORCHESTRATOR_PORT:-3581}
       - IMAGE_PROCESSOR_URL=http://image-processor:8430
       # Use host IP for PostgreSQL and Ollama
-      - DATABASE_HOST=${HOST_MACHINE_IP:-172.16.16.21}
-      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.21}
+      - DATABASE_HOST=${HOST_MACHINE_IP:-172.16.16.26}
+      - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.26}
     restart: unless-stopped
     networks:
       - productdemo-network
