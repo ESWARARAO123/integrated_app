@@ -1,5 +1,5 @@
 const express = require('express');
-const { db } = require('../database');
+const { db, pool } = require('../database');
 const { Pool } = require('pg');
 const router = express.Router();
 
@@ -31,7 +31,7 @@ function getDatabaseDefaults() {
 // ===== RUNSTATUS DATABASE ROUTES =====
 
 // Get RunStatus database configuration
-router.get('/runstatus-db-config', isAuthenticated, async (req, res) => {
+router.get('/runstatus-db/config', isAuthenticated, async (req, res) => {
   try {
     console.log('Getting RunStatus database config for user:', req.session.userId);
 
@@ -75,7 +75,7 @@ router.get('/runstatus-db-config', isAuthenticated, async (req, res) => {
 });
 
 // Test RunStatus database connection without saving
-router.post('/test-runstatus-db-connection', isAuthenticated, async (req, res) => {
+router.post('/runstatus-db/test', isAuthenticated, async (req, res) => {
   try {
     const { host, port, database, user, password } = req.body;
 
@@ -100,7 +100,7 @@ router.post('/test-runstatus-db-connection', isAuthenticated, async (req, res) =
 });
 
 // Save RunStatus database configuration
-router.post('/runstatus-db-config', isAuthenticated, async (req, res) => {
+router.post('/runstatus-db/config', isAuthenticated, async (req, res) => {
   try {
     const { host, port, database, user, password, skipTest } = req.body;
 
@@ -129,7 +129,7 @@ router.post('/runstatus-db-config', isAuthenticated, async (req, res) => {
     console.log(`Saving config for username: ${username}`);
 
     // Start a transaction
-    const client = await db.pool.connect();
+    const client = await pool.connect();
 
     try {
       await client.query('BEGIN');
@@ -182,7 +182,7 @@ router.post('/runstatus-db-config', isAuthenticated, async (req, res) => {
 });
 
 // Disconnect RunStatus database
-router.post('/runstatus-db-disconnect', isAuthenticated, async (req, res) => {
+router.post('/runstatus-db/disconnect', isAuthenticated, async (req, res) => {
   try {
     console.log('Disconnecting RunStatus database for user:', req.session.userId);
 

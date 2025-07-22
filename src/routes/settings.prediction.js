@@ -13,10 +13,46 @@ const isAuthenticated = (req, res, next) => {
 
 // ===== PREDICTION DATABASE ROUTES =====
 
+// Helper function to ensure prediction_db_settings table exists
+async function ensurePredictionDbSettingsTable() {
+  try {
+    // Try to create the table if it doesn't exist
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS prediction_db_settings (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        username TEXT NOT NULL DEFAULT 'default',
+        host TEXT NOT NULL,
+        database TEXT NOT NULL,
+        "user" TEXT NOT NULL,
+        password TEXT NOT NULL,
+        port INTEGER NOT NULL DEFAULT 5432,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Create index for faster lookups
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_prediction_db_settings_user_id_username 
+      ON prediction_db_settings(user_id, username)
+    `);
+    
+    console.log('✅ prediction_db_settings table ensured');
+    return true;
+  } catch (error) {
+    console.error('❌ Error ensuring prediction_db_settings table:', error);
+    return false;
+  }
+}
+
 // Get prediction database configuration
 router.get('/prediction-db-config', isAuthenticated, async (req, res) => {
   try {
     console.log('Getting prediction database config for user:', req.session.userId);
+    
+    // Ensure table exists before querying
+    await ensurePredictionDbSettingsTable();
     
     const result = await db.query(
       'SELECT host, port, database, "user", password FROM prediction_db_settings WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
@@ -49,6 +85,22 @@ router.get('/prediction-db-config', isAuthenticated, async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting prediction database config:', error);
+    
+    // If it's a table doesn't exist error, return empty config
+    if (error.code === '42P01') {
+      console.log('prediction_db_settings table does not exist, returning empty config');
+      return res.json({
+        success: true,
+        config: {
+          host: '',
+          port: 5432,
+          database: '',
+          user: '',
+          password: ''
+        }
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Failed to get prediction database configuration'
@@ -79,6 +131,9 @@ router.post('/prediction-db-config', isAuthenticated, async (req, res) => {
         return res.status(400).json(connectionTestResult);
       }
     }
+    
+    // Ensure table exists before saving
+    await ensurePredictionDbSettingsTable();
     
     // Get username from users table
     const userResult = await db.query('SELECT username FROM users WHERE id = ?', [req.session.userId]);
@@ -111,9 +166,18 @@ router.post('/prediction-db-config', isAuthenticated, async (req, res) => {
     });
   } catch (error) {
     console.error('Error saving prediction database config:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to save prediction database configuration';
+    if (error.code === '42P01') {
+      errorMessage = 'Database table missing. Please restart the server to initialize tables.';
+    } else if (error.code === '23503') {
+      errorMessage = 'User reference error. Please try logging out and back in.';
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to save prediction database configuration'
+      message: errorMessage
     });
   }
 });
@@ -147,6 +211,9 @@ router.post('/test-prediction-db-connection', isAuthenticated, async (req, res) 
 router.post('/prediction-db-disconnect', isAuthenticated, async (req, res) => {
   try {
     console.log('Disconnecting prediction database for user:', req.session.userId);
+    
+    // Ensure table exists before deleting
+    await ensurePredictionDbSettingsTable();
     
     // Clear the prediction database configuration for this user
     await db.query(
