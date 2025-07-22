@@ -180,7 +180,8 @@ router.post('/train', isAuthenticated, async (req, res) => {
 
     // Forward request to Python prediction service
     const axios = require('axios');
-    const pythonResponse = await axios.post('http://127.0.0.1:8088/train', {
+    const predictionServiceUrl = process.env.PREDICTION_SERVICE_URL || 'http://productdemo-prediction:8088';
+    const pythonResponse = await axios.post(`${predictionServiceUrl}/train`, {
       place_table,
       cts_table,
       route_table
@@ -220,7 +221,8 @@ router.post('/predict', isAuthenticated, async (req, res) => {
     if (place_table) requestBody.place_table = place_table;
     if (cts_table) requestBody.cts_table = cts_table;
     
-    const pythonResponse = await axios.post('http://127.0.0.1:8088/slack-prediction/predict', requestBody, {
+    const predictionServiceUrl = process.env.PREDICTION_SERVICE_URL || 'http://productdemo-prediction:8088';
+    const pythonResponse = await axios.post(`${predictionServiceUrl}/slack-prediction/predict`, requestBody, {
       headers: {
         'Content-Type': 'application/json',
         'x-username': 'default'
@@ -248,7 +250,8 @@ router.get('/training-status', isAuthenticated, async (req, res) => {
     
     // Forward request to Python prediction service
     const axios = require('axios');
-    const pythonResponse = await axios.get('http://127.0.0.1:8088/training-status');
+    const predictionServiceUrl = process.env.PREDICTION_SERVICE_URL || 'http://productdemo-prediction:8088';
+    const pythonResponse = await axios.get(`${predictionServiceUrl}/training-status`);
 
     res.json({
       success: true,
@@ -293,7 +296,8 @@ router.get('/results/download', isAuthenticated, async (req, res) => {
     
     // Forward request to Python prediction service
     const axios = require('axios');
-    let url = `http://127.0.0.1:8088/results/download?limit=${limit}`;
+    const predictionServiceUrl = process.env.PREDICTION_SERVICE_URL || 'http://productdemo-prediction:8088';
+    let url = `${predictionServiceUrl}/results/download?limit=${limit}`;
     
     if (beginpoint) url += `&beginpoint=${encodeURIComponent(beginpoint)}`;
     if (endpoint) url += `&endpoint=${encodeURIComponent(endpoint)}`;

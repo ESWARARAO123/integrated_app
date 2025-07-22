@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ExtendedChatMessage } from '../../types';
+import { ExtendedChatMessage, ChatSession } from '../../types';
 import predictorService from '../../services/predictorService';
 import TrainingForm from './TrainingForm';
 import { chatbotService } from '../../services/chatbotService';
@@ -11,7 +11,7 @@ interface ChatbotPredictionProps {
   isPredictorEnabled: boolean;
   setIsPredictorEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  createNewSession: (title: string) => Promise<{ id: string }>;
+  createNewSession: (title?: string) => Promise<ChatSession>;
   fetchSessions: () => void;
   setActiveSessionId?: React.Dispatch<React.SetStateAction<string | null>>;
 }
@@ -77,8 +77,8 @@ export const usePredictorHandler = ({
 
     console.log('🔮 Predictor mode enabled, processing command:', content);
 
-    // Handle user message creation and session management internally
-    if (!meta?.predictor) {
+    // Always create user message for direct user input (when meta is undefined or doesn't indicate server response)
+    if (!meta?.isServerResponse) {
       const userMessage: ExtendedChatMessage = {
         id: `predictor-user-${Date.now()}`,
         role: 'user',
@@ -88,32 +88,25 @@ export const usePredictorHandler = ({
         isUserCommand: true,
       };
       
+      console.log('🔮 Creating user message:', userMessage);
       setMessages(prev => [...prev, userMessage]);
 
       // Get or create session for predictor
-      const sessionId = await ensurePredictorSession(activeSessionId);
+      let sessionId = await ensurePredictorSession(activeSessionId);
       
-      // Save user message to database
+      // Save user message to localStorage only (backend will save when processing)
       if (sessionId) {
-        try {
-          await chatbotService.sendPredictorMessage(
-            content.trim(),
-            sessionId,
-            '',
-            {
-              predictor: true,
-              isUserCommand: true
-            }
-          );
-          console.log('Predictor user message saved to database');
-        } catch (error) {
-          console.error('Error saving predictor user message to database:', error);
-        }
-        
         savePredictorMessage(sessionId, userMessage);
       }
+
+      // Now process the command and get AI response (this will save to database)
+      return await processCommand(content.trim(), sessionId);
     }
-    
+
+    return false; // Not handled if it's a server response
+  };
+
+  const processCommand = async (content: string, sessionId: string | null) => {
     if (content.toLowerCase().trim() === 'train') {
       const helpMessage: ExtendedChatMessage = {
         id: `predictor-help-${Date.now()}`,
@@ -126,8 +119,8 @@ export const usePredictorHandler = ({
       
       setMessages(prev => [...prev, helpMessage]);
       
-      if (activeSessionId) {
-        savePredictorMessage(activeSessionId, helpMessage);
+      if (sessionId) {
+        savePredictorMessage(sessionId, helpMessage);
       }
       return true; // Handled
     }
@@ -144,192 +137,74 @@ export const usePredictorHandler = ({
       
       setMessages(prev => [...prev, helpMessage]);
       
-      if (activeSessionId) {
-        savePredictorMessage(activeSessionId, helpMessage);
+      if (sessionId) {
+        savePredictorMessage(sessionId, helpMessage);
       }
       return true; // Handled
     }
 
-    const parsedTables = predictorService.parseTableNamesFromCommand(content);
-    console.log('🔮 Parsed tables from command:', parsedTables);
-    
-    if (parsedTables) {
-      if (content.toLowerCase().startsWith('train ')) {
-        if (parsedTables.place && parsedTables.cts && parsedTables.route) {
-          console.log('🔮 Executing training with tables:', parsedTables);
-          
-          try {
-            setIsLoading(true);
-            
-            const result = await chatbotService.sendPredictorMessage(
-              content,
-              activeSessionId,
-              '',
-              {
-                predictor: true,
-                isUserCommand: true
-              }
-            );
-            
-            console.log('🔮 Training command sent to chatbot API:', result);
-
-            if ((result as any).predictorData) {
-              const predictorData = (result as any).predictorData;
-              const aiMessage: ExtendedChatMessage = {
-                id: `predictor-ai-${Date.now()}`,
-                role: 'assistant',
-                content: result.content || 'Training completed',
-                timestamp: new Date(),
-                predictor: true,
-                isServerResponse: true,
-                ...(predictorData.model_id && { model_id: predictorData.model_id }),
-                ...(predictorData.training_metrics && { training_metrics: predictorData.training_metrics }),
-                ...(predictorData.isTrainingComplete && { isTrainingComplete: predictorData.isTrainingComplete })
-              };
-              
-              setMessages(prev => [...prev, aiMessage]);
-              
-              if (activeSessionId) {
-                savePredictorMessage(activeSessionId, aiMessage);
-              }
-
-              if (predictorData.followupMessage) {
-                setTimeout(() => {
-                  const followupMessage: ExtendedChatMessage = {
-                    id: `predictor-followup-${Date.now()}`,
-                    role: 'assistant',
-                    content: predictorData.followupMessage.message,
-                    timestamp: new Date(),
-                    predictor: true,
-                    isServerResponse: true,
-                  };
-                  
-                  setMessages(prev => [...prev, followupMessage]);
-                  
-                  if (activeSessionId) {
-                    savePredictorMessage(activeSessionId, followupMessage);
-                  }
-                }, 2000);
-              }
-            }
-            
-          } catch (error: any) {
-            console.error('🔮 Training error:', error);
-            
-            const errorMessage: ExtendedChatMessage = {
-              id: `predictor-error-${Date.now()}`,
-              role: 'assistant',
-              content: `**Training Error**\n\n${error.message}`,
-              timestamp: new Date(),
-              predictor: true,
-              isServerResponse: true,
-              error: error.message,
-            };
-            
-            setMessages(prev => [...prev, errorMessage]);
-            
-            if (activeSessionId) {
-              savePredictorMessage(activeSessionId, errorMessage);
-            }
-          } finally {
-            setIsLoading(false);
-          }
-        } else {
-          const errorMessage: ExtendedChatMessage = {
-            id: `predictor-error-${Date.now()}`,
-            role: 'assistant',
-            content: `**Invalid Training Command**\n\n**Correct format:** \`train <place_table> <cts_table> <route_table>\`\n\n**Examples:**\n \`train ariane_place_sorted_csv ariane_cts_sorted_csv ariane_route_sorted_csv\`\n \`train reg_place_csv reg_cts_csv reg_route_csv\``,
-            timestamp: new Date(),
-            predictor: true,
-            isServerResponse: true,
-          };
-          
-          setMessages(prev => [...prev, errorMessage]);
-          
-          if (activeSessionId) {
-            savePredictorMessage(activeSessionId, errorMessage);
-          }
+    // Let the backend handle the command processing and just wait for the response
+    try {
+      setIsLoading(true);
+      
+      const result = await chatbotService.sendPredictorMessage(
+        content,
+        sessionId,
+        '',
+        {
+          predictor: true,
+          isUserCommand: true
         }
-      } else if (content.toLowerCase().startsWith('predict ')) {
-        console.log('🔮 Executing prediction with tables:', parsedTables);
+      );
+      
+      console.log('🔮 Command sent to chatbot API:', result);
+
+      if ((result as any).predictorData) {
+        const predictorData = (result as any).predictorData;
+        const aiMessage: ExtendedChatMessage = {
+          id: `predictor-ai-${Date.now()}`,
+          role: 'assistant',
+          content: result.content || 'Command completed',
+          timestamp: new Date(),
+          predictor: true,
+          isServerResponse: true,
+          ...(predictorData.predictions && { predictions: predictorData.predictions }),
+          ...(predictorData.data && { data: predictorData.data }),
+          ...(predictorData.metrics && { metrics: predictorData.metrics }),
+          ...(predictorData.total_predictions && { total_predictions: predictorData.total_predictions }),
+          ...(predictorData.training_metrics && { training_metrics: predictorData.training_metrics }),
+          ...(predictorData.isTrainingComplete && { isTrainingComplete: predictorData.isTrainingComplete }),
+          ...(predictorData.error && { error: predictorData.error }),
+          ...(predictorData.showDownloadButton && { showDownloadButton: true })
+        };
         
-        try {
-          setIsLoading(true);
-          
-          const result = await chatbotService.sendPredictorMessage(
-            content,
-            activeSessionId,
-            '',
-            {
-              predictor: true,
-              isUserCommand: true
-            }
-          );
-          
-          console.log('🔮 Prediction command sent to chatbot API:', result);
-
-          if ((result as any).predictorData) {
-            const predictorData = (result as any).predictorData;
-            const aiMessage: ExtendedChatMessage = {
-              id: `predictor-ai-${Date.now()}`,
-              role: 'assistant',
-              content: result.content || 'Prediction completed',
-              timestamp: new Date(),
-              predictor: true,
-              isServerResponse: true,
-              predictions: predictorData.predictions,
-              ...(predictorData.data && { data: predictorData.data }),
-              ...(predictorData.metrics && { metrics: predictorData.metrics }),
-              ...(predictorData.total_predictions && { total_predictions: predictorData.total_predictions }),
-              showDownloadButton: true
-            };
-            
-            setMessages(prev => [...prev, aiMessage]);
-            
-            if (activeSessionId) {
-              savePredictorMessage(activeSessionId, aiMessage);
-            }
-          }
-          
-        } catch (error: any) {
-          console.error('🔮 Prediction error:', error);
-          
-          const errorMessage: ExtendedChatMessage = {
-            id: `predictor-error-${Date.now()}`,
-            role: 'assistant',
-            content: `**Prediction Error**\n\n${error.message}`,
-            timestamp: new Date(),
-            predictor: true,
-            isServerResponse: true,
-            error: error.message,
-          };
-          
-          setMessages(prev => [...prev, errorMessage]);
-          
-          if (activeSessionId) {
-            savePredictorMessage(activeSessionId, errorMessage);
-          }
-        } finally {
-          setIsLoading(false);
+        setMessages(prev => [...prev, aiMessage]);
+        
+        if (sessionId) {
+          savePredictorMessage(sessionId, aiMessage);
         }
       }
-      return true; // Handled
-    }
-
-    // General help for unrecognized commands
-    const helpMessage: ExtendedChatMessage = {
-      id: `predictor-help-${Date.now()}`,
-      role: 'assistant',
-      content: `**Predictor Commands**\n\n**Training:**\n \`train <place_table> <cts_table> <route_table>\`\n \`train\` - Get training help\n\n**Prediction:**\n \`predict <place_table> <cts_table>\`\n \`predict\` - Get prediction help\n\n**Examples:**\n \`train ariane_place_sorted_csv ariane_cts_sorted_csv ariane_route_sorted_csv\`\n \`predict reg_place_csv reg_cts_csv\`\n\nWhat would you like to do?`,
-      timestamp: new Date(),
-      predictor: true,
-      isServerResponse: true,
-    };
-    
-    setMessages(prev => [...prev, helpMessage]);
-    
-    if (activeSessionId) {
-      savePredictorMessage(activeSessionId, helpMessage);
+      
+    } catch (error: any) {
+      console.error('🔮 Command error:', error);
+      
+      const errorMessage: ExtendedChatMessage = {
+        id: `predictor-error-${Date.now()}`,
+        role: 'assistant',
+        content: `**Error**\n\n${error.message}`,
+        timestamp: new Date(),
+        predictor: true,
+        isServerResponse: true,
+        error: error.message,
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+      
+      if (sessionId) {
+        savePredictorMessage(sessionId, errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
     }
     
     return true; // Handled
@@ -425,11 +300,25 @@ const ChatbotPrediction: React.FC<ChatbotPredictionProps> = ({
     const messagePollingInterval = setInterval(async () => {
       try {
         const currentMessageCount = messages.length;
-        const response = await chatbotService.getSession(activeSessionId, 50, 0);
+        const response = await chatbotService.getSession(activeSessionId);
         
         if (response.messages.length > currentMessageCount) {
           console.log('New messages found, updating messages');
-          fetchSessions();
+          
+          // Convert API messages to ExtendedChatMessage format
+          const newMessages = response.messages
+            .filter(msg => !messages.some(existing => existing.id === msg.id))
+            .map(msg => ({
+              ...msg,
+              role: msg.role as 'user' | 'assistant' | 'system'
+            }));
+          
+          if (newMessages.length > 0) {
+            console.log(`Adding ${newMessages.length} new messages`);
+            setMessages(prev => [...prev, ...newMessages].sort((a, b) => 
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            ));
+          }
         }
       } catch (error) {
         console.error('Error polling for new messages:', error);
@@ -439,7 +328,7 @@ const ChatbotPrediction: React.FC<ChatbotPredictionProps> = ({
     return () => {
       clearInterval(messagePollingInterval);
     };
-  }, [activeSessionId, isPredictorEnabled, messages.length, fetchSessions]);
+  }, [activeSessionId, isPredictorEnabled, messages.length]);
 
   // Handle predictor activation welcome message
   useEffect(() => {

@@ -174,10 +174,8 @@ router.get('/sessions/:sessionId', isAuthenticated, async (req, res) => {
       [sessionId, limit, offset]
     );
 
-    // Format messages for client - include context updates but handle them specially
+    // Format messages for client - handle separate user and assistant records
     const formattedMessages = messagesResult.rows.map(row => {
-      const messages = [];
-      
       // Parse predictor data if available
       let predictorData = null;
       if (row.predictor_data) {
@@ -188,8 +186,8 @@ router.get('/sessions/:sessionId', isAuthenticated, async (req, res) => {
         }
       }
 
-      // Only add user message if it's not a context update and has content
-      if (!row.is_context_update && row.message && row.message.trim()) {
+      // Handle user message record (has message content, no response)
+      if (!row.is_context_update && row.message && row.message.trim() && !row.response) {
         const userMessage = {
           id: `${row.id}-user`,
           role: 'user',
@@ -199,20 +197,21 @@ router.get('/sessions/:sessionId', isAuthenticated, async (req, res) => {
         
         // Add predictor data to user message if available
         if (predictorData) {
+          if (predictorData.predictor) userMessage.predictor = predictorData.predictor;
           if (predictorData.isUserCommand) userMessage.isUserCommand = predictorData.isUserCommand;
           if (predictorData.chat2sql) userMessage.chat2sql = predictorData.chat2sql;
           if (predictorData.isSqlQuery) userMessage.isSqlQuery = predictorData.isSqlQuery;
           if (predictorData.isUserMessage) userMessage.isUserMessage = predictorData.isUserMessage;
         }
         
-        messages.push(userMessage);
+        return userMessage;
       }
       
-      // Always add assistant/system message if there's a response
-      if (row.response && row.response.trim()) {
+      // Handle assistant response record (has response content, no message)
+      if (row.response && row.response.trim() && !row.message) {
         const assistantMessage = {
           id: `${row.id}-assistant`,
-          role: row.is_context_update ? 'system' : 'assistant',  // Context updates are system messages
+          role: row.is_context_update ? 'system' : 'assistant',
           content: row.response,
           timestamp: row.timestamp,
           isContextUpdate: row.is_context_update || false
@@ -221,19 +220,77 @@ router.get('/sessions/:sessionId', isAuthenticated, async (req, res) => {
         // Add predictor data to assistant message if available
         if (predictorData) {
           if (predictorData.predictor) assistantMessage.predictor = predictorData.predictor;
+          if (predictorData.isServerResponse) assistantMessage.isServerResponse = predictorData.isServerResponse;
           if (predictorData.predictions) assistantMessage.predictions = predictorData.predictions;
+          if (predictorData.data) assistantMessage.data = predictorData.data;
+          if (predictorData.metrics) assistantMessage.metrics = predictorData.metrics;
+          if (predictorData.total_predictions) assistantMessage.total_predictions = predictorData.total_predictions;
+          if (predictorData.model_id) assistantMessage.model_id = predictorData.model_id;
+          if (predictorData.training_metrics) assistantMessage.training_metrics = predictorData.training_metrics;
+          if (predictorData.isTrainingComplete) assistantMessage.isTrainingComplete = predictorData.isTrainingComplete;
           if (predictorData.error) assistantMessage.error = predictorData.error;
           if (predictorData.showDownloadButton) assistantMessage.showDownloadButton = predictorData.showDownloadButton;
-          if (predictorData.isServerResponse) assistantMessage.isServerResponse = predictorData.isServerResponse;
           if (predictorData.chat2sql) assistantMessage.chat2sql = predictorData.chat2sql;
           if (predictorData.isSqlResult) assistantMessage.isSqlResult = predictorData.isSqlResult;
         }
         
-        messages.push(assistantMessage);
+        return assistantMessage;
       }
       
-      return messages;
-    }).flat();
+      // Handle legacy records that have both message and response (old format)
+      if (!row.is_context_update && row.message && row.message.trim() && row.response && row.response.trim()) {
+        const messages = [];
+        
+        // Add user message
+        const userMessage = {
+          id: `${row.id}-user`,
+          role: 'user',
+          content: row.message,
+          timestamp: row.timestamp
+        };
+        
+        // Add assistant message
+        const assistantMessage = {
+          id: `${row.id}-assistant`,
+          role: 'assistant',
+          content: row.response,
+          timestamp: row.timestamp
+        };
+        
+        // Add predictor data to appropriate message
+        if (predictorData) {
+          if (predictorData.isUserCommand) {
+            if (predictorData.predictor) userMessage.predictor = predictorData.predictor;
+            if (predictorData.isUserCommand) userMessage.isUserCommand = predictorData.isUserCommand;
+          } else {
+            if (predictorData.predictor) assistantMessage.predictor = predictorData.predictor;
+            if (predictorData.isServerResponse) assistantMessage.isServerResponse = predictorData.isServerResponse;
+            if (predictorData.predictions) assistantMessage.predictions = predictorData.predictions;
+            if (predictorData.data) assistantMessage.data = predictorData.data;
+            if (predictorData.metrics) assistantMessage.metrics = predictorData.metrics;
+            if (predictorData.total_predictions) assistantMessage.total_predictions = predictorData.total_predictions;
+            if (predictorData.error) assistantMessage.error = predictorData.error;
+            if (predictorData.showDownloadButton) assistantMessage.showDownloadButton = predictorData.showDownloadButton;
+          }
+        }
+        
+        messages.push(userMessage, assistantMessage);
+        return messages;
+      }
+      
+      // Handle context updates and other special cases
+      if (row.response && row.response.trim()) {
+        return {
+          id: `${row.id}-assistant`,
+          role: row.is_context_update ? 'system' : 'assistant',
+          content: row.response,
+          timestamp: row.timestamp,
+          isContextUpdate: row.is_context_update || false
+        };
+      }
+      
+      return null; // Skip empty records
+    }).flat().filter(msg => msg !== null);
 
     // Sort by timestamp
     formattedMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -644,36 +701,305 @@ router.post('/predictor-message', isAuthenticated, async (req, res) => {
       activeSessionId = newSession.rows[0].id;
     }
 
-    console.log(`Saving predictor message to database - User: ${userId}, Session: ${activeSessionId}`);
-    console.log(`Message length: ${message ? message.length : 0}, Response length: ${response ? response.length : 0}`);
+    console.log(`Processing predictor message - User: ${userId}, Session: ${activeSessionId}`);
+    console.log(`Message: "${message}", Response: "${response}"`);
     console.log('Predictor data:', predictorData);
 
-    // Store the message with predictor data
-    const result = await pool.query(
-      `INSERT INTO messages (user_id, message, response, session_id, timestamp, predictor_data) 
-       VALUES ($1, $2, $3, $4, NOW(), $5) RETURNING id, timestamp`,
-      [userId, message || '', response || '', activeSessionId, JSON.stringify(predictorData)]
-    );
+    // Check for duplicate predictor activation messages
+    if (predictorData?.isServerResponse && !message && response && response.includes('Predictor Mode Activated')) {
+      console.log('🔮 Checking for duplicate predictor activation...');
+      const existingActivation = await pool.query(
+        `SELECT id FROM messages 
+         WHERE session_id = $1 AND response LIKE '%Predictor Mode Activated%' 
+         AND predictor_data::jsonb @> '{"isServerResponse": true}'::jsonb
+         ORDER BY timestamp DESC LIMIT 1`,
+        [activeSessionId]
+      );
 
-    const messageId = result.rows[0].id;
-    const timestamp = result.rows[0].timestamp;
+      if (existingActivation.rows.length > 0) {
+        console.log('🔮 Predictor activation already exists for this session, skipping duplicate');
+        return res.json({
+          id: existingActivation.rows[0].id,
+          content: response,
+          timestamp: new Date(),
+          sessionId: activeSessionId,
+          predictorData: predictorData,
+          skipped: true
+        });
+      }
+    }
 
-    console.log(`Predictor message saved successfully with ID: ${messageId}`);
+    // Check if this is a user command that needs processing
+    let processedResponse = response;
+    let updatedPredictorData = { ...predictorData };
 
-    // Update the session's last_message_timestamp
-    await pool.query(
-      'UPDATE chat_sessions SET last_message_timestamp = NOW() WHERE id = $1',
-      [activeSessionId]
-    );
+    if (message && predictorData?.isUserCommand) {
+      console.log('🔮 Processing predictor user command:', message);
+      
+      // Check for duplicate user commands (within last 10 seconds)
+      const recentDuplicate = await pool.query(
+        `SELECT id FROM messages 
+         WHERE session_id = $1 AND message = $2 
+         AND predictor_data::jsonb @> '{"isUserCommand": true}'::jsonb
+         AND timestamp > NOW() - INTERVAL '10 seconds'
+         ORDER BY timestamp DESC LIMIT 1`,
+        [activeSessionId, message]
+      );
 
-    // Return formatted message data
-    res.json({
-      id: messageId,
-      content: response || message,
-      timestamp,
-      sessionId: activeSessionId,
-      predictorData
-    });
+      if (recentDuplicate.rows.length > 0) {
+        console.log('🔮 Duplicate user command detected within 10 seconds, skipping');
+        return res.json({
+          id: recentDuplicate.rows[0].id,
+          content: message,
+          timestamp: new Date(),
+          sessionId: activeSessionId,
+          predictorData: predictorData,
+          skipped: true
+        });
+      }
+      
+      // Parse predictor commands
+      const command = message.toLowerCase().trim();
+      
+      if (command.startsWith('train ')) {
+        // Parse train command: "train place_table cts_table route_table"
+        const parts = command.split(/\s+/);
+        if (parts.length === 4) {
+          const [, placeTable, ctsTable, routeTable] = parts;
+          console.log('🔮 Executing training with tables:', { placeTable, ctsTable, routeTable });
+          
+          try {
+            // Call the prediction service
+            const axios = require('axios');
+            const predictionServiceUrl = process.env.PREDICTION_SERVICE_URL || 'http://productdemo-prediction:8088';
+            const trainingResponse = await axios.post(`${predictionServiceUrl}/slack-prediction/train`, {
+              place_table: placeTable,
+              cts_table: ctsTable,
+              route_table: routeTable
+            }, {
+              headers: {
+                'Content-Type': 'application/json',
+                'x-username': 'default'
+              }
+            });
+
+            console.log('🔮 Training response:', trainingResponse.data);
+
+            if (trainingResponse.data.status === 'success') {
+              // Use the detailed message from the Python service
+              processedResponse = trainingResponse.data.message || `✅ **Training Completed Successfully!**
+
+🎯 **Training Configuration:**
+- Place table: \`${placeTable}\`
+- CTS table: \`${ctsTable}\`
+- Route table: \`${routeTable}\`
+- Training time: ${trainingResponse.data.training_time || 'N/A'}s
+
+📊 **Performance Metrics:**
+- Route R² Score: ${trainingResponse.data.combined_to_route?.r2_score?.toFixed(3) || 'N/A'}
+- Route MAE: ${trainingResponse.data.combined_to_route?.mae?.toFixed(3) || 'N/A'}
+- Route MSE: ${trainingResponse.data.combined_to_route?.mse?.toFixed(3) || 'N/A'}
+
+🚀 **Next Steps:**
+You can now use \`predict ${placeTable} ${ctsTable}\` to generate predictions with the trained model.`;
+
+              updatedPredictorData = {
+                ...updatedPredictorData,
+                isServerResponse: true,
+                training_metrics: {
+                  place_to_cts: trainingResponse.data.place_to_cts,
+                  combined_to_route: trainingResponse.data.combined_to_route,
+                  training_time: trainingResponse.data.training_time
+                },
+                isTrainingComplete: true
+              };
+            } else {
+              processedResponse = `❌ **Training Failed**\n\n${trainingResponse.data.error || 'Unknown error occurred'}`;
+              updatedPredictorData = {
+                ...updatedPredictorData,
+                isServerResponse: true,
+                error: trainingResponse.data.error || 'Training failed'
+              };
+            }
+          } catch (error) {
+            console.error('🔮 Training error:', error);
+            processedResponse = `❌ **Training Error**\n\n${error.message}`;
+            updatedPredictorData = {
+              ...updatedPredictorData,
+              isServerResponse: true,
+              error: error.message
+            };
+          }
+        } else {
+          processedResponse = `❌ **Invalid Training Command**\n\n**Correct format:** \`train <place_table> <cts_table> <route_table>\`\n\n**Examples:**\n- \`train ariane_place_sorted_csv ariane_cts_sorted_csv ariane_route_sorted_csv\`\n- \`train reg_place_csv reg_cts_csv reg_route_csv\``;
+          updatedPredictorData = {
+            ...updatedPredictorData,
+            isServerResponse: true,
+            error: 'Invalid command format'
+          };
+        }
+      } else if (command.startsWith('predict ')) {
+        // Parse predict command: "predict place_table cts_table"
+        const parts = command.split(/\s+/);
+        if (parts.length === 3) {
+          const [, placeTable, ctsTable] = parts;
+          console.log('🔮 Executing prediction with tables:', { placeTable, ctsTable });
+          
+          try {
+            // Call the prediction service
+            const axios = require('axios');
+            const predictionServiceUrl = process.env.PREDICTION_SERVICE_URL || 'http://productdemo-prediction:8088';
+            const predictionResponse = await axios.post(`${predictionServiceUrl}/slack-prediction/predict`, {
+              place_table: placeTable,
+              cts_table: ctsTable
+            }, {
+              headers: {
+                'Content-Type': 'application/json',
+                'x-username': 'default'
+              }
+            });
+
+            console.log('🔮 Prediction response:', predictionResponse.data);
+
+            if (predictionResponse.data.status === 'success') {
+              const predictions = predictionResponse.data.data || predictionResponse.data.predictions || [];
+              processedResponse = `🎯 **Predictions Generated Successfully!**
+
+📊 **Prediction Configuration:**
+- Place table: \`${placeTable}\`
+- CTS table: \`${ctsTable}\`
+- Total predictions: ${predictions.length || predictionResponse.data.total_predictions || 'Multiple'}
+
+✨ **Results Summary:**
+Generated ${predictions.length || 'multiple'} route predictions with slack time calculations.
+
+📥 **Download Results:**
+Use the download button below to get the full prediction results as a CSV file.`;
+
+              updatedPredictorData = {
+                ...updatedPredictorData,
+                isServerResponse: true,
+                predictions: predictions,
+                data: predictionResponse.data.data,
+                total_predictions: predictions.length || predictionResponse.data.total_predictions,
+                showDownloadButton: true
+              };
+            } else {
+              processedResponse = `❌ **Prediction Failed**\n\n${predictionResponse.data.error || 'Unknown error occurred'}`;
+              updatedPredictorData = {
+                ...updatedPredictorData,
+                isServerResponse: true,
+                error: predictionResponse.data.error || 'Prediction failed'
+              };
+            }
+          } catch (error) {
+            console.error('🔮 Prediction error:', error);
+            processedResponse = `❌ **Prediction Error**\n\n${error.message}`;
+            updatedPredictorData = {
+              ...updatedPredictorData,
+              isServerResponse: true,
+              error: error.message
+            };
+          }
+        } else {
+          processedResponse = `❌ **Invalid Prediction Command**\n\n**Correct format:** \`predict <place_table> <cts_table>\`\n\n**Examples:**\n- \`predict reg_place_csv reg_cts_csv\`\n- \`predict ariane_place_sorted_csv ariane_cts_sorted_csv\``;
+          updatedPredictorData = {
+            ...updatedPredictorData,
+            isServerResponse: true,
+            error: 'Invalid command format'
+          };
+        }
+      } else if (command === 'train') {
+        processedResponse = `🔮 **Training Help**\n\n**Quick Training:**\n\`train <place_table> <cts_table> <route_table>\`\n\n**Examples:**\n- \`train reg_place_csv reg_cts_csv reg_route_csv\`\n- \`train ariane_place_sorted_csv ariane_cts_sorted_csv ariane_route_sorted_csv\`\n\nWhat tables would you like to use for training?`;
+        updatedPredictorData = {
+          ...updatedPredictorData,
+          isServerResponse: true
+        };
+      } else if (command === 'predict') {
+        processedResponse = `🔮 **Prediction Help**\n\n**Generate Predictions:**\n\`predict <place_table> <cts_table>\`\n\n**Examples:**\n- \`predict reg_place_csv reg_cts_csv\`\n- \`predict ariane_place_sorted_csv ariane_cts_sorted_csv\`\n\nWhat tables would you like to use for prediction?`;
+        updatedPredictorData = {
+          ...updatedPredictorData,
+          isServerResponse: true
+        };
+      } else {
+        processedResponse = `🔮 **Predictor Commands**\n\n**Training:**\n- \`train <place_table> <cts_table> <route_table>\`\n- \`train\` - Get training help\n\n**Prediction:**\n- \`predict <place_table> <cts_table>\`\n- \`predict\` - Get prediction help\n\n**Examples:**\n- \`train ariane_place_sorted_csv ariane_cts_sorted_csv ariane_route_sorted_csv\`\n- \`predict reg_place_csv reg_cts_csv\`\n\nWhat would you like to do?`;
+        updatedPredictorData = {
+          ...updatedPredictorData,
+          isServerResponse: true
+        };
+      }
+    }
+
+    // For predictor commands, save user message and assistant response as separate records
+    if (message && predictorData?.isUserCommand) {
+      // First, save the user message
+      const userResult = await pool.query(
+        `INSERT INTO messages (user_id, message, response, session_id, timestamp, predictor_data) 
+         VALUES ($1, $2, $3, $4, NOW(), $5) RETURNING id, timestamp`,
+        [userId, message, '', activeSessionId, JSON.stringify({ predictor: true, isUserCommand: true })]
+      );
+
+      const userMessageId = userResult.rows[0].id;
+      console.log(`Predictor user message saved successfully with ID: ${userMessageId}`);
+
+      // Then, save the assistant response (if there is one)
+      if (processedResponse) {
+        const assistantResult = await pool.query(
+          `INSERT INTO messages (user_id, message, response, session_id, timestamp, predictor_data) 
+           VALUES ($1, $2, $3, $4, NOW(), $5) RETURNING id, timestamp`,
+          [userId, '', processedResponse, activeSessionId, JSON.stringify(updatedPredictorData)]
+        );
+
+        const assistantMessageId = assistantResult.rows[0].id;
+        console.log(`Predictor assistant response saved successfully with ID: ${assistantMessageId}`);
+        
+        // Return the assistant message for the API response
+        const messageId = assistantMessageId;
+        const timestamp = assistantResult.rows[0].timestamp;
+        
+        // Update the session's last_message_timestamp
+        await pool.query(
+          'UPDATE chat_sessions SET last_message_timestamp = NOW() WHERE id = $1',
+          [activeSessionId]
+        );
+
+        // Return formatted message data
+        return res.json({
+          id: messageId,
+          content: processedResponse,
+          timestamp,
+          sessionId: activeSessionId,
+          predictorData: updatedPredictorData
+        });
+      }
+    } else {
+      // For non-command predictor messages (like initial activation), save as single record
+      const result = await pool.query(
+        `INSERT INTO messages (user_id, message, response, session_id, timestamp, predictor_data) 
+         VALUES ($1, $2, $3, $4, NOW(), $5) RETURNING id, timestamp`,
+        [userId, message || '', processedResponse || '', activeSessionId, JSON.stringify(updatedPredictorData)]
+      );
+
+      const messageId = result.rows[0].id;
+      const timestamp = result.rows[0].timestamp;
+
+      console.log(`Predictor message saved successfully with ID: ${messageId}`);
+
+      // Update the session's last_message_timestamp
+      await pool.query(
+        'UPDATE chat_sessions SET last_message_timestamp = NOW() WHERE id = $1',
+        [activeSessionId]
+      );
+
+      // Return formatted message data
+      res.json({
+        id: messageId,
+        content: processedResponse || message,
+        timestamp,
+        sessionId: activeSessionId,
+        predictorData: updatedPredictorData
+      });
+    }
   } catch (error) {
     console.error('Error processing predictor message:', error);
     res.status(500).json({ error: 'Error processing predictor message' });

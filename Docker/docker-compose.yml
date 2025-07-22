@@ -152,6 +152,7 @@ services:
       - TEXT_PROCESSOR_URL=http://text-processor:${TEXT_PROCESSOR_PORT:-3580}
       - MCP_ORCHESTRATOR_URL=http://mcp-orchestrator:${MCP_ORCHESTRATOR_PORT:-3581}
       - IMAGE_PROCESSOR_URL=http://image-processor:8430
+      - PREDICTION_SERVICE_URL=http://prediction:8088
       # Use host IP for PostgreSQL and Ollama
       - DATABASE_HOST=${HOST_MACHINE_IP:-172.16.16.26}
       - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.26}

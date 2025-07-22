@@ -12,37 +12,46 @@ This folder contains comprehensive documentation of all integration changes made
 - **[Settings Module Refactoring](./settings-module-refactoring.md)** - Complete breakdown of settings.js file separation
 - **[Settings Routes Analysis](./settings-routes-analysis.md)** - Detailed analysis of old vs new settings implementation
 
-### 3. UI/UX Improvements
+### 3. Predictor Integration
+- **[Predictor Message Handling System](./predictor-message-handling.md)** - Comprehensive predictor system documentation
+- **[Predictor Integration Changes Report](./predictor-integration-changes.md)** - Complete file changes and modifications
+
+### 4. UI/UX Improvements
 - **[Toast Notifications Implementation](./toast-notifications.md)** - Toast notification system implementation across prediction components
 
-### 4. Integration Summary
+### 5. Integration Summary
 - **[Change Summary](./change-summary.md)** - High-level summary of all changes made
 - **[Migration Guide](./migration-guide.md)** - Guide for understanding the changes and their impact
 
 ## Quick Reference
 
-### Files Modified
-- `src/routes/settings.js` - Main settings route (refactored)
-- `src/routes/settings.prediction.js` - New prediction-specific routes
-- `client/src/components/prediction/CsvDownloadButton.tsx` - Toast notifications enabled
-- `client/src/components/prediction/PredictionResults.tsx` - Toast notifications enabled
-- `client/src/components/prediction/PredictionDashboard.tsx` - Toast notifications enabled
+### Files Modified (Latest Integration)
+- `src/routes/chatbot.js` - Added predictor message handling endpoint
+- `src/routes/predictionDb.js` - Updated service URL configuration
+- `client/src/components/prediction/ChatbotPrediction.tsx` - Fixed duplicate API calls and polling
+- `client/src/components/chat/ChatInput.tsx` - Added predictor command routing
+- `client/src/pages/Chatbot.tsx` - Integrated predictor handler
+- `client/src/services/chatbotService.ts` - Added predictor API methods
+- `Docker/docker-compose.yml` - Added prediction service environment variables
 
-### Files Created
-- `src/routes/settings.prediction.js` - Prediction database management routes
-- `documentation/Integration changes/` - This documentation folder
+### Files Created (Latest Integration)
+- `documentation/Integration changes/predictor-message-handling.md` - System architecture and troubleshooting guide
+- `documentation/Integration changes/predictor-integration-changes.md` - Complete file changes report
 
 ### Key Improvements
-1. **Modular Architecture** - Separated prediction logic from main settings
-2. **Better User Experience** - Implemented toast notifications for user feedback
-3. **Maintainable Code** - Clear separation of concerns
-4. **Backward Compatibility** - All existing functionality preserved
+1. **Chat-based ML Operations** - Train models and generate predictions through chat interface
+2. **Real-time Updates** - Immediate feedback for training and prediction operations
+3. **Robust Error Handling** - Comprehensive error handling with user-friendly messages
+4. **Docker Integration** - Seamless container-to-container communication
+5. **Maintainable Architecture** - Clean separation of concerns and modular design
 
 ## Getting Started
 
 1. Read the [Application Architecture Overview](./application-architecture.md) to understand the overall system
-2. Review the [Settings Module Refactoring](./settings-module-refactoring.md) for detailed changes
-3. Check the [Change Summary](./change-summary.md) for a quick overview of what was modified
+2. Review the [Predictor Message Handling System](./predictor-message-handling.md) for ML integration details
+3. Check the [Predictor Integration Changes Report](./predictor-integration-changes.md) for implementation details
+4. Review the [Settings Module Refactoring](./settings-module-refactoring.md) for settings architecture
+5. Check the [Change Summary](./change-summary.md) for a quick overview of all modifications
 
 ## Contact
 
