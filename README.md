@@ -69,6 +69,16 @@ A modern, responsive web application built with React, TypeScript, and Express t
 ├── conf/                      # Configuration files
 │   └── config.ini             # Application configuration
 │
+├── DATA/                      # Application data directory
+│   ├── collections/           # Image processing collections
+│   ├── input/                 # Input files
+│   ├── output/                # Processed output files
+│   ├── uploads/               # File uploads
+│   ├── documents/             # Document storage
+│   ├── embeddings/            # Vector embeddings
+│   ├── vector_store/          # Vector database files
+│   └── chroma_data/           # ChromaDB data
+│
 ├── documentation/             # Project documentation
 │
 ├── memory-bank/               # Internal project knowledge
@@ -98,43 +108,44 @@ The Platform Dashboard uses a unified architecture where the Express backend ser
    - Path configurable via `static_root_path` in config.ini
    - Express serves all static assets (JS, CSS, images)
 
-4. **SPA Routing Support**
-   - Backend serves index.html for all non-API routes
-   - Allows direct URL access to React routes
-   - Client-side routing works seamlessly with server
+## 🔧 Quick Setup for Team Collaboration
 
-5. **Centralized Configuration**
-   - All settings in `conf/config.ini`
-   - Frontend fetches configuration from backend
-   - No hardcoded values in frontend code
+### Prerequisites
+- Docker and Docker Compose installed
+- PostgreSQL database running
+- Ollama service running
 
-### Flow Diagram
+### Initial Setup
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd PinnacleAi
+   ```
 
-```
-┌─────────────┐     HTTP Request     ┌─────────────────────────┐
-│  Browser    │──────────────────────▶  Express Server         │
-└─────────────┘                      │                         │
-       ▲                             │  ┌─────────────────┐    │
-       │                             │  │ API Routes      │    │
-       │                             │  │ (/api/*)        │    │
-       │                             │  └─────────────────┘    │
-       │       HTTP Response         │                         │
-       └─────────────────────────────│  ┌─────────────────┐    │
-                                     │  │ Static Files    │    │
-                                     │  │ (React Build)   │    │
-                                     │  └─────────────────┘    │
-                                     │                         │
-                                     │  ┌─────────────────┐    │
-                                     │  │ SPA Fallback    │    │
-                                     │  │ Route           │    │
-                                     │  └─────────────────┘    │
-                                     └─────────────────────────┘
-                                              │
-                                              │ reads
-                                              ▼
-                                     ┌─────────────────────────┐
-                                     │ config.ini              │
-                                     └─────────────────────────┘
+2. Set up DATA directory permissions (required for Docker containers):
+   ```bash
+   ./setup-permissions.sh
+   ```
+
+3. Start the application:
+   ```bash
+   cd Docker
+   docker compose up -d
+   ```
+
+4. Access the application at: http://localhost:5641
+
+### DATA Directory Structure
+The DATA directory is configured for team collaboration:
+- **777 permissions**: Universal read/write access for all users
+- **Git tracking**: Folder structure is tracked, contents are ignored
+- **Docker compatibility**: Works with all containerized services
+- **Cross-platform**: Works on Windows, macOS, and Linux
+
+### Troubleshooting
+If you encounter permission issues with Docker containers:
+```bash
+./setup-permissions.sh
 ```
 
 ## 🚀 Getting Started
