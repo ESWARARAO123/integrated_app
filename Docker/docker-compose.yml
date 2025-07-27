@@ -121,6 +121,7 @@ services:
       - IMAGE_PROCESSOR_HOST=0.0.0.0
       - IMAGE_PROCESSOR_PORT=8430
       - IMAGE_PROCESSOR_DATA_DIR=/app/data
+    user: "999:999"
     restart: unless-stopped
     networks:
       - productdemo-network

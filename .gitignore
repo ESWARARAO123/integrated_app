@@ -4,45 +4,44 @@ client/node_modules
 client/.env
 .DS_Store
 
-# DATA directory and its contents
+# DATA directory - Keep folder structure but ignore contents
 /DATA/*
-# But keep the DATA directory itself and README
+!/DATA/
 !/DATA/.gitkeep
 !/DATA/README.md
 
-# Explicitly ignore these specific subdirectories
-/DATA/documents/
-/DATA/embeddings/
-/DATA/chroma_data/
-/DATA/vector_store/
+# Keep subdirectory structure but ignore their contents
+!/DATA/collections/
+/DATA/collections/*
+!/DATA/collections/.gitkeep
 
-logs/
-logs/combined.log
-logs/error.log
+!/DATA/input/
+/DATA/input/*
+!/DATA/input/.gitkeep
 
-node_modules/
-client/node_modules/
+!/DATA/output/
+/DATA/output/*
+!/DATA/output/.gitkeep
 
-python/venv/
-python/.venv
+!/DATA/uploads/
+/DATA/uploads/*
+!/DATA/uploads/.gitkeep
 
-node_modules
-client/node_modules
-.env
-client/.env
-.DS_Store
+!/DATA/documents/
+/DATA/documents/*
+!/DATA/documents/.gitkeep
 
-# DATA directory and its contents
-/DATA/*
-# But keep the DATA directory itself and README
-!/DATA/.gitkeep
-!/DATA/README.md
+!/DATA/embeddings/
+/DATA/embeddings/*
+!/DATA/embeddings/.gitkeep
 
-# Explicitly ignore these specific subdirectories
-/DATA/documents/
-/DATA/embeddings/
-/DATA/chroma_data/
-/DATA/vector_store/
+!/DATA/vector_store/
+/DATA/vector_store/*
+!/DATA/vector_store/.gitkeep
+
+!/DATA/chroma_data/
+/DATA/chroma_data/*
+!/DATA/chroma_data/.gitkeep
 
 logs/
 logs/combined.log

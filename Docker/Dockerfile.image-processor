@@ -36,6 +36,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy the image processing scripts
 COPY python/RAG-MODULE/image-processing/ /app/image-processing/
 
+# Copy entrypoint script
+COPY Docker/docker-entrypoint-image-processor.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint-image-processor.sh
+
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/data/input /app/data/output /app/data/collections /app/data/uploads && \
     chown -R imageprocessor:imageprocessor /app
@@ -53,6 +57,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 # Expose port for HTTP API
 EXPOSE 8430
+
+# Set entrypoint
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint-image-processor.sh"]
 
 # Default command - run the HTTP API server
 CMD ["python", "image-processing/image_processor_api.py"]
