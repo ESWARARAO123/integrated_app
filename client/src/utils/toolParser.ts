@@ -173,7 +173,13 @@ export const containsShellCommandToolCall = (content: string): boolean => {
     // Handle cases with different spacing
     /\{\s*"tool"\s*:\s*"runshellcommand"\s*,\s*"parameters"/i,
     // Handle cases where the JSON might be on multiple lines
-    /\{\s*"tool"\s*:\s*"runshellcommand"[\s\S]*?"parameters"/i
+    /\{\s*"tool"\s*:\s*"runshellcommand"[\s\S]*?"parameters"/i,
+    // Handle cases where the tool call might be embedded in markdown
+    /```json\s*\{\s*"tool":\s*"runshellcommand"/i,
+    // Handle cases with single quotes
+    /\{\s*'tool':\s*'runshellcommand'/i,
+    // Handle cases with no quotes around tool name
+    /\{\s*tool:\s*['"]?runshellcommand['"]?/i
   ];
   
   const hasMatch = patterns.some(pattern => pattern.test(content));
@@ -187,6 +193,15 @@ export const containsShellCommandToolCall = (content: string): boolean => {
         index,
         matches: pattern.test(content)
       })).filter(p => p.matches)
+    });
+  } else {
+    // Log when no match is found to help debug
+    console.log('🔍 No shell command tool call detected in content:', {
+      contentLength: content.length,
+      contentPreview: content.substring(0, 200) + '...',
+      containsRunshellcommand: content.includes('runshellcommand'),
+      containsTool: content.includes('"tool"'),
+      containsParameters: content.includes('"parameters"')
     });
   }
   

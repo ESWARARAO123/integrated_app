@@ -102,24 +102,26 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
   const preprocessContentForDisplay = (content: string): string => {
     if (!content) return content;
     
-    // Remove JSON tool calls from the displayed content
+    // Remove JSON tool calls from the displayed content, but preserve code blocks and markdown
     let cleanedContent = content;
     
-    // Remove runshellcommand JSON blocks
-    cleanedContent = cleanedContent.replace(/\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}/gi, '');
+    // Remove runshellcommand JSON blocks - be more specific to avoid removing code blocks
+    cleanedContent = cleanedContent.replace(/\{\s*"tool":\s*"runshellcommand"[\s\S]*?"parameters":\s*\{[\s\S]*?\}\s*\}/gi, '');
     
-    // Remove read_context JSON blocks
+    // Remove read_context JSON blocks - be more specific
     cleanedContent = cleanedContent.replace(/\{\s*"tool":\s*"read_context"[\s\S]*?\}/gi, '');
     
-    // Remove TOOL: markers
+    // Remove TOOL: markers but preserve the content around them
     cleanedContent = cleanedContent.replace(/TOOL:\s*\{[\s\S]*?\}/gi, '');
     
-    // Remove code blocks that contain only JSON tool calls
+    // Remove code blocks that contain ONLY JSON tool calls (not mixed content)
     cleanedContent = cleanedContent.replace(/```(?:json)?\s*\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}\s*```/gi, '');
     cleanedContent = cleanedContent.replace(/```(?:json)?\s*\{\s*"tool":\s*"read_context"[\s\S]*?\}\s*```/gi, '');
     
-    // Clean up extra whitespace and empty lines
+    // Clean up multiple consecutive empty lines but preserve intentional spacing
     cleanedContent = cleanedContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+    
+    // Clean up leading/trailing whitespace
     cleanedContent = cleanedContent.trim();
     
     return cleanedContent;
@@ -928,8 +930,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
                     // Try to find where the JSON tool call starts and only show content before it
                     const jsonStartIndex = content.search(/\{\s*"tool":\s*"runshellcommand"/i);
                     if (jsonStartIndex > 0) {
-                      return content.substring(0, jsonStartIndex).trim();
+                      const contentBeforeTool = content.substring(0, jsonStartIndex).trim();
+                      // If we have content before the tool call, render it with markdown
+                      if (contentBeforeTool) {
+                        return (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={components}
+                          >
+                            {contentBeforeTool}
+                          </ReactMarkdown>
+                        );
+                      }
                     }
+                    
                     // Fallback: try to split on common patterns
                     const patterns = [
                       /\{[^}]*"tool"[^}]*"runshellcommand"/i,
@@ -939,13 +953,35 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
                     
                     for (const pattern of patterns) {
                       const match = content.match(pattern);
-                      if (match && match.index !== undefined) {
-                        return content.substring(0, match.index).trim();
+                      if (match && match.index !== undefined && match.index > 0) {
+                        const contentBeforeTool = content.substring(0, match.index).trim();
+                        if (contentBeforeTool) {
+                          return (
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={components}
+                            >
+                              {contentBeforeTool}
+                            </ReactMarkdown>
+                          );
+                        }
                       }
                     }
                     
                     // If no pattern found, show the content but remove any JSON-like structures
-                    return content.replace(/\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}/gi, '').trim();
+                    const cleanedContent = content.replace(/\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}/gi, '').trim();
+                    if (cleanedContent) {
+                      return (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={components}
+                        >
+                          {cleanedContent}
+                        </ReactMarkdown>
+                      );
+                    }
+                    
+                    return null;
                   })()}
                 </div>
 
@@ -964,8 +1000,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
                     // Try to find where the JSON tool call starts and only show content before it
                     const jsonStartIndex = content.search(/\{\s*"tool":\s*"runshellcommand"/i);
                     if (jsonStartIndex > 0) {
-                      return content.substring(0, jsonStartIndex).trim();
+                      const contentBeforeTool = content.substring(0, jsonStartIndex).trim();
+                      // If we have content before the tool call, render it with markdown
+                      if (contentBeforeTool) {
+                        return (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={components}
+                          >
+                            {contentBeforeTool}
+                          </ReactMarkdown>
+                        );
+                      }
                     }
+                    
                     // Fallback: try to split on common patterns
                     const patterns = [
                       /\{[^}]*"tool"[^}]*"runshellcommand"/i,
@@ -975,13 +1023,35 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
                     
                     for (const pattern of patterns) {
                       const match = content.match(pattern);
-                      if (match && match.index !== undefined) {
-                        return content.substring(0, match.index).trim();
+                      if (match && match.index !== undefined && match.index > 0) {
+                        const contentBeforeTool = content.substring(0, match.index).trim();
+                        if (contentBeforeTool) {
+                          return (
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={components}
+                            >
+                              {contentBeforeTool}
+                            </ReactMarkdown>
+                          );
+                        }
                       }
                     }
                     
                     // If no pattern found, show the content but remove any JSON-like structures
-                    return content.replace(/\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}/gi, '').trim();
+                    const cleanedContent = content.replace(/\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}/gi, '').trim();
+                    if (cleanedContent) {
+                      return (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={components}
+                        >
+                          {cleanedContent}
+                        </ReactMarkdown>
+                      );
+                    }
+                    
+                    return null;
                   })()}
                 </div>
 
