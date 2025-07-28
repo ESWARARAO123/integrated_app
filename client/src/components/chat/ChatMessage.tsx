@@ -94,7 +94,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
       hasShellCommandTool,
       shellCommand,
       contentPreview: message.content.substring(0, 200) + '...',
-      contentLength: message.content.length
+      contentLength: message.content.length,
+      // Add more detailed debugging
+      containsRunshellcommand: message.content.includes('runshellcommand'),
+      containsTool: message.content.includes('"tool"'),
+      containsParameters: message.content.includes('"parameters"'),
+      containsCommand: message.content.includes('"command"'),
+      // Check if content has JSON structure
+      hasJsonStructure: message.content.includes('{') && message.content.includes('}'),
+      // Check for specific patterns
+      hasToolPattern: /\{\s*"tool":\s*"runshellcommand"/i.test(message.content),
+      hasParametersPattern: /\{\s*"tool":\s*"runshellcommand"\s*,\s*"parameters":\s*\{/i.test(message.content)
     });
   }
 
@@ -1064,6 +1074,38 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
                     conversationId={conversationId}
                     toolText={extractToolText()}
                   />
+                )}
+                
+                {/* Fallback: Show error message if tool detected but command extraction failed */}
+                {hasShellCommandTool && !shellCommand && (
+                  <div style={{
+                    marginTop: '1rem',
+                    padding: '1rem',
+                    backgroundColor: 'var(--color-error-light)',
+                    borderRadius: '0.5rem',
+                    border: '1px solid var(--color-error)',
+                    color: 'var(--color-error)',
+                    fontSize: '0.9rem'
+                  }}>
+                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+                      ⚠️ Tool Detection Issue
+                    </div>
+                    <div>
+                      A shell command tool was detected but the command could not be extracted. 
+                      This might be due to malformed JSON or unexpected tool call format.
+                    </div>
+                    <div style={{ 
+                      marginTop: '0.5rem', 
+                      fontSize: '0.8rem', 
+                      fontFamily: 'monospace',
+                      backgroundColor: 'rgba(0,0,0,0.1)',
+                      padding: '0.5rem',
+                      borderRadius: '0.25rem',
+                      overflowX: 'auto'
+                    }}>
+                      Content preview: {message.content.substring(0, 200)}...
+                    </div>
+                  </div>
                 )}
               </>
             ) : message.isSqlResult ? (

@@ -218,7 +218,11 @@ export const extractShellCommand = (content: string): string | null => {
 
   console.log('🔧 Attempting to extract shell command from content:', {
     contentLength: content.length,
-    contentPreview: content.substring(0, 300) + '...'
+    contentPreview: content.substring(0, 300) + '...',
+    containsRunshellcommand: content.includes('runshellcommand'),
+    containsTool: content.includes('"tool"'),
+    containsParameters: content.includes('"parameters"'),
+    containsCommand: content.includes('"command"')
   });
 
   try {
@@ -229,6 +233,7 @@ export const extractShellCommand = (content: string): string | null => {
     const codeBlockPattern = /```(?:json)?\s*(\{[\s\S]*?"tool":\s*"runshellcommand"[\s\S]*?\})\s*```/i;
     const codeBlockMatch = content.match(codeBlockPattern);
     if (codeBlockMatch && codeBlockMatch[1]) {
+      console.log('🔍 Found code block match:', codeBlockMatch[1]);
       try {
         const parsed = JSON.parse(codeBlockMatch[1]);
         if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
@@ -246,6 +251,7 @@ export const extractShellCommand = (content: string): string | null => {
     const matches = content.match(jsonObjectPattern);
 
     if (matches) {
+      console.log('🔍 Found JSON object matches:', matches);
       for (const match of matches) {
         try {
           const parsed = JSON.parse(match);
@@ -275,6 +281,7 @@ export const extractShellCommand = (content: string): string | null => {
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed.startsWith('{') && trimmed.includes('runshellcommand')) {
+        console.log('🔍 Found potential JSON line:', trimmed);
         try {
           const parsed = JSON.parse(trimmed);
           if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
@@ -293,6 +300,7 @@ export const extractShellCommand = (content: string): string | null => {
     const nestedMatches = content.match(nestedJsonPattern);
 
     if (nestedMatches) {
+      console.log('🔍 Found nested JSON matches:', nestedMatches);
       for (const match of nestedMatches) {
         try {
           const parsed = JSON.parse(match);
@@ -314,7 +322,42 @@ export const extractShellCommand = (content: string): string | null => {
       return commandMatch[1];
     }
 
+    // New: Try to find any JSON-like structure that might contain the command
+    const anyJsonPattern = /\{[^}]*"command"[^}]*\}/gi;
+    const anyJsonMatches = content.match(anyJsonPattern);
+    if (anyJsonMatches) {
+      console.log('🔍 Found any JSON matches with command:', anyJsonMatches);
+      for (const match of anyJsonMatches) {
+        try {
+          const parsed = JSON.parse(match);
+          if (parsed.command) {
+            console.log('✅ Extracted command from any JSON:', parsed.command);
+            return parsed.command;
+          }
+        } catch (e) {
+          // Try regex extraction from this match
+          const commandMatch = match.match(/"command"\s*:\s*"([^"]+)"/);
+          if (commandMatch && commandMatch[1]) {
+            console.log('✅ Extracted command using regex from any JSON:', commandMatch[1]);
+            return commandMatch[1];
+          }
+        }
+      }
+    }
+
+    // New: Try to find the command in the entire content using a more flexible approach
+    const flexibleCommandPattern = /"command"\s*:\s*"([^"]*?)"/;
+    const flexibleMatch = content.match(flexibleCommandPattern);
+    if (flexibleMatch && flexibleMatch[1]) {
+      console.log('✅ Extracted command using flexible regex:', flexibleMatch[1]);
+      return flexibleMatch[1];
+    }
+
     console.warn('❌ Could not extract shell command from content');
+    console.log('🔍 Content analysis:', {
+      content: content,
+      lines: content.split('\n').map((line, index) => ({ index, line: line.trim() }))
+    });
     return null;
   } catch (error) {
     console.error('Error extracting shell command:', error);
