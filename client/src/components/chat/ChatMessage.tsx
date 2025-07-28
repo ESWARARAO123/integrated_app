@@ -128,6 +128,19 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
     cleanedContent = cleanedContent.replace(/```(?:json)?\s*\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}\s*```/gi, '');
     cleanedContent = cleanedContent.replace(/```(?:json)?\s*\{\s*"tool":\s*"read_context"[\s\S]*?\}\s*```/gi, '');
     
+    // Remove standalone JSON blocks that might be displayed as "undefined"
+    cleanedContent = cleanedContent.replace(/```json\s*undefined\s*```/gi, '');
+    cleanedContent = cleanedContent.replace(/```json\s*\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}\s*```/gi, '');
+    
+    // Remove any remaining JSON-like structures that might cause "undefined" display
+    cleanedContent = cleanedContent.replace(/```json\s*\{[\s\S]*?"tool"[\s\S]*?"runshellcommand"[\s\S]*?\}\s*```/gi, '');
+    
+    // Remove any JSON blocks that contain "undefined" or empty content
+    cleanedContent = cleanedContent.replace(/```json\s*(?:undefined|{}|null)\s*```/gi, '');
+    
+    // Remove any remaining JSON blocks that might be causing issues
+    cleanedContent = cleanedContent.replace(/```json\s*\{[\s\S]*?\}\s*```/gi, '');
+    
     // Clean up multiple consecutive empty lines but preserve intentional spacing
     cleanedContent = cleanedContent.replace(/\n\s*\n\s*\n/g, '\n\n');
     
@@ -409,6 +422,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
     code({ node, inline, className, children, ...props }: any) {
       const match = /language-(\w+)/.exec(className || '');
       const code = String(children).replace(/\n$/, '');
+
+      // Filter out "undefined" content from code blocks
+      if (code === 'undefined' || code.trim() === 'undefined') {
+        return null;
+      }
 
       return !inline && match ? (
         <div style={messageBubbleStyles.ai.codeBlock}>
