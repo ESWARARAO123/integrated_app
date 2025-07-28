@@ -64,15 +64,23 @@ const ShellCommandResult: React.FC<ShellCommandResultProps> = ({ result }) => {
   const extractCommandResult = (output: string) => {
     if (!output) return null;
 
+    console.log('🔍 Extracting command result from output:', {
+      outputLength: output.length,
+      outputPreview: output.substring(0, 200) + '...',
+      output: output
+    });
+
     try {
       // Look for JSON in the output
       const jsonMatch = output.match(/\{[^{}]*"text"[^{}]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        return parsed.text || parsed;
+        const result = parsed.text || parsed;
+        console.log('✅ Extracted JSON result:', result);
+        return result;
       }
     } catch (e) {
-      // If JSON parsing fails, just return the raw output
+      console.warn('Failed to parse JSON from output:', e);
     }
 
     // If no JSON found, look for the actual command output after the MCP messages
@@ -96,10 +104,21 @@ const ShellCommandResult: React.FC<ShellCommandResultProps> = ({ result }) => {
       );
       
       if (relevantLines.length > 0) {
-        return relevantLines.join('\n');
+        const result = relevantLines.join('\n');
+        console.log('✅ Extracted result from filtered lines:', result);
+        return result;
       }
     }
 
+    // If no MCP messages found, check if the output is just a simple value
+    const cleanOutput = output.trim();
+    if (cleanOutput && !cleanOutput.includes('Executing tool') && !cleanOutput.includes('Connecting to')) {
+      console.log('✅ Using clean output as result:', cleanOutput);
+      return cleanOutput;
+    }
+
+    // Fallback: return the original output if nothing else works
+    console.log('⚠️ Using original output as fallback:', output);
     return output;
   };
 
@@ -108,6 +127,18 @@ const ShellCommandResult: React.FC<ShellCommandResultProps> = ({ result }) => {
     if (!output || !output.trim()) return null;
 
     const cleanOutput = extractCommandResult(output) || output.trim();
+    
+    console.log('🔍 Formatting output:', {
+      originalOutput: output,
+      cleanOutput: cleanOutput,
+      cleanOutputLength: cleanOutput.length
+    });
+
+    // Ensure we always have something to display
+    if (!cleanOutput || cleanOutput.trim() === '') {
+      console.warn('⚠️ No output to display after extraction');
+      return null;
+    }
 
     return (
       <div className="command-output-container">
@@ -398,9 +429,71 @@ const ShellCommandResult: React.FC<ShellCommandResultProps> = ({ result }) => {
         </div>
 
         {/* Output Section */}
-        {result.success && result.output && result.output.trim() && (
+        {result.success && result.output && (
           <div className="px-5 pb-5">
-            {formatOutput(result.output)}
+            {(() => {
+              console.log('🔍 Rendering output section:', {
+                success: result.success,
+                hasOutput: !!result.output,
+                outputLength: result.output?.length,
+                outputPreview: result.output?.substring(0, 100)
+              });
+              
+              const formattedOutput = formatOutput(result.output);
+              if (formattedOutput) {
+                return formattedOutput;
+              } else {
+                // Fallback: show raw output if formatting fails
+                console.log('⚠️ Formatting failed, showing raw output');
+                return (
+                  <div className="command-output-container">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+                        Raw Output
+                      </span>
+                      <button
+                        onClick={() => copyToClipboard(result.output, 'output')}
+                        className="flex items-center px-2 py-1 text-xs font-medium rounded-lg transition-all duration-200 hover:bg-black hover:bg-opacity-10 border"
+                        style={{ 
+                          color: 'var(--color-primary)',
+                          borderColor: 'var(--color-border)'
+                        }}
+                      >
+                        {copiedOutput ? (
+                          <>
+                            <CheckIcon className="h-3 w-3 mr-1" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <ClipboardDocumentIcon className="h-3 w-3 mr-1" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <pre 
+                      style={{
+                        margin: 0,
+                        padding: '16px',
+                        fontSize: '13px',
+                        lineHeight: '1.5',
+                        borderRadius: '8px',
+                        background: isDarkTheme ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.03)',
+                        color: isDarkTheme ? '#e5e7eb' : '#374151',
+                        border: `1px solid ${isDarkTheme ? 'rgba(71, 85, 105, 0.4)' : 'rgba(203, 213, 225, 0.6)'}`,
+                        overflow: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        maxHeight: '400px'
+                      }}
+                    >
+                      <code>{result.output}</code>
+                    </pre>
+                  </div>
+                );
+              }
+            })()}
           </div>
         )}
 
