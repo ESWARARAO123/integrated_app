@@ -105,14 +105,26 @@ const MCPCommandResult: React.FC<MCPCommandResultProps> = ({ resultId }) => {
 
   // Format the result content for display
   const formatResultContent = (content: any) => {
+    // Enhanced: Try to parse as JSON if string, fallback to plain text
     if (typeof content === 'string') {
-      return content;
+      try {
+        const parsed = JSON.parse(content);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return content;
+      }
     }
 
     if (Array.isArray(content)) {
       return content.map((item, index) => {
         if (typeof item === 'string') {
-          return <div key={index} className="mb-2">{item}</div>;
+          // Try to parse as JSON if string
+          try {
+            const parsed = JSON.parse(item);
+            return <div key={index} className="mb-2">{JSON.stringify(parsed, null, 2)}</div>;
+          } catch {
+            return <div key={index} className="mb-2">{item}</div>;
+          }
         }
 
         if (item.type === 'text') {

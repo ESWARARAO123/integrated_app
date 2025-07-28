@@ -90,6 +90,7 @@ export const shellCommandService = {
           }
         } catch {
           // Not JSON or no logs, continue
+          // Enhanced: fallback to plain text, do nothing
         }
       }
       

@@ -129,7 +129,13 @@ const mcpChatService = {
               // Skip empty data or [DONE]
               if (data === '' || data === '[DONE]') continue;
               
-              const parsedData = JSON.parse(data);
+              let parsedData;
+              try {
+                parsedData = JSON.parse(data);
+              } catch (e) {
+                // Fallback: treat as plain text
+                parsedData = { content: data };
+              }
               
               // Handle the SSE data structure which might differ from the standard OpenAI format
               let chunk: StreamChunk;

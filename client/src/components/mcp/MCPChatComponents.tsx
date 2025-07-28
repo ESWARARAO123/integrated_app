@@ -133,16 +133,29 @@ const MCPChatComponents: React.FC = () => {
       const existingMessage = chatHistory.find(msg => msg.commandId === latestResult.id);
       
       if (!existingMessage) {
+        // Enhanced: Try to parse as JSON, fallback to plain text
+        let displayContent = '';
+        if (latestResult.success) {
+          if (typeof latestResult.result === 'string') {
+            try {
+              const parsed = JSON.parse(latestResult.result);
+              displayContent = `✅ Command executed successfully:\n${JSON.stringify(parsed, null, 2)}`;
+            } catch {
+              displayContent = `✅ Command executed successfully:\n${latestResult.result}`;
+            }
+          } else {
+            displayContent = `✅ Command executed successfully:\n${JSON.stringify(latestResult.result, null, 2)}`;
+          }
+        } else {
+          displayContent = `❌ Command failed:\n${latestResult.error}`;
+        }
         const newMessage: MCPChatMessage = {
           id: `result-${latestResult.id}`,
           type: 'system',
-          content: latestResult.success 
-            ? `✅ Command executed successfully:\n${typeof latestResult.result === 'string' ? latestResult.result : JSON.stringify(latestResult.result, null, 2)}`
-            : `❌ Command failed:\n${latestResult.error}`,
+          content: displayContent,
           timestamp: latestResult.timestamp,
           commandId: latestResult.id
         };
-        
         setChatHistory(prev => [...prev, newMessage]);
       }
     }
@@ -439,7 +452,16 @@ const MCPChatComponents: React.FC = () => {
             ) : (
               chatHistory.map((message, index) => {
                 const styling = getMessageStyling(message);
-                
+                let displayContent = message.content;
+                // Enhanced: Try to parse as JSON, fallback to plain text
+                if (typeof displayContent === 'string') {
+                  try {
+                    const parsed = JSON.parse(displayContent);
+                    displayContent = JSON.stringify(parsed, null, 2);
+                  } catch {
+                    // leave as is, it's already a string
+                  }
+                }
                 return (
                   <motion.div
                     key={message.id}
@@ -478,7 +500,7 @@ const MCPChatComponents: React.FC = () => {
                       {/* Message content */}
                       <div className="relative z-10">
                         <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                          {message.content}
+                          {displayContent}
                         </pre>
                       </div>
 
