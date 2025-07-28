@@ -86,6 +86,45 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
   const hasShellCommandTool = isAI && containsShellCommandToolCall(message.content);
   const shellCommand = hasShellCommandTool ? extractShellCommand(message.content) : undefined;
 
+  // Debug logging for tool detection
+  if (isAI && message.content) {
+    console.log('🔍 ChatMessage tool detection:', {
+      messageId: message.id,
+      hasReadContextTool,
+      hasShellCommandTool,
+      shellCommand,
+      contentPreview: message.content.substring(0, 200) + '...',
+      contentLength: message.content.length
+    });
+  }
+
+  // Preprocess content to clean JSON tool calls for display
+  const preprocessContentForDisplay = (content: string): string => {
+    if (!content) return content;
+    
+    // Remove JSON tool calls from the displayed content
+    let cleanedContent = content;
+    
+    // Remove runshellcommand JSON blocks
+    cleanedContent = cleanedContent.replace(/\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}/gi, '');
+    
+    // Remove read_context JSON blocks
+    cleanedContent = cleanedContent.replace(/\{\s*"tool":\s*"read_context"[\s\S]*?\}/gi, '');
+    
+    // Remove TOOL: markers
+    cleanedContent = cleanedContent.replace(/TOOL:\s*\{[\s\S]*?\}/gi, '');
+    
+    // Remove code blocks that contain only JSON tool calls
+    cleanedContent = cleanedContent.replace(/```(?:json)?\s*\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}\s*```/gi, '');
+    cleanedContent = cleanedContent.replace(/```(?:json)?\s*\{\s*"tool":\s*"read_context"[\s\S]*?\}\s*```/gi, '');
+    
+    // Clean up extra whitespace and empty lines
+    cleanedContent = cleanedContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+    cleanedContent = cleanedContent.trim();
+    
+    return cleanedContent;
+  };
+
   // Determine if this is a Chat2SQL message
   const isChat2SqlMessage = message.chat2sql || message.isSqlResult || message.isSqlQuery;
   
@@ -883,8 +922,31 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
               // Show the shell command result if the command has been executed
               <>
                 <div>
-                  {/* Display the message content up to the tool call */}
-                  {message.content.split(/\{[^}]*"tool"[^}]*"runshellcommand"/i)[0]}
+                  {/* Display the message content up to the tool call, but hide the JSON */}
+                  {(() => {
+                    const content = message.content;
+                    // Try to find where the JSON tool call starts and only show content before it
+                    const jsonStartIndex = content.search(/\{\s*"tool":\s*"runshellcommand"/i);
+                    if (jsonStartIndex > 0) {
+                      return content.substring(0, jsonStartIndex).trim();
+                    }
+                    // Fallback: try to split on common patterns
+                    const patterns = [
+                      /\{[^}]*"tool"[^}]*"runshellcommand"/i,
+                      /```\s*json\s*\{/i,
+                      /TOOL:\s*\{/i
+                    ];
+                    
+                    for (const pattern of patterns) {
+                      const match = content.match(pattern);
+                      if (match && match.index !== undefined) {
+                        return content.substring(0, match.index).trim();
+                      }
+                    }
+                    
+                    // If no pattern found, show the content but remove any JSON-like structures
+                    return content.replace(/\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}/gi, '').trim();
+                  })()}
                 </div>
 
                 {/* Use the new ShellCommandResult component for better presentation */}
@@ -896,8 +958,31 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
               // Show the shell command button (Run/Decline) if tool detected but not yet executed
               <>
                 <div>
-                  {/* Display the message content up to the tool call */}
-                  {message.content.split(/\{[^}]*"tool"[^}]*"runshellcommand"/i)[0]}
+                  {/* Display the message content up to the tool call, but hide the JSON */}
+                  {(() => {
+                    const content = message.content;
+                    // Try to find where the JSON tool call starts and only show content before it
+                    const jsonStartIndex = content.search(/\{\s*"tool":\s*"runshellcommand"/i);
+                    if (jsonStartIndex > 0) {
+                      return content.substring(0, jsonStartIndex).trim();
+                    }
+                    // Fallback: try to split on common patterns
+                    const patterns = [
+                      /\{[^}]*"tool"[^}]*"runshellcommand"/i,
+                      /```\s*json\s*\{/i,
+                      /TOOL:\s*\{/i
+                    ];
+                    
+                    for (const pattern of patterns) {
+                      const match = content.match(pattern);
+                      if (match && match.index !== undefined) {
+                        return content.substring(0, match.index).trim();
+                      }
+                    }
+                    
+                    // If no pattern found, show the content but remove any JSON-like structures
+                    return content.replace(/\{\s*"tool":\s*"runshellcommand"[\s\S]*?\}/gi, '').trim();
+                  })()}
                 </div>
 
                 {/* Show the shell command button for user interaction */}
@@ -1417,7 +1502,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isAI = false, conver
                   ),
                 }}
               >
-                {message.content}
+                {preprocessContentForDisplay(message.content)}
               </ReactMarkdown>
               </div>
             )}

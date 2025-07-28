@@ -166,11 +166,31 @@ export const containsShellCommandToolCall = (content: string): boolean => {
     /```\s*runshellcommand\s*```/i,
     /\{\s*"tool":\s*"runshellcommand"/i,
     /\{\s*"name":\s*"runshellcommand"/i,
-    // JSON format pattern
-    /\{\s*"tool":\s*"runshellcommand"\s*,\s*"parameters":\s*\{\s*"command":/i
+    // JSON format pattern - enhanced to be more flexible
+    /\{\s*"tool":\s*"runshellcommand"\s*,\s*"parameters":\s*\{/i,
+    // More flexible JSON pattern
+    /\{\s*"tool"\s*:\s*"runshellcommand"/i,
+    // Handle cases with different spacing
+    /\{\s*"tool"\s*:\s*"runshellcommand"\s*,\s*"parameters"/i,
+    // Handle cases where the JSON might be on multiple lines
+    /\{\s*"tool"\s*:\s*"runshellcommand"[\s\S]*?"parameters"/i
   ];
   
-  return patterns.some(pattern => pattern.test(content));
+  const hasMatch = patterns.some(pattern => pattern.test(content));
+  
+  // Debug logging
+  if (hasMatch) {
+    console.log('🔍 Shell command tool call detected in content:', {
+      contentLength: content.length,
+      contentPreview: content.substring(0, 200) + '...',
+      patterns: patterns.map((pattern, index) => ({
+        index,
+        matches: pattern.test(content)
+      })).filter(p => p.matches)
+    });
+  }
+  
+  return hasMatch;
 };
 
 /**
@@ -180,6 +200,11 @@ export const containsShellCommandToolCall = (content: string): boolean => {
  */
 export const extractShellCommand = (content: string): string | null => {
   if (!content) return null;
+
+  console.log('🔧 Attempting to extract shell command from content:', {
+    contentLength: content.length,
+    contentPreview: content.substring(0, 300) + '...'
+  });
 
   try {
     // First, try to find JSON objects that contain runshellcommand tool
@@ -192,6 +217,7 @@ export const extractShellCommand = (content: string): string | null => {
       try {
         const parsed = JSON.parse(codeBlockMatch[1]);
         if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
+          console.log('✅ Extracted command from code block:', parsed.parameters.command);
           return parsed.parameters.command;
         }
       } catch (e) {
@@ -209,6 +235,7 @@ export const extractShellCommand = (content: string): string | null => {
         try {
           const parsed = JSON.parse(match);
           if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
+            console.log('✅ Extracted command from JSON object:', parsed.parameters.command);
             return parsed.parameters.command;
           }
         } catch (e) {
@@ -218,6 +245,7 @@ export const extractShellCommand = (content: string): string | null => {
             const fixed = match.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
             const parsed = JSON.parse(fixed);
             if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
+              console.log('✅ Extracted command from fixed JSON:', parsed.parameters.command);
               return parsed.parameters.command;
             }
           } catch (e2) {
@@ -235,6 +263,7 @@ export const extractShellCommand = (content: string): string | null => {
         try {
           const parsed = JSON.parse(trimmed);
           if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
+            console.log('✅ Extracted command from line:', parsed.parameters.command);
             return parsed.parameters.command;
           }
         } catch (e) {
@@ -253,6 +282,7 @@ export const extractShellCommand = (content: string): string | null => {
         try {
           const parsed = JSON.parse(match);
           if (parsed.tool === 'runshellcommand' && parsed.parameters?.command) {
+            console.log('✅ Extracted command from nested JSON:', parsed.parameters.command);
             return parsed.parameters.command;
           }
         } catch (e) {
@@ -261,9 +291,18 @@ export const extractShellCommand = (content: string): string | null => {
       }
     }
 
+    // Enhanced: Try to extract command using regex if JSON parsing fails
+    const commandPattern = /"command"\s*:\s*"([^"]+)"/;
+    const commandMatch = content.match(commandPattern);
+    if (commandMatch && commandMatch[1]) {
+      console.log('✅ Extracted command using regex fallback:', commandMatch[1]);
+      return commandMatch[1];
+    }
+
+    console.warn('❌ Could not extract shell command from content');
+    return null;
   } catch (error) {
     console.error('Error extracting shell command:', error);
+    return null;
   }
-
-  return null;
 };
