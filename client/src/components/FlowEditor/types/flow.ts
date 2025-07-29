@@ -109,6 +109,7 @@ export interface FlowEditorActions {
   // Node operations
   addNode: (type: string, position: { x: number; y: number }) => void;
   updateNode: (nodeId: string, data: Partial<NodeData>) => void;
+  updateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
   deleteNode: (nodeId: string) => void;
   selectNode: (nodeId: string | null) => void;
   

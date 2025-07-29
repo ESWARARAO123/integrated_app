@@ -19,6 +19,7 @@ type FlowEditorAction =
   | { type: 'SET_EDGES'; payload: FlowEdge[] }
   | { type: 'ADD_NODE'; payload: FlowNode }
   | { type: 'UPDATE_NODE'; payload: { nodeId: string; data: Partial<NodeData> } }
+  | { type: 'UPDATE_NODE_POSITION'; payload: { nodeId: string; position: { x: number; y: number } } }
   | { type: 'DELETE_NODE'; payload: string }
   | { type: 'SELECT_NODE'; payload: string | null }
   | { type: 'ADD_EDGE'; payload: FlowEdge }
@@ -60,7 +61,17 @@ const flowEditorReducer = (state: FlowEditorState, action: FlowEditorAction): Fl
             : node
         ),
       };
-    
+
+    case 'UPDATE_NODE_POSITION':
+      return {
+        ...state,
+        nodes: state.nodes.map(node =>
+          node.id === action.payload.nodeId
+            ? { ...node, position: action.payload.position }
+            : node
+        ),
+      };
+
     case 'DELETE_NODE':
       return {
         ...state,
@@ -172,6 +183,10 @@ export const FlowEditorProvider: React.FC<FlowEditorProviderProps> = ({ children
     dispatch({ type: 'UPDATE_NODE', payload: { nodeId, data } });
   }, []);
 
+  const updateNodePosition = useCallback((nodeId: string, position: { x: number; y: number }) => {
+    dispatch({ type: 'UPDATE_NODE_POSITION', payload: { nodeId, position } });
+  }, []);
+
   const deleteNode = useCallback((nodeId: string) => {
     dispatch({ type: 'DELETE_NODE', payload: nodeId });
   }, []);
@@ -193,6 +208,9 @@ export const FlowEditorProvider: React.FC<FlowEditorProviderProps> = ({ children
       // Get current viewport from React Flow instance if available
       const reactFlowInstance = (window as any).reactFlowInstance;
       const currentViewport = reactFlowInstance ? reactFlowInstance.getViewport() : { x: 0, y: 0, zoom: 1 };
+      
+      console.log('💾 Capturing viewport for save:', currentViewport);
+      console.log('💾 React Flow instance available:', !!reactFlowInstance);
       
       const flowData = {
         id: flowId,
@@ -258,12 +276,26 @@ export const FlowEditorProvider: React.FC<FlowEditorProviderProps> = ({ children
       
       // Restore canvas viewport if available
       if (flowData.canvas_state?.viewport) {
-        setTimeout(() => {
+        console.log('🔄 Attempting to restore viewport:', flowData.canvas_state.viewport);
+        
+        // Try multiple times with increasing delays to ensure React Flow is ready
+        const restoreViewport = (attempt = 1) => {
           const reactFlowInstance = (window as any).reactFlowInstance;
+          console.log(`🔄 Viewport restore attempt ${attempt}, instance available:`, !!reactFlowInstance);
+          
           if (reactFlowInstance) {
+            console.log('✅ Setting viewport to:', flowData.canvas_state.viewport);
             reactFlowInstance.setViewport(flowData.canvas_state.viewport);
+            console.log('✅ Viewport set successfully');
+          } else if (attempt < 5) {
+            // Try again with longer delay
+            setTimeout(() => restoreViewport(attempt + 1), attempt * 200);
+          } else {
+            console.error('❌ Failed to restore viewport after 5 attempts');
           }
-        }, 100); // Small delay to ensure React Flow is ready
+        };
+        
+        setTimeout(() => restoreViewport(1), 200);
       }
       
       dispatch({ type: 'ADD_LOG', payload: `Flow "${flowData.name}" loaded successfully` });
@@ -456,6 +488,7 @@ export const FlowEditorProvider: React.FC<FlowEditorProviderProps> = ({ children
     ...state,
     addNode,
     updateNode,
+    updateNodePosition,
     deleteNode,
     selectNode,
     addEdge,

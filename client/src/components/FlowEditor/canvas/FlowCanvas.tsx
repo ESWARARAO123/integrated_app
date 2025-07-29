@@ -15,6 +15,8 @@ import {
   OnEdgesChange,
   OnConnect,
   ReactFlowInstance,
+  NodeChange,
+  EdgeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useFlowEditor } from '../FlowEditorProvider';
@@ -29,9 +31,9 @@ export const FlowCanvas: React.FC = () => {
     selectNode,
     addNode,
     addEdge: addFlowEdge,
-    updateNode,
+    updateNodePosition,
   } = useFlowEditor();
-  
+
   const { currentTheme } = useTheme();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowNodes, setNodes, onNodesChange] = useNodesState(nodes);
@@ -41,6 +43,21 @@ export const FlowCanvas: React.FC = () => {
   const onInit = useCallback((reactFlowInstance: ReactFlowInstance) => {
     (window as any).reactFlowInstance = reactFlowInstance;
   }, []);
+
+  // Custom nodes change handler to sync position changes back to global state
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    // Apply changes to local React Flow state
+    onNodesChange(changes as any);
+
+    // Sync position changes back to global flow editor state
+    changes.forEach((change) => {
+      if (change.type === 'position' && change.position && change.dragging === false) {
+        // Only update when dragging is complete (not during drag)
+        console.log(`🔄 Node position changed: ${change.id} to (${change.position.x}, ${change.position.y})`);
+        updateNodePosition(change.id, change.position);
+      }
+    });
+  }, [onNodesChange, updateNodePosition]);
 
   // Sync with flow editor state
   React.useEffect(() => {
@@ -134,7 +151,7 @@ export const FlowCanvas: React.FC = () => {
       <ReactFlow
         nodes={reactFlowNodes}
         edges={reactFlowEdges}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
@@ -144,7 +161,6 @@ export const FlowCanvas: React.FC = () => {
         onInit={onInit}
         nodeTypes={nodeTypes}
         connectionMode={ConnectionMode.Strict}
-        fitView
         snapToGrid
         snapGrid={[15, 15]}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}

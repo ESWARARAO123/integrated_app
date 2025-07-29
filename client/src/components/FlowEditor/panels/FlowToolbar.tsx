@@ -58,24 +58,25 @@ export const FlowToolbar: React.FC = () => {
     try {
       setIsSaving(true);
       
-      let finalFlowName = flowName;
-      let flowIdToUse = currentFlowId;
+      // Generate a unique name with precise timestamp for ALL new saves
+      const now = new Date();
+      const timestamp = now.toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false 
+      });
+      // Add milliseconds for extra uniqueness
+      const milliseconds = now.getMilliseconds().toString().padStart(3, '0');
+      const uniqueTimestamp = `${timestamp}.${milliseconds}`;
       
-      // If "Save As" or if it's a generic name, create a new flow
-      if (saveAs || flowName === 'Untitled Flow' || flowName === 'Auto-saved Flow') {
-        // Generate a unique name with timestamp for new flows
-        const timestamp = new Date().toLocaleString('en-US', { 
-          month: 'short', 
-          day: 'numeric', 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: false 
-        });
-        finalFlowName = saveAs ? `${flowName} (Copy ${timestamp})` : `Flow ${timestamp}`;
-        flowIdToUse = undefined; // Force creation of new flow
-        console.log('🆕 Creating new flow with name:', finalFlowName);
-      }
+      // Always create new flow with unique timestamp
+      const finalFlowName = `Flow ${uniqueTimestamp}`;
+      const flowIdToUse = undefined; // Always force creation of new flow
       
+      console.log('🆕 Creating new flow with name:', finalFlowName);
       console.log('💾 Saving flow:', finalFlowName, 'with ID:', flowIdToUse);
       
       const result = await saveFlow(finalFlowName, flowIdToUse);

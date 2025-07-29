@@ -82,7 +82,12 @@ router.post('/', async (req, res) => {
 
     // Save nodes
     if (nodes && nodes.length > 0) {
+      console.log('💾 Saving flow - Node positions:');
       for (const node of nodes) {
+        const posX = node.position?.x || 0;
+        const posY = node.position?.y || 0;
+        console.log(`  Node ${node.id}: position (${posX}, ${posY})`);
+        
         await client.query(`
           INSERT INTO flow_nodes (
             flow_id, node_id, node_type, position_x, position_y, 
@@ -93,8 +98,8 @@ router.post('/', async (req, res) => {
           flowId,
           node.id,
           node.type,
-          node.position?.x || 0,
-          node.position?.y || 0,
+          posX,
+          posY,
           node.width,
           node.height,
           node.data || {},
@@ -302,6 +307,11 @@ router.get('/:id', async (req, res) => {
       width: node.width,
       height: node.height
     }));
+    
+    console.log('🔍 Loading flow - Node positions:');
+    nodes.forEach(node => {
+      console.log(`  Node ${node.id}: position (${node.position.x}, ${node.position.y})`);
+    });
     
     // Transform edges to React Flow format
     const edges = edgesResult.rows.map(edge => ({

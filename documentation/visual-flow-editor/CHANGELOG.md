@@ -2,7 +2,26 @@
 
 All notable changes to the Visual Flow Editor will be documented in this file.
 
-## [v0.2.0] - 2025-01-29 (Current)
+## [v0.2.1] - 2025-01-29 (Current)
+
+### 🔧 Major Fixes
+- **Fixed Viewport Restoration Issue**: Resolved problem where canvas position and zoom weren't preserved when loading flows
+  - Removed React Flow's `fitView` prop that was overriding viewport restoration
+  - Added comprehensive debugging for viewport save/restore operations
+  - Implemented retry logic for viewport restoration with increasing delays
+- **Fixed Node Position Persistence**: Resolved issue where node positions weren't saved when users dragged nodes
+  - Added `UPDATE_NODE_POSITION` action type to FlowEditorProvider reducer
+  - Implemented `updateNodePosition` function for syncing position changes to global state
+  - Created custom `handleNodesChange` handler in FlowCanvas to detect and sync position updates
+  - Added performance optimization to only update positions when dragging is complete
+
+### ✨ New Features
+- **Enhanced Debugging**: Added comprehensive logging for viewport and node position operations
+- **Performance Optimizations**: Position updates only occur when dragging is complete, not during drag
+
+---
+
+## [v0.2.0] - 2025-01-29
 
 ### 🔧 Major Fixes
 - **Fixed Critical Save/Load Bug**: Resolved issue where multiple saves were overwriting the same flow instead of creating new ones
