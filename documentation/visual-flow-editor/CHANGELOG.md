@@ -18,6 +18,7 @@ All notable changes to the Visual Flow Editor will be documented in this file.
 ### ✨ New Features
 - **Enhanced Debugging**: Added comprehensive logging for viewport and node position operations
 - **Performance Optimizations**: Position updates only occur when dragging is complete, not during drag
+- **MCP Integration Analysis**: Created comprehensive analysis document for integrating MCP execution capabilities
 
 ---
 

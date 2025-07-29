@@ -20,6 +20,7 @@ The Visual Flow Editor is a revolutionary GUI-based tool that transforms complex
 ## 📚 **Latest Documentation**
 
 - **[Development Summary & Fixes](./DEVELOPMENT_SUMMARY_AND_FIXES.md)** - Complete chronicle of development, debugging, and fixes applied
+- **[MCP Integration Analysis](./MCP_INTEGRATION_ANALYSIS.md)** - Comprehensive analysis of MCP integration opportunities for flow execution
 - **[Database Implementation](./FLOW_EDITOR_DATABASE_IMPLEMENTATION.md)** - Detailed database schema and API documentation
 - **[Development Tracker](./development-tracker.md)** - Project progress and milestone tracking
 
