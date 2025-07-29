@@ -9,7 +9,8 @@ import {
   PlayIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
-  BugAntIcon
+  BugAntIcon,
+  RectangleGroupIcon
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
@@ -131,6 +132,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onToggle, user, isAd
           </NavLink>
           <NavLink to="/runs" icon={PlayIcon} collapsed={!isOpen} onClick={() => !isLargeScreen && onClose()}>
             Run Status
+          </NavLink>
+          <NavLink to="/flow-editor" icon={RectangleGroupIcon} collapsed={!isOpen} onClick={() => !isLargeScreen && onClose()}>
+            Flow Editor
           </NavLink>
           <NavLink to="/chatbot" icon={ChatBubbleLeftRightIcon} collapsed={!isOpen} onClick={() => !isLargeScreen && onClose()}>
             Chatbot

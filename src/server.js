@@ -31,6 +31,7 @@ const flowtrackRoutes = require('./routes/flowtrack');
 const runStatusDbRoutes = require('./routes/runStatusDb');
 const predictionDbRoutes = require('./routes/predictionDb');
 const csvDownloadRoutes = require('./routes/csvDownload');
+const flowsRoutes = require('./routes/flows');
 
 // Try to require the documents routes, but don't fail if they're not available
 let documentsRoutes;
@@ -159,6 +160,7 @@ async function startServer() {
     apiRouter.use('/runstatus-db', runStatusDbRoutes);
     apiRouter.use('/prediction-db', predictionDbRoutes); // Add prediction DB routes
     apiRouter.use('/csv', csvDownloadRoutes); // Add CSV download routes
+    apiRouter.use('/flows', flowsRoutes); // Add flow editor routes
 
     // Mount all API routes under /api
     app.use('/api', apiRouter);

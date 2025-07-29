@@ -27,7 +27,7 @@ const floatingAnimation = {
     transition: {
       duration: 4,
       repeat: Infinity,
-      ease: "easeInOut"
+      ease: [0.4, 0, 0.6, 1] as const
     }
   }
 };

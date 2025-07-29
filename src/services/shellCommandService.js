@@ -144,11 +144,43 @@ class ShellCommandService {
       
       const result = await response.json();
       
+      logger.info(`MCP orchestrator service response:`, result);
+      
+      // Extract the actual command output from the result
+      let output = '';
+      let success = true;
+      let error = null;
+      
+      if (result.error) {
+        success = false;
+        error = result.error;
+        output = result.rawOutput || JSON.stringify(result, null, 2);
+      } else if (result.output) {
+        // If result has an output field, use it
+        output = result.output;
+      } else if (result.result) {
+        // If result has a result field, use it
+        output = typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2);
+      } else if (result.text) {
+        // If result has a text field, use it
+        output = result.text;
+      } else if (result.stdout) {
+        // If result has stdout field (from shell command), use it
+        output = result.stdout;
+        if (result.stderr && result.stderr.trim()) {
+          output += `\n\nStderr:\n${result.stderr}`;
+        }
+      } else {
+        // Fallback: use the entire result as output
+        output = JSON.stringify(result, null, 2);
+      }
+      
       return {
-        success: true,
+        success,
         command,
         result: result,
-        output: JSON.stringify(result, null, 2),
+        output: output,
+        error: error,
         service: true
       };
     } catch (error) {

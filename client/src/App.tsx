@@ -17,6 +17,7 @@ import UserManagement from './pages/UserManagement';
 import Chatbot from './pages/Chatbot';
 import RunStatus from './pages/RunStatus';
 import Settings from './pages/Settings';
+import FlowEditor from './pages/FlowEditor';
 import MCPSSHSetup from './pages/MCPSSHSetup';
 import MCPManualInstall from './pages/MCPManualInstall';
 import MCPInstall from './pages/MCPInstall';
@@ -45,6 +46,7 @@ function App() {
                   <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/chatbot" element={<Chatbot />} />
+                    <Route path="/flow-editor" element={<FlowEditor />} />
                     <Route path="/runs" element={<RunStatus />} />
                     <Route path="/runs-original" element={<RunStatus />} />
                     <Route path="/settings" element={<Settings />} />
