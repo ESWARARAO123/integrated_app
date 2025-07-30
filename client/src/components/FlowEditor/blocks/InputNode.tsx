@@ -45,21 +45,40 @@ export const InputNode: React.FC<NodeProps> = (props) => {
     
     // If we have a value, show a simplified display
     if (nodeData.value && nodeData.value !== 'Not set') {
+      // Truncate long values for display
+      const truncateText = (text: string, maxLength: number = 15) => {
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
+      };
+
+      const displayValue = truncateText(value);
+
       return (
         <div style={{ marginTop: '8px' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '8px 12px',
-            backgroundColor: 'var(--color-primary)',
-            color: 'white',
-            borderRadius: '6px',
-            fontWeight: '600',
-            fontSize: '14px',
-            textAlign: 'center',
-          }}>
-            {value}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px 20px',
+              backgroundColor: 'var(--color-primary)',
+              color: 'white',
+              borderRadius: '10px',
+              fontWeight: '800',
+              fontSize: '22px',
+              textAlign: 'center',
+              lineHeight: '1.1',
+              minHeight: '50px',
+              letterSpacing: '0.5px',
+              textTransform: 'uppercase',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '200px',
+            }}
+            title={value} // Show full value on hover
+          >
+            {displayValue}
           </div>
         </div>
       );
@@ -78,11 +97,19 @@ export const InputNode: React.FC<NodeProps> = (props) => {
             alignItems: 'center',
             justifyContent: 'space-between',
           }}>
-            <span style={{
-              color: 'var(--color-text)',
-              fontSize: '13px',
-              fontWeight: '600',
-            }}>
+            <span
+              style={{
+                color: 'var(--color-text)',
+                fontSize: '15px',
+                fontWeight: '700',
+                lineHeight: '1.2',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '160px',
+              }}
+              title={parameterName.replace(/_/g, ' ').toUpperCase()} // Show full parameter name on hover
+            >
               {parameterName.replace(/_/g, ' ').toUpperCase()}
             </span>
           </div>

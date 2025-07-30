@@ -51,10 +51,10 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
         backgroundColor: 'var(--color-surface)',
         border: `2px solid ${selected ? 'var(--color-primary)' : getStatusColor()}`,
         borderRadius: '12px',
-        padding: '16px',
-        minWidth: '200px',
-        boxShadow: dragging 
-          ? '0 10px 25px rgba(0,0,0,0.3)' 
+        padding: '20px',
+        minWidth: '240px',
+        boxShadow: dragging
+          ? '0 10px 25px rgba(0,0,0,0.3)'
           : selected
           ? '0 0 0 2px var(--color-primary-translucent)'
           : '0 4px 12px rgba(0,0,0,0.1)',
@@ -77,14 +77,21 @@ export const BaseNode: React.FC<BaseNodeProps> = ({
             {icon}
           </div>
         )}
-        <span 
+        <span
           className="node-title"
           style={{
             color: 'var(--color-text)',
-            fontSize: '14px',
-            fontWeight: '500',
+            fontSize: '20px',
+            fontWeight: '700',
             flex: 1,
+            lineHeight: '1.1',
+            letterSpacing: '0.3px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '180px',
           }}
+          title={data.label} // Show full text on hover
         >
           {data.label}
         </span>

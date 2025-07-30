@@ -25,7 +25,16 @@ export const OutputNode: React.FC<NodeProps> = (props) => {
     const outputType = nodeData.outputType || 'directory';
     const outputPath = nodeData.outputPath || 'Generated output';
     const expectedFiles = nodeData.expectedFiles || [];
-    
+
+    // Truncate long text for display
+    const truncateText = (text: string, maxLength: number = 12) => {
+      if (text.length <= maxLength) return text;
+      return text.substring(0, maxLength) + '...';
+    };
+
+    const displayOutputType = truncateText(outputType);
+    const displayOutputPath = truncateText(outputPath, 15);
+
     return (
       <div style={{ marginTop: '8px' }}>
         <div style={{
@@ -38,12 +47,22 @@ export const OutputNode: React.FC<NodeProps> = (props) => {
             alignItems: 'center',
             justifyContent: 'space-between',
           }}>
-            <span style={{
-              color: 'var(--color-text)',
-              fontSize: '13px',
-              fontWeight: '600',
-            }}>
-              {outputType.toUpperCase()}
+            <span
+              style={{
+                color: 'var(--color-text)',
+                fontSize: '20px',
+                fontWeight: '800',
+                lineHeight: '1.1',
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '150px',
+              }}
+              title={outputType} // Show full output type on hover
+            >
+              {displayOutputType.toUpperCase()}
             </span>
           </div>
           
@@ -54,22 +73,31 @@ export const OutputNode: React.FC<NodeProps> = (props) => {
           }}>
             <span style={{
               color: 'var(--color-text-secondary)',
-              fontSize: '11px',
+              fontSize: '12px',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
+              fontWeight: '600',
             }}>
               Path:
             </span>
-            <span style={{
-              color: 'var(--color-text)',
-              fontSize: '12px',
-              fontWeight: '500',
-              padding: '2px 6px',
-              backgroundColor: 'var(--color-surface-dark)',
-              borderRadius: '3px',
-              border: '1px solid var(--color-border)',
-            }}>
-              {outputPath}
+            <span
+              style={{
+                color: 'var(--color-text)',
+                fontSize: '16px',
+                fontWeight: '700',
+                padding: '6px 12px',
+                backgroundColor: 'var(--color-surface-dark)',
+                borderRadius: '6px',
+                border: '1px solid var(--color-border)',
+                letterSpacing: '0.3px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '140px',
+              }}
+              title={outputPath} // Show full output path on hover
+            >
+              {displayOutputPath}
             </span>
           </div>
           
