@@ -44,20 +44,40 @@ export const FlowCanvas: React.FC = () => {
     (window as any).reactFlowInstance = reactFlowInstance;
   }, []);
 
-  // Custom nodes change handler to sync position changes back to global state
+  // Custom nodes change handler to sync changes back to global state
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     // Apply changes to local React Flow state
     onNodesChange(changes as any);
 
-    // Sync position changes back to global flow editor state
+    // Sync changes back to global flow editor state
     changes.forEach((change) => {
       if (change.type === 'position' && change.position && change.dragging === false) {
         // Only update when dragging is complete (not during drag)
         console.log(`🔄 Node position changed: ${change.id} to (${change.position.x}, ${change.position.y})`);
         updateNodePosition(change.id, change.position);
+      } else if (change.type === 'remove') {
+        // Handle node deletion from React Flow (e.g., Delete key press)
+        console.log(`🗑️ Node removed via React Flow: ${change.id}`);
+        // Don't call deleteNode here as it would cause a loop
+        // The deletion is already applied to React Flow state by onNodesChange
       }
     });
   }, [onNodesChange, updateNodePosition]);
+
+  // Custom edges change handler to sync changes back to global state
+  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
+    // Apply changes to local React Flow state
+    onEdgesChange(changes as any);
+
+    // Sync edge deletions back to global flow editor state
+    changes.forEach((change) => {
+      if (change.type === 'remove') {
+        console.log(`🗑️ Edge removed via React Flow: ${change.id}`);
+        // Don't call deleteEdge here as it would cause a loop
+        // The deletion is already applied to React Flow state by onEdgesChange
+      }
+    });
+  }, [onEdgesChange]);
 
   // Sync with flow editor state
   React.useEffect(() => {
@@ -106,18 +126,23 @@ export const FlowCanvas: React.FC = () => {
       event.preventDefault();
 
       const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
-      const type = event.dataTransfer.getData('application/reactflow');
+      const templateData = event.dataTransfer.getData('application/reactflow');
 
-      if (typeof type === 'undefined' || !type || !reactFlowBounds) {
+      if (typeof templateData === 'undefined' || !templateData || !reactFlowBounds) {
         return;
       }
 
-      const position = {
-        x: event.clientX - reactFlowBounds.left - 100, // Center the node
-        y: event.clientY - reactFlowBounds.top - 40,
-      };
+      try {
+        const template = JSON.parse(templateData);
+        const position = {
+          x: event.clientX - reactFlowBounds.left - 100, // Center the node
+          y: event.clientY - reactFlowBounds.top - 40,
+        };
 
-      addNode(type, position);
+        addNode(template, position);
+      } catch (error) {
+        console.error('Failed to parse template data:', error);
+      }
     },
     [addNode]
   );
@@ -126,10 +151,6 @@ export const FlowCanvas: React.FC = () => {
     switch (node.type) {
       case 'input':
         return 'var(--color-primary)';
-      case 'process':
-        return 'var(--color-secondary)';
-      case 'output':
-        return 'var(--color-success)';
       default:
         return 'var(--color-text-muted)';
     }
@@ -152,7 +173,7 @@ export const FlowCanvas: React.FC = () => {
         nodes={reactFlowNodes}
         edges={reactFlowEdges}
         onNodesChange={handleNodesChange}
-        onEdgesChange={onEdgesChange}
+        onEdgesChange={handleEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
@@ -166,6 +187,7 @@ export const FlowCanvas: React.FC = () => {
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         minZoom={0.1}
         maxZoom={2}
+        deleteKeyCode="Delete"
         attributionPosition="bottom-left"
       >
         <Background

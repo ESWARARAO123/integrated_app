@@ -10,7 +10,8 @@ import {
   CpuChipIcon,
   BugAntIcon,
   ChatBubbleLeftRightIcon,
-  CircleStackIcon
+  CircleStackIcon,
+  RectangleGroupIcon
 } from '@heroicons/react/24/outline';
 import OllamaSettings from '../components/settings/OllamaSettings';
 import MCPSettings from '../components/settings/MCPSettings';
@@ -19,6 +20,7 @@ import AIRulesSettings from '../components/settings/AIRulesSettings';
 import RunStatusDbSettings from '../components/settings/RunStatusDbSettings';
 import DBInfoSettings from '../components/settings/db_info';
 import PredictionDBSettings from '../components/settings/PredictionDBSettings';
+import FlowEditorSettings from '../components/settings/FlowEditorSettings';
 
 // Import ThemeType from the ThemeContext
 type ThemeType = 'dark' | 'light' | 'midnight';
@@ -130,6 +132,7 @@ export default function Settings() {
     { id: 'profile', name: 'Profile', icon: UserIcon, adminOnly: false },
     { id: 'appearance', name: 'Appearance', icon: PaintBrushIcon, adminOnly: false },
     { id: 'ai_rules', name: 'AI Rules', icon: ChatBubbleLeftRightIcon, adminOnly: false },
+    { id: 'flow_editor', name: 'Flow Editor', icon: RectangleGroupIcon, adminOnly: false },
     { id: 'ollama', name: 'LLM Integration', icon: ServerIcon, adminOnly: false },
     { id: 'mcp', name: 'MCP Integration', icon: CpuChipIcon, adminOnly: false },
     { id: 'runstatus_db', name: 'RunStatus DB', icon: CircleStackIcon, adminOnly: false },
@@ -478,6 +481,16 @@ export default function Settings() {
                   Define rules and preferences for the AI to follow during your conversations.
                 </p>
                 <AIRulesSettings />
+              </div>
+            )}
+
+            {activeTab === 'flow_editor' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-text)' }}>Flow Editor Settings</h2>
+                <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+                  Customize your VLSI flow editor experience, including script locations, canvas appearance, and execution behavior.
+                </p>
+                <FlowEditorSettings />
               </div>
             )}
 

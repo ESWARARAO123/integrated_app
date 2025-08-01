@@ -161,6 +161,11 @@ async function startServer() {
     apiRouter.use('/prediction-db', predictionDbRoutes); // Add prediction DB routes
     apiRouter.use('/csv', csvDownloadRoutes); // Add CSV download routes
     apiRouter.use('/flows', flowsRoutes); // Add flow editor routes
+    apiRouter.use('/flow-editor-settings', require('./routes/flowEditorSettings')); // Add flow editor settings routes
+    apiRouter.use('/flowdir-executions', require('./routes/flowdirExecution')); // Add FlowDir execution tracking routes
+    
+    // Dir Create Module proxy route
+    apiRouter.use('/dir-create', require('./routes/dirCreateProxy')); // Add dir-create proxy routes
 
     // Mount all API routes under /api
     app.use('/api', apiRouter);

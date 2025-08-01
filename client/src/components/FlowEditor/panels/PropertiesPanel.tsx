@@ -1,10 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, FileInput, Cpu, Download } from 'lucide-react';
+import { X, Settings, FileInput } from 'lucide-react';
 import { useFlowEditor } from '../FlowEditorProvider';
 import { InputBlockForm } from '../forms/InputBlockForm';
-import { ProcessBlockForm } from '../forms/ProcessBlockForm';
-import { OutputBlockForm } from '../forms/OutputBlockForm';
 
 export const PropertiesPanel: React.FC = () => {
   const { selectedNode, selectNode, updateNode, deleteNode } = useFlowEditor();
@@ -15,10 +13,6 @@ export const PropertiesPanel: React.FC = () => {
     switch (selectedNode.type) {
       case 'input':
         return <FileInput size={16} />;
-      case 'process':
-        return <Cpu size={16} />;
-      case 'output':
-        return <Download size={16} />;
       default:
         return <Settings size={16} />;
     }
@@ -30,10 +24,6 @@ export const PropertiesPanel: React.FC = () => {
     switch (selectedNode.type) {
       case 'input':
         return 'Input Block';
-      case 'process':
-        return 'Process Block';
-      case 'output':
-        return 'Output Block';
       default:
         return 'Block Properties';
     }
@@ -63,10 +53,6 @@ export const PropertiesPanel: React.FC = () => {
     switch (selectedNode.type) {
       case 'input':
         return <InputBlockForm node={selectedNode} onUpdate={updateNode} />;
-      case 'process':
-        return <ProcessBlockForm node={selectedNode} onUpdate={updateNode} />;
-      case 'output':
-        return <OutputBlockForm node={selectedNode} onUpdate={updateNode} />;
       default:
         return (
           <div style={{

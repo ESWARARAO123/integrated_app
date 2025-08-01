@@ -1,0 +1,57 @@
+# DIR Create Module Service Dockerfile
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    libffi-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js for the API server
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python requirements and install dependencies
+COPY python/DIR_CREATE_MODULE/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy DIR_CREATE_MODULE Python scripts
+COPY python/DIR_CREATE_MODULE/orchestrator.py ./python/DIR_CREATE_MODULE/
+COPY python/DIR_CREATE_MODULE/mcp_client.py ./python/DIR_CREATE_MODULE/
+COPY python/DIR_CREATE_MODULE/flowdir.py ./python/DIR_CREATE_MODULE/
+COPY python/DIR_CREATE_MODULE/flowdir_parameterized.py ./python/DIR_CREATE_MODULE/
+COPY python/DIR_CREATE_MODULE/tools/ ./python/DIR_CREATE_MODULE/tools/
+
+# Create API server directory
+RUN mkdir -p ./api
+
+# Create package.json for Node.js API server
+COPY Docker/dir-create-api/package*.json ./api/
+
+# Install Node.js dependencies
+WORKDIR /app/api
+RUN npm install --production
+
+# Copy API server code
+COPY Docker/dir-create-api/server.js ./
+
+# Create non-root user
+RUN groupadd -r dircreate && useradd -r -g dircreate dircreate
+RUN chown -R dircreate:dircreate /app
+
+# Switch to non-root user
+USER dircreate
+
+# Expose API port
+EXPOSE 3582
+
+# Set working directory back to app
+WORKDIR /app
+
+# Start the Node.js API server
+CMD ["node", "api/server.js"] 

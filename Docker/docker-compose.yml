@@ -107,6 +107,19 @@ services:
     networks:
       - productdemo-network
 
+  dir-create-module:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.dir-create-module
+    container_name: productdemo-dir-create-module
+    ports:
+      - "${DIR_CREATE_PORT:-3582}:3582"
+    volumes:
+      - ../python:/app/python
+    restart: unless-stopped
+    networks:
+      - productdemo-network
+
   image-processor:
     build:
       context: ..

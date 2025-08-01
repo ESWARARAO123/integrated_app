@@ -161,6 +161,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       return; // Don't connect if not authenticated
     }
 
+    // Prevent multiple connection attempts if already connecting
+    if (connectionStatus === ConnectionStatus.CONNECTING || connectionStatus === ConnectionStatus.RECONNECTING) {
+      console.log('Connection already in progress, skipping duplicate connect call');
+      return;
+    }
+
     // Update connection status to connecting
     setConnectionStatus(reconnectAttempts > 0 ? ConnectionStatus.RECONNECTING : ConnectionStatus.CONNECTING);
 
@@ -505,7 +511,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     } catch (error) {
       console.error('Error creating WebSocket connection:', error);
     }
-  }, [user, reconnectAttempts]);
+  }, [user, reconnectAttempts, connectionStatus]);
 
   /**
    * Connect/disconnect based on authentication state
@@ -532,13 +538,15 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       // Clear the recent messages array
       recentlySentMessages = [];
 
-      if (socket) {
+      // Only close socket on actual component unmount, not on socket state changes
+      if (globalWebSocket && globalWebSocket.readyState === WebSocket.OPEN) {
         console.log('Closing WebSocket connection on component unmount');
-        socket.close();
-        setSocket(null);
+        globalWebSocket.close();
+        globalWebSocket = null;
+        globalConnected = false;
       }
     };
-  }, [user, connect, socket]);
+  }, [user, connect]); // Removed 'socket' from dependency array to prevent cleanup loops
 
   /**
    * Handle page navigation and browser close events

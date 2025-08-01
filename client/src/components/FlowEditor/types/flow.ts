@@ -1,6 +1,6 @@
 export interface FlowNode {
   id: string;
-  type: 'input' | 'process' | 'output';
+  type: 'input';
   position: { x: number; y: number };
   data: NodeData;
   selected?: boolean;
@@ -19,15 +19,6 @@ export interface NodeData {
   value?: string;
   inputType?: 'text' | 'select' | 'number' | 'file';
   options?: string[];
-  // Process-specific data
-  stage?: string;
-  tool?: 'cadence' | 'synopsys';
-  dependencies?: string[];
-  executionOrder?: number;
-  // Output-specific data
-  outputPath?: string;
-  expectedFiles?: string[];
-  outputType?: 'directory' | 'file' | 'logs';
   // Index signature for React Flow compatibility
   [key: string]: any;
 }
@@ -107,7 +98,7 @@ export interface FlowEditorState {
 
 export interface FlowEditorActions {
   // Node operations
-  addNode: (type: string, position: { x: number; y: number }) => void;
+  addNode: (template: any, position: { x: number; y: number }) => void;
   updateNode: (nodeId: string, data: Partial<NodeData>) => void;
   updateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
   deleteNode: (nodeId: string) => void;
@@ -124,6 +115,10 @@ export interface FlowEditorActions {
   deleteFlow: (flowId: string) => Promise<boolean>;
   executeFlow: () => Promise<void>;
   clearFlow: () => void;
+  
+  // Auto-flow creation
+  createFlowChain: (triggerNodeId: string, startPosition: { x: number; y: number }) => void;
+  createPDStepsChain: (triggerNodeId: string, startPosition: { x: number; y: number }) => void;
   
   // Settings
   updateWorkspaceSettings: (settings: Partial<WorkspaceSettings>) => void;

@@ -37,8 +37,8 @@ export const InputBlockForm: React.FC<InputBlockFormProps> = ({ node, onUpdate }
     { value: 'block_name', label: 'Block Name' },
     { value: 'tool_used', label: 'Tool Selection' },
     { value: 'stage_in_flow', label: 'Stage Selection' },
+    { value: 'pd_steps', label: 'PD Steps' },
     { value: 'run_name', label: 'Run Name' },
-    { value: 'steps', label: 'PD Steps' },
     { value: 'ref_run_path', label: 'Reference Run Path' },
     { value: 'user_name', label: 'User Name' },
   ];
@@ -48,9 +48,9 @@ export const InputBlockForm: React.FC<InputBlockFormProps> = ({ node, onUpdate }
       case 'tool_used':
         return ['cadence', 'synopsys'];
       case 'stage_in_flow':
-        return ['SYNTH', 'PD', 'LEC', 'STA', 'all'];
-      case 'steps':
-        return ['Floorplan', 'Place', 'CTS', 'Route'];
+        return ['Synthesis', 'PD', 'LEC', 'STA', 'all'];
+      case 'pd_steps':
+        return ['Floorplan', 'Place', 'CTS', 'Route', 'all'];
       default:
         return [];
     }
@@ -205,7 +205,8 @@ export const InputBlockForm: React.FC<InputBlockFormProps> = ({ node, onUpdate }
               {parameterName === 'project_name' && ' This defines the main project directory.'}
               {parameterName === 'block_name' && ' This defines the block subdirectory.'}
               {parameterName === 'tool_used' && ' This selects the EDA tool for execution.'}
-              {parameterName === 'stage_in_flow' && ' This determines which flow stages to execute.'}
+              {parameterName === 'stage_in_flow' && ' This determines which flow stages to execute. "all" creates SYNTH, PD, LEC, STA stages.'}
+              {parameterName === 'pd_steps' && ' This selects Physical Design steps. "all" creates Floorplan, Place, CTS, Route blocks.'}
             </>
           ) : (
             'Select a parameter type to see more information.'
