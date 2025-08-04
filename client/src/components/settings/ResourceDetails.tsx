@@ -1,140 +1,179 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  CpuChipIcon,
-  CircleStackIcon,
-  ComputerDesktopIcon,
-  SignalIcon,
   ServerIcon,
   ChartBarIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
-interface ResourceData {
-  cpu: {
-    usage: number;
-    cores: number;
-    temperature?: number;
-  };
-  memory: {
-    used: number;
-    total: number;
-    usage: number;
-  };
-  disk: {
-    used: number;
-    total: number;
-    usage: number;
-  };
-  network: {
-    bytesSent: number;
-    bytesRecv: number;
-    connections: number;
-  };
-  system: {
-    uptime: string;
-    loadAverage: number[];
-    processes: number;
-  };
-  alerts: Array<{
-    type: 'warning' | 'error' | 'info';
-    message: string;
-    timestamp: string;
-  }>;
-}
-
 export default function ResourceDetails() {
-  const [resourceData, setResourceData] = useState<ResourceData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(5);
 
-  // Fetch resource data
-  const fetchResourceData = async () => {
+  // Server Management State
+  const [serverManagement, setServerManagement] = useState({
+    networkRange: '172.16.16',
+    sshUsername: 'root',
+    maxIps: 50,
+    startIp: 1,
+    isScanning: false,
+    discoveredServers: {},
+    connectedServers: {},
+    scanStatus: ''
+  });
+
+  const [manualServer, setManualServer] = useState({
+    ip: '',
+    username: 'root',
+    password: ''
+  });
+
+  // Server Management Functions
+  const fetchServerStatus = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      
-      // For now, we'll simulate resource data
-      // In a real implementation, this would call your backend API
-      const mockData: ResourceData = {
-        cpu: {
-          usage: Math.random() * 100,
-          cores: navigator.hardwareConcurrency || 4,
-          temperature: 45 + Math.random() * 20
-        },
-        memory: {
-          used: Math.random() * 8 * 1024 * 1024 * 1024, // Random usage up to 8GB
-          total: 16 * 1024 * 1024 * 1024, // 16GB total
-          usage: Math.random() * 100
-        },
-        disk: {
-          used: Math.random() * 500 * 1024 * 1024 * 1024, // Random usage up to 500GB
-          total: 1000 * 1024 * 1024 * 1024, // 1TB total
-          usage: Math.random() * 100
-        },
-        network: {
-          bytesSent: Math.random() * 1024 * 1024 * 1024, // Random bytes sent
-          bytesRecv: Math.random() * 1024 * 1024 * 1024, // Random bytes received
-          connections: Math.floor(Math.random() * 100)
-        },
-        system: {
-          uptime: `${Math.floor(Math.random() * 24)}h ${Math.floor(Math.random() * 60)}m`,
-          loadAverage: [Math.random() * 2, Math.random() * 2, Math.random() * 2],
-          processes: Math.floor(Math.random() * 200) + 50
-        },
-        alerts: [
-          {
-            type: 'warning',
-            message: 'CPU usage is above 80%',
-            timestamp: new Date().toISOString()
-          },
-          {
-            type: 'info',
-            message: 'System running normally',
-            timestamp: new Date().toISOString()
-          }
-        ]
-      };
-
-      setResourceData(mockData);
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+      const response = await fetch(`${resourceMonitorUrl}/api/server-status`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setServerManagement(prev => ({
+            ...prev,
+            discoveredServers: data.discovered_servers || {},
+            connectedServers: data.connected_servers || {}
+          }));
+        }
+      }
     } catch (err) {
-      setError('Failed to fetch resource data');
-      console.error('Error fetching resource data:', err);
+      console.error('Error fetching server status:', err);
+    }
+  };
+
+  const startNetworkScan = async () => {
+    try {
+      setServerManagement(prev => ({ ...prev, isScanning: true, scanStatus: 'Scanning network...' }));
+      
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+      const response = await fetch(`${resourceMonitorUrl}/api/scan-network`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          network_range: serverManagement.networkRange,
+          username: serverManagement.sshUsername,
+          max_ips: serverManagement.maxIps,
+          start_ip: serverManagement.startIp
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setServerManagement(prev => ({
+            ...prev,
+            discoveredServers: data.discovered_servers || {},
+            scanStatus: data.message
+          }));
+        } else {
+          setServerManagement(prev => ({ ...prev, scanStatus: data.error || 'Scan failed' }));
+        }
+      }
+    } catch (err) {
+      setServerManagement(prev => ({ ...prev, scanStatus: 'Scan failed: ' + err.message }));
     } finally {
-      setIsLoading(false);
+      setServerManagement(prev => ({ ...prev, isScanning: false }));
     }
   };
 
-  // Auto-refresh effect
+  const stopNetworkScan = async () => {
+    try {
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+      await fetch(`${resourceMonitorUrl}/api/stop-scan`, { method: 'POST' });
+      setServerManagement(prev => ({ ...prev, isScanning: false, scanStatus: 'Scan stopped' }));
+    } catch (err) {
+      console.error('Error stopping scan:', err);
+    }
+  };
+
+  const connectToServer = async (ip: string, username: string, password: string) => {
+    try {
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+      const response = await fetch(`${resourceMonitorUrl}/api/connect-server`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip, username, password })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          await fetchServerStatus(); // Refresh server list
+        }
+        return data;
+      }
+    } catch (err) {
+      console.error('Error connecting to server:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const disconnectFromServer = async (ip: string) => {
+    try {
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+      const response = await fetch(`${resourceMonitorUrl}/api/disconnect-server`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          await fetchServerStatus(); // Refresh server list
+        }
+        return data;
+      }
+    } catch (err) {
+      console.error('Error disconnecting from server:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const saveConfiguration = async () => {
+    try {
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+      const response = await fetch(`${resourceMonitorUrl}/api/save-config`, { method: 'POST' });
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (err) {
+      console.error('Error saving configuration:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const loadConfiguration = async () => {
+    try {
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+      const response = await fetch(`${resourceMonitorUrl}/api/load-config`, { method: 'POST' });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          await fetchServerStatus(); // Refresh server list
+        }
+        return data;
+      }
+    } catch (err) {
+      console.error('Error loading configuration:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Load server status on component mount
   useEffect(() => {
-    fetchResourceData();
+    fetchServerStatus();
+  }, []);
 
-    if (autoRefresh) {
-      const interval = setInterval(fetchResourceData, refreshInterval * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, refreshInterval]);
-
-  // Format bytes to human readable
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  // Get status color based on usage
-  const getStatusColor = (usage: number): string => {
-    if (usage >= 90) return 'var(--color-error)';
-    if (usage >= 70) return 'var(--color-warning)';
-    return 'var(--color-success)';
-  };
-
-  if (isLoading && !resourceData) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--color-primary)' }}></div>
@@ -155,289 +194,306 @@ export default function ResourceDetails() {
 
   return (
     <div className="space-y-6">
-      {/* Controls */}
-      <div className="flex flex-wrap gap-4 items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'var(--color-surface-dark)' }}>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={fetchResourceData}
-            disabled={isLoading}
-            className="flex items-center px-4 py-2 rounded-lg transition-all"
-            style={{
-              backgroundColor: 'var(--color-primary)',
-              color: 'white',
-              opacity: isLoading ? 0.7 : 1
-            }}
-          >
-            <ChartBarIcon className="w-4 h-4 mr-2" />
-            {isLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
-          
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="rounded"
-            />
-            <span style={{ color: 'var(--color-text)' }}>Auto-refresh</span>
-          </label>
-          
-          {autoRefresh && (
-            <select
-              value={refreshInterval}
-              onChange={(e) => setRefreshInterval(Number(e.target.value))}
-              className="px-3 py-1 rounded border"
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text)'
-              }}
-            >
-              <option value={5}>5 seconds</option>
-              <option value={10}>10 seconds</option>
-              <option value={30}>30 seconds</option>
-              <option value={60}>1 minute</option>
-            </select>
-          )}
-        </div>
+      {/* Server Management Settings */}
+      <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+        <h3 className="text-lg font-semibold mb-4 flex items-center" style={{ color: 'var(--color-text)' }}>
+          <ServerIcon className="w-5 h-5 mr-2" style={{ color: 'var(--color-primary)' }} />
+          ⚙️ Server Management Settings
+        </h3>
         
-        <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Last updated: {new Date().toLocaleTimeString()}
-        </div>
-      </div>
-
-      {resourceData && (
-        <>
-          {/* Resource Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* CPU Card */}
-            <motion.div
-              whileHover={{ y: -2 }}
-              className="p-4 rounded-lg border"
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                borderColor: 'var(--color-border)'
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  <CpuChipIcon className="w-6 h-6 mr-2" style={{ color: 'var(--color-primary)' }} />
-                  <span className="font-medium" style={{ color: 'var(--color-text)' }}>CPU</span>
-                </div>
-                <span className="text-lg font-bold" style={{ color: getStatusColor(resourceData.cpu.usage) }}>
-                  {resourceData.cpu.usage.toFixed(1)}%
-                </span>
+        <div className="space-y-6">
+          {/* Network Discovery Section */}
+          <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--color-surface-dark)', borderColor: 'var(--color-border)' }}>
+            <h4 className="text-md font-semibold mb-3 flex items-center" style={{ color: 'var(--color-text)' }}>
+              🔍 Network Discovery
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Network Range:
+                </label>
+                <input
+                  type="text"
+                  value={serverManagement.networkRange}
+                  onChange={(e) => setServerManagement(prev => ({ ...prev, networkRange: e.target.value }))}
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text)'
+                  }}
+                  placeholder="172.16.16"
+                />
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Cores:</span>
-                  <span style={{ color: 'var(--color-text)' }}>{resourceData.cpu.cores}</span>
-                </div>
-                {resourceData.cpu.temperature && (
-                  <div className="flex justify-between text-sm">
-                    <span style={{ color: 'var(--color-text-secondary)' }}>Temperature:</span>
-                    <span style={{ color: 'var(--color-text)' }}>{resourceData.cpu.temperature.toFixed(1)}°C</span>
-                  </div>
-                )}
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="h-2 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${resourceData.cpu.usage}%`,
-                      backgroundColor: getStatusColor(resourceData.cpu.usage)
-                    }}
-                  ></div>
-                </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  SSH Username:
+                </label>
+                <input
+                  type="text"
+                  value={serverManagement.sshUsername}
+                  onChange={(e) => setServerManagement(prev => ({ ...prev, sshUsername: e.target.value }))}
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text)'
+                  }}
+                  placeholder="root"
+                />
               </div>
-            </motion.div>
-
-            {/* Memory Card */}
-            <motion.div
-              whileHover={{ y: -2 }}
-              className="p-4 rounded-lg border"
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                borderColor: 'var(--color-border)'
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  <CircleStackIcon className="w-6 h-6 mr-2" style={{ color: 'var(--color-primary)' }} />
-                  <span className="font-medium" style={{ color: 'var(--color-text)' }}>Memory</span>
-                </div>
-                <span className="text-lg font-bold" style={{ color: getStatusColor(resourceData.memory.usage) }}>
-                  {resourceData.memory.usage.toFixed(1)}%
-                </span>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Max IPs to Scan:
+                </label>
+                <input
+                  type="number"
+                  value={serverManagement.maxIps}
+                  onChange={(e) => setServerManagement(prev => ({ ...prev, maxIps: parseInt(e.target.value) }))}
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text)'
+                  }}
+                  min="1"
+                  max="254"
+                />
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Used:</span>
-                  <span style={{ color: 'var(--color-text)' }}>{formatBytes(resourceData.memory.used)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Total:</span>
-                  <span style={{ color: 'var(--color-text)' }}>{formatBytes(resourceData.memory.total)}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="h-2 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${resourceData.memory.usage}%`,
-                      backgroundColor: getStatusColor(resourceData.memory.usage)
-                    }}
-                  ></div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Disk Card */}
-            <motion.div
-              whileHover={{ y: -2 }}
-              className="p-4 rounded-lg border"
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                borderColor: 'var(--color-border)'
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  <ComputerDesktopIcon className="w-6 h-6 mr-2" style={{ color: 'var(--color-primary)' }} />
-                  <span className="font-medium" style={{ color: 'var(--color-text)' }}>Disk</span>
-                </div>
-                <span className="text-lg font-bold" style={{ color: getStatusColor(resourceData.disk.usage) }}>
-                  {resourceData.disk.usage.toFixed(1)}%
-                </span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Used:</span>
-                  <span style={{ color: 'var(--color-text)' }}>{formatBytes(resourceData.disk.used)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Total:</span>
-                  <span style={{ color: 'var(--color-text)' }}>{formatBytes(resourceData.disk.total)}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="h-2 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${resourceData.disk.usage}%`,
-                      backgroundColor: getStatusColor(resourceData.disk.usage)
-                    }}
-                  ></div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Network Card */}
-            <motion.div
-              whileHover={{ y: -2 }}
-              className="p-4 rounded-lg border"
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                borderColor: 'var(--color-border)'
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  <SignalIcon className="w-6 h-6 mr-2" style={{ color: 'var(--color-primary)' }} />
-                  <span className="font-medium" style={{ color: 'var(--color-text)' }}>Network</span>
-                </div>
-                <span className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>
-                  {resourceData.network.connections}
-                </span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Sent:</span>
-                  <span style={{ color: 'var(--color-text)' }}>{formatBytes(resourceData.network.bytesSent)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Received:</span>
-                  <span style={{ color: 'var(--color-text)' }}>{formatBytes(resourceData.network.bytesRecv)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Connections:</span>
-                  <span style={{ color: 'var(--color-text)' }}>{resourceData.network.connections}</span>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* System Information */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* System Stats */}
-            <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
-              <h3 className="text-lg font-semibold mb-4 flex items-center" style={{ color: 'var(--color-text)' }}>
-                <ServerIcon className="w-5 h-5 mr-2" style={{ color: 'var(--color-primary)' }} />
-                System Information
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Uptime:</span>
-                  <span style={{ color: 'var(--color-text)' }}>{resourceData.system.uptime}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Load Average:</span>
-                  <span style={{ color: 'var(--color-text)' }}>
-                    {resourceData.system.loadAverage.map((load, i) => `${load.toFixed(2)}`).join(', ')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Processes:</span>
-                  <span style={{ color: 'var(--color-text)' }}>{resourceData.system.processes}</span>
-                </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Start IP (optional):
+                </label>
+                <input
+                  type="number"
+                  value={serverManagement.startIp}
+                  onChange={(e) => setServerManagement(prev => ({ ...prev, startIp: parseInt(e.target.value) }))}
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text)'
+                  }}
+                  min="1"
+                  max="254"
+                />
               </div>
             </div>
-
-            {/* Alerts */}
-            <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
-              <h3 className="text-lg font-semibold mb-4 flex items-center" style={{ color: 'var(--color-text)' }}>
-                <ExclamationTriangleIcon className="w-5 h-5 mr-2" style={{ color: 'var(--color-primary)' }} />
-                System Alerts
-              </h3>
-              <div className="space-y-2">
-                {resourceData.alerts.length > 0 ? (
-                  resourceData.alerts.map((alert, index) => (
-                    <div
-                      key={index}
-                      className="p-3 rounded-lg flex items-start"
-                      style={{
-                        backgroundColor: alert.type === 'error' ? 'var(--color-error)10' :
-                                       alert.type === 'warning' ? 'var(--color-warning)10' :
-                                       'var(--color-success)10',
-                        border: `1px solid ${
-                          alert.type === 'error' ? 'var(--color-error)' :
-                          alert.type === 'warning' ? 'var(--color-warning)' :
-                          'var(--color-success)'
-                        }`
-                      }}
-                    >
-                      {alert.type === 'error' ? (
-                        <ExclamationTriangleIcon className="w-4 h-4 mr-2 mt-0.5" style={{ color: 'var(--color-error)' }} />
-                      ) : alert.type === 'warning' ? (
-                        <ExclamationTriangleIcon className="w-4 h-4 mr-2 mt-0.5" style={{ color: 'var(--color-warning)' }} />
-                      ) : (
-                        <CheckCircleIcon className="w-4 h-4 mr-2 mt-0.5" style={{ color: 'var(--color-success)' }} />
-                      )}
-                      <div>
-                        <p className="text-sm" style={{ color: 'var(--color-text)' }}>{alert.message}</p>
-                        <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                          {new Date(alert.timestamp).toLocaleString()}
-                        </p>
+            <div className="flex items-center gap-4 mb-4">
+              <button
+                onClick={startNetworkScan}
+                disabled={serverManagement.isScanning}
+                className="px-4 py-2 rounded-lg transition-all"
+                style={{
+                  backgroundColor: serverManagement.isScanning ? 'var(--color-border)' : 'var(--color-primary)',
+                  color: 'white',
+                  opacity: serverManagement.isScanning ? 0.7 : 1
+                }}
+              >
+                {serverManagement.isScanning ? '🔄 Scanning...' : '🔍 Scan Network'}
+              </button>
+              {serverManagement.isScanning && (
+                <button
+                  onClick={stopNetworkScan}
+                  className="px-4 py-2 rounded-lg transition-all border"
+                  style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderColor: 'var(--color-warning)',
+                    color: 'var(--color-warning)'
+                  }}
+                >
+                  🛑 Stop Scan
+                </button>
+              )}
+              {serverManagement.scanStatus && (
+                <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  {serverManagement.scanStatus}
+                </span>
+              )}
+            </div>
+            <div className="space-y-2">
+              <h5 className="font-medium" style={{ color: 'var(--color-text)' }}>Discovered Servers:</h5>
+              {Object.keys(serverManagement.discoveredServers).length > 0 ? (
+                <div className="space-y-2">
+                  {Object.entries(serverManagement.discoveredServers).map(([ip, server]: [string, any]) => (
+                    <div key={ip} className="p-3 rounded border" style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="font-medium" style={{ color: 'var(--color-text)' }}>{ip}</span>
+                          <span className="text-sm ml-2" style={{ color: 'var(--color-text-secondary)' }}>
+                            {server.info?.hostname || 'Unknown'}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => connectToServer(ip, serverManagement.sshUsername, '')}
+                          className="px-3 py-1 rounded text-sm transition-all"
+                          style={{
+                            backgroundColor: 'var(--color-success)',
+                            color: 'white'
+                          }}
+                        >
+                          Connect
+                        </button>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4" style={{ color: 'var(--color-text-secondary)' }}>
-                    No alerts at this time
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  No servers discovered yet. Click "Scan Network" to start discovery.
+                </p>
+              )}
             </div>
           </div>
-        </>
-      )}
+
+          {/* Server Connections Section */}
+          <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--color-surface-dark)', borderColor: 'var(--color-border)' }}>
+            <h4 className="text-md font-semibold mb-3 flex items-center" style={{ color: 'var(--color-text)' }}>
+              🔗 Server Connections
+            </h4>
+            <div className="space-y-2">
+              {Object.keys(serverManagement.connectedServers).length > 0 ? (
+                <div className="space-y-2">
+                  {Object.entries(serverManagement.connectedServers).map(([ip, server]: [string, any]) => (
+                    <div key={ip} className="p-3 rounded border" style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="font-medium" style={{ color: 'var(--color-text)' }}>{ip}</span>
+                          <span className="text-sm ml-2" style={{ color: 'var(--color-text-secondary)' }}>
+                            {server.info?.hostname || 'Unknown'}
+                          </span>
+                          <div className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                            CPU: {server.info?.cpu_percent || 0}% | 
+                            Memory: {server.info?.memory_percent || 0}% | 
+                            Disk: {server.info?.disk_percent || 0}%
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => disconnectFromServer(ip)}
+                          className="px-3 py-1 rounded text-sm transition-all border"
+                          style={{
+                            backgroundColor: 'var(--color-surface)',
+                            borderColor: 'var(--color-error)',
+                            color: 'var(--color-error)'
+                          }}
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  No servers connected yet.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Add Server Manually Section */}
+          <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--color-surface-dark)', borderColor: 'var(--color-border)' }}>
+            <h4 className="text-md font-semibold mb-3 flex items-center" style={{ color: 'var(--color-text)' }}>
+              ➕ Add Server Manually
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Server IP Address
+                </label>
+                <input
+                  type="text"
+                  value={manualServer.ip}
+                  onChange={(e) => setManualServer(prev => ({ ...prev, ip: e.target.value }))}
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text)'
+                  }}
+                  placeholder="192.168.1.100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={manualServer.username}
+                  onChange={(e) => setManualServer(prev => ({ ...prev, username: e.target.value }))}
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text)'
+                  }}
+                  placeholder="root"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Password (optional for key auth)
+                </label>
+                <input
+                  type="password"
+                  value={manualServer.password}
+                  onChange={(e) => setManualServer(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text)'
+                  }}
+                  placeholder="Password"
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => connectToServer(manualServer.ip, manualServer.username, manualServer.password)}
+              disabled={!manualServer.ip}
+              className="px-4 py-2 rounded-lg transition-all"
+              style={{
+                backgroundColor: !manualServer.ip ? 'var(--color-border)' : 'var(--color-success)',
+                color: 'white',
+                opacity: !manualServer.ip ? 0.7 : 1
+              }}
+            >
+              ➕ Add Server
+            </button>
+          </div>
+
+          {/* Configuration Section */}
+          <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--color-surface-dark)', borderColor: 'var(--color-border)' }}>
+            <h4 className="text-md font-semibold mb-3 flex items-center" style={{ color: 'var(--color-text)' }}>
+              💾 Configuration
+            </h4>
+            <div className="flex gap-4">
+              <button
+                onClick={saveConfiguration}
+                className="px-4 py-2 rounded-lg transition-all"
+                style={{
+                  backgroundColor: 'var(--color-primary)',
+                  color: 'white'
+                }}
+              >
+                💾 Save Configuration
+              </button>
+              <button
+                onClick={loadConfiguration}
+                className="px-4 py-2 rounded-lg transition-all border"
+                style={{
+                  backgroundColor: 'var(--color-surface)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text)'
+                }}
+              >
+                📂 Load Configuration
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 } 

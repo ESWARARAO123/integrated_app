@@ -53,7 +53,7 @@ WORKDIR /app/client
 
 # Install dependencies and build
 RUN npm install && \
-    npm run build
+    REACT_APP_RESOURCE_MONITOR_URL=http://localhost:8005 npm run build
 
 # Back to app root
 WORKDIR /app

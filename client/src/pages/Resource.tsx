@@ -71,86 +71,69 @@ export default function Resource() {
   const [refreshInterval, setRefreshInterval] = useState(5);
   const [selectedView, setSelectedView] = useState<'overview' | 'detailed' | 'alerts'>('overview');
 
-  // Fetch resource data
+  // Fetch resource data from clean_manager_lev1 dashboard
   const fetchResourceData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      // For now, we'll simulate resource data
-      // In a real implementation, this would call your backend API
-      const mockData: ResourceData = {
+      // Connect to clean_manager_lev1 web dashboard API
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+      const response = await fetch(`${resourceMonitorUrl}/api/data`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const dashboardData = await response.json();
+      
+      // Transform dashboard data to match our interface
+      const transformedData: ResourceData = {
         cpu: {
-          usage: Math.random() * 100,
-          cores: navigator.hardwareConcurrency || 4,
-          temperature: 45 + Math.random() * 20,
-          frequency: 2400 + Math.random() * 800
+          usage: dashboardData.resource_usage?.cpu_percent || 0,
+          cores: dashboardData.system_info?.cpu_count || navigator.hardwareConcurrency || 4,
+          temperature: 45 + Math.random() * 20, // Not available in dashboard data
+          frequency: 2400 + Math.random() * 800 // Not available in dashboard data
         },
         memory: {
-          used: Math.random() * 8 * 1024 * 1024 * 1024, // Random usage up to 8GB
-          total: 16 * 1024 * 1024 * 1024, // 16GB total
-          usage: Math.random() * 100,
-          available: Math.random() * 8 * 1024 * 1024 * 1024,
+          used: dashboardData.resource_usage?.memory_used || 0,
+          total: dashboardData.resource_usage?.memory_total || 16 * 1024 * 1024 * 1024,
+          usage: dashboardData.resource_usage?.memory_percent || 0,
+          available: dashboardData.resource_usage?.memory_available || 0,
           swap: {
-            used: Math.random() * 2 * 1024 * 1024 * 1024,
+            used: 0, // Not available in dashboard data
             total: 4 * 1024 * 1024 * 1024,
-            usage: Math.random() * 50
+            usage: dashboardData.resource_usage?.swap_percent || 0
           }
         },
         disk: {
-          used: Math.random() * 500 * 1024 * 1024 * 1024, // Random usage up to 500GB
-          total: 1000 * 1024 * 1024 * 1024, // 1TB total
-          usage: Math.random() * 100,
-          partitions: [
-            {
-              device: '/dev/sda1',
-              mountpoint: '/',
-              usage: Math.random() * 100,
-              total: 500 * 1024 * 1024 * 1024,
-              used: Math.random() * 400 * 1024 * 1024 * 1024
-            },
-            {
-              device: '/dev/sda2',
-              mountpoint: '/home',
-              usage: Math.random() * 100,
-              total: 300 * 1024 * 1024 * 1024,
-              used: Math.random() * 200 * 1024 * 1024 * 1024
-            }
-          ]
+          used: dashboardData.disk_info?.root_usage?.used || 0,
+          total: dashboardData.disk_info?.root_usage?.total || 1000 * 1024 * 1024 * 1024,
+          usage: dashboardData.disk_info?.root_usage?.percent || 0,
+          partitions: dashboardData.disk_info?.partitions?.map(p => ({
+            device: p.device,
+            mountpoint: p.mountpoint,
+            usage: p.usage.percent,
+            total: p.usage.total,
+            used: p.usage.used
+          })) || []
         },
         network: {
-          bytesSent: Math.random() * 1024 * 1024 * 1024, // Random bytes sent
-          bytesRecv: Math.random() * 1024 * 1024 * 1024, // Random bytes received
-          connections: Math.floor(Math.random() * 100),
-          interfaces: ['eth0', 'lo', 'wlan0']
+          bytesSent: dashboardData.network_info?.bytes_sent || 0,
+          bytesRecv: dashboardData.network_info?.bytes_recv || 0,
+          connections: Math.floor(Math.random() * 100), // Not available in dashboard data
+          interfaces: dashboardData.network_info?.interfaces || []
         },
         system: {
-          uptime: `${Math.floor(Math.random() * 24)}h ${Math.floor(Math.random() * 60)}m`,
-          loadAverage: [Math.random() * 2, Math.random() * 2, Math.random() * 2],
-          processes: Math.floor(Math.random() * 200) + 50,
-          hostname: 'pinnacle-server',
-          platform: 'Linux x86_64'
+          uptime: dashboardData.system_info?.uptime || '0h 0m',
+          loadAverage: dashboardData.system_info?.load_avg || [0, 0, 0],
+          processes: dashboardData.processes?.length || 0,
+          hostname: dashboardData.system_info?.hostname || 'unknown',
+          platform: dashboardData.system_info?.platform || 'unknown'
         },
-        alerts: [
-          {
-            type: 'warning',
-            message: 'CPU usage is above 80%',
-            timestamp: new Date().toISOString()
-          },
-          {
-            type: 'info',
-            message: 'System running normally',
-            timestamp: new Date().toISOString()
-          },
-          {
-            type: 'error',
-            message: 'Disk space is critically low',
-            timestamp: new Date().toISOString()
-          }
-        ]
+        alerts: dashboardData.alerts || []
       };
 
-      setResourceData(mockData);
+      setResourceData(transformedData);
     } catch (err) {
       setError('Failed to fetch resource data');
       console.error('Error fetching resource data:', err);
