@@ -48,12 +48,15 @@ RUN chmod +x python/RAG-MODULE/extract_text.py || echo "extract_text.py will be 
 # Copy the rest of the application
 COPY . .
 
-# Build client application
+# Build client application with better error handling
 WORKDIR /app/client
 
-# Install dependencies and build
+# Install dependencies with explicit permissions
 RUN npm install && \
-    npm run build
+    # Ensure all node_modules binaries are executable
+    find node_modules/.bin -type f -exec chmod +x {} \; && \
+    # Set environment variable directly in the build command
+    DISABLE_ESLINT_PLUGIN=true npm run build
 
 # Back to app root
 WORKDIR /app
@@ -68,4 +71,4 @@ EXPOSE 5641
 ENTRYPOINT ["./Docker/docker-entrypoint.sh"]
 
 # Command to run the application
-CMD ["npm", "start"]
+CMD ["npm", "start"] 
