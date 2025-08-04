@@ -1,0 +1,23 @@
+# RHEL Resource Manager - Requirements
+# Core dependencies for system monitoring and management
+
+# System monitoring
+psutil>=5.8.0
+
+# Optional dependencies for enhanced features
+# Uncomment if you need these features:
+
+# For web dashboard charts (optional)
+# plotly>=5.0.0
+
+# For enhanced network scanning (optional)
+# scapy>=2.4.0
+
+# For systemd service management (optional)
+# systemd-python>=234
+
+# For SSH key management (optional)
+# paramiko>=2.8.0
+
+# For configuration management (optional)
+# pyyaml>=5.4.0 
