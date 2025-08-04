@@ -58,11 +58,61 @@ venv/
 
 python/CHATSQL-MODULE/venv/
 python/CHATSQL-MODULE/.venv
-python/terminal-mcp-orchestrator/__pycache__/mcp_client.cpython-39.pyc
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+test_venv/
+*/test_venv/
+python/*/test_venv/
+python/DIR_CREATE_MODULE/test_venv/
 
-node_modules
-client/node_modules
-.env
-client/.env
+# Client build artifacts
+client/build/
+client/dist/
+*.tsbuildinfo
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+python/DIR_CREATE_MODULE/test_venv
