@@ -112,12 +112,21 @@ class ServerDiscovery:
                     f'{username}@{ip}', 'echo "SSH test successful"'
                 ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=10)
             else:
-                # Try key-based authentication
+                # Try key-based authentication first
                 result = subprocess.run([
                     'ssh', '-o', 'ConnectTimeout=5',
                     '-o', 'BatchMode=yes',
+                    '-o', 'StrictHostKeyChecking=no',
                     f'{username}@{ip}', 'echo "SSH test successful"'
                 ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=10)
+                
+                # If key-based auth fails, try without BatchMode (allows password prompt)
+                if result.returncode != 0:
+                    result = subprocess.run([
+                        'ssh', '-o', 'ConnectTimeout=5',
+                        '-o', 'StrictHostKeyChecking=no',
+                        f'{username}@{ip}', 'echo "SSH test successful"'
+                    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=10)
             
             return result.returncode == 0
         except Exception as e:
@@ -126,6 +135,137 @@ class ServerDiscovery:
     
     def connect_to_server(self, ip: str, username: str = 'root', password: str = None) -> bool:
         """Establish SSH connection to a server"""
+        # Special handling for Docker containers
+        if ip.startswith('docker://'):
+            print(f"🐳 Connecting to Docker container ({ip})")
+            try:
+                container_id = ip.replace('docker://', '')
+                
+                # Get container information
+                import subprocess
+                import json
+                
+                # Get container details
+                result = subprocess.run([
+                    'docker', 'inspect', container_id
+                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=10)
+                
+                if result.returncode == 0:
+                    container_data = json.loads(result.stdout)[0]
+                    container_name = container_data.get('Name', '').lstrip('/')
+                    container_image = container_data.get('Config', {}).get('Image', 'Unknown')
+                    container_status = container_data.get('State', {}).get('Status', 'Unknown')
+                    
+                    # Get container resource usage
+                    stats_result = subprocess.run([
+                        'docker', 'stats', container_id, '--no-stream', '--format', 'json'
+                    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=5)
+                    
+                    cpu_percent = 0
+                    memory_percent = 0
+                    memory_usage = 'Unknown'
+                    
+                    if stats_result.returncode == 0:
+                        stats = json.loads(stats_result.stdout.strip())
+                        cpu_percent = float(stats.get('CPUPerc', '0%').rstrip('%'))
+                        memory_percent = float(stats.get('MemPerc', '0%').rstrip('%'))
+                        memory_usage = stats.get('MemUsage', '0B / 0B')
+                    
+                    # Create container info
+                    container_info = {
+                        'id': container_id,
+                        'name': container_name,
+                        'status': container_status,
+                        'image': container_image,
+                        'cpu_percent': cpu_percent,
+                        'memory_percent': memory_percent,
+                        'memory_usage': memory_usage
+                    }
+                    
+                    system_info = {
+                        'cpu_percent': cpu_percent,
+                        'memory_percent': memory_percent,
+                        'disk_percent': 0,
+                        'load_avg': 0
+                    }
+                    
+                    self.connected_servers[ip] = {
+                        'ssh_connected': False,  # Containers don't use SSH
+                        'username': 'container',
+                        'password': '',
+                        'info': {
+                            'hostname': container_name,
+                            'os': f"Docker Container ({container_image})",
+                            'cpu_cores': 'Container',
+                            'ip': ip,
+                            'status': 'Online'
+                        },
+                        'container_info': container_info,
+                        'system_info': system_info,
+                        'connected_at': datetime.now().isoformat(),
+                        'last_check': datetime.now().isoformat(),
+                        'type': 'docker_container'
+                    }
+                    
+                    print(f"✅ Connected to container {container_name} with CPU: {cpu_percent}%, Memory: {memory_percent}%")
+                    return True
+                else:
+                    print(f"❌ Failed to get container info for {ip}")
+                    return False
+                    
+            except Exception as e:
+                print(f"❌ Failed to connect to container {ip}: {e}")
+                return False
+        
+        # Special handling for localhost
+        if ip in ['127.0.0.1', 'localhost']:
+            print(f"🔗 Connecting to localhost ({ip})")
+            try:
+                # For localhost, we can get info directly without SSH
+                import psutil
+                import platform
+                
+                server_info = {
+                    'hostname': platform.node(),
+                    'os': platform.platform(),
+                    'cpu_cores': psutil.cpu_count(),
+                    'ip': ip,
+                    'status': 'Online'
+                }
+                
+                # Get real-time system information
+                system_info = {
+                    'cpu_percent': psutil.cpu_percent(interval=1),
+                    'memory_percent': psutil.virtual_memory().percent,
+                    'disk_percent': psutil.disk_usage('/').percent,
+                    'load_avg': psutil.getloadavg()[0] if hasattr(psutil, 'getloadavg') else 0.0
+                }
+                
+                # Merge the information
+                server_info.update(system_info)
+                
+                self.connected_servers[ip] = {
+                    'ssh_connected': True,
+                    'username': username,
+                    'password': password,
+                    'info': server_info,
+                    'connected_at': datetime.now().isoformat(),
+                    'last_check': datetime.now().isoformat()
+                }
+                
+                # Update discovered servers
+                if ip in self.discovered_servers:
+                    self.discovered_servers[ip]['ssh_connected'] = True
+                    self.discovered_servers[ip]['info'] = server_info
+                
+                print(f"✅ Connected to localhost with CPU: {system_info.get('cpu_percent', 0)}%, Memory: {system_info.get('memory_percent', 0)}%")
+                return True
+                
+            except Exception as e:
+                print(f"❌ Failed to connect to localhost: {e}")
+                return False
+        
+        # Regular SSH connection for remote servers
         if self.test_ssh_connection(ip, username, password):
             print(f"Debug: SSH test passed for {ip}")
             # Get server information
@@ -244,7 +384,91 @@ class ServerDiscovery:
                     'last_check': datetime.now().isoformat()
                 }
         
+        # Add Docker containers information
+        docker_containers = self._get_docker_containers_info()
+        servers_info.update(docker_containers)
+        
         return servers_info
+    
+    def _get_docker_containers_info(self) -> dict:
+        """Get information about running Docker containers"""
+        containers_info = {}
+        
+        try:
+            import subprocess
+            import json
+            
+            # Get running containers
+            result = subprocess.run([
+                'docker', 'ps', '--format', 'json'
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=10)
+            
+            if result.returncode == 0:
+                containers = []
+                for line in result.stdout.strip().split('\n'):
+                    if line.strip():
+                        try:
+                            container = json.loads(line)
+                            containers.append(container)
+                        except:
+                            continue
+                
+                for container in containers:
+                    container_id = container.get('ID', '')[:12]  # Short ID
+                    container_name = container.get('Names', 'Unknown')
+                    container_status = container.get('Status', 'Unknown')
+                    container_image = container.get('Image', 'Unknown')
+                    
+                    # Get container resource usage
+                    try:
+                        stats_result = subprocess.run([
+                            'docker', 'stats', container_id, '--no-stream', '--format', 'json'
+                        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=5)
+                        
+                        if stats_result.returncode == 0:
+                            stats = json.loads(stats_result.stdout.strip())
+                            cpu_percent = stats.get('CPUPerc', '0%').rstrip('%')
+                            memory_percent = stats.get('MemPerc', '0%').rstrip('%')
+                            memory_usage = stats.get('MemUsage', '0B / 0B')
+                        else:
+                            cpu_percent = 0
+                            memory_percent = 0
+                            memory_usage = 'Unknown'
+                    except:
+                        cpu_percent = 0
+                        memory_percent = 0
+                        memory_usage = 'Unknown'
+                    
+                    # Create container info
+                    container_ip = f"docker://{container_id}"
+                    containers_info[container_ip] = {
+                        'name': f"Container: {container_name}",
+                        'ip': container_ip,
+                        'status': 'Online' if 'Up' in container_status else 'Stopped',
+                        'ssh_connected': False,  # Containers don't use SSH
+                        'container_info': {
+                            'id': container_id,
+                            'name': container_name,
+                            'status': container_status,
+                            'image': container_image,
+                            'cpu_percent': float(cpu_percent) if cpu_percent.isdigit() else 0,
+                            'memory_percent': float(memory_percent) if memory_percent.isdigit() else 0,
+                            'memory_usage': memory_usage
+                        },
+                        'system_info': {
+                            'cpu_percent': float(cpu_percent) if cpu_percent.isdigit() else 0,
+                            'memory_percent': float(memory_percent) if memory_percent.isdigit() else 0,
+                            'disk_percent': 0,
+                            'load_avg': 0
+                        },
+                        'last_check': datetime.now().isoformat(),
+                        'type': 'docker_container'
+                    }
+                    
+        except Exception as e:
+            print(f"Error getting Docker containers info: {e}")
+        
+        return containers_info
     
     def _get_system_info(self, ip: str, username: str, password: str = None) -> dict:
         """Get real-time system information from server"""

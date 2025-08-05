@@ -97,7 +97,14 @@ class DashboardData:
         if server_ip == 'LOCAL_IP' or server_ip == local_ip:
             self.current_server = local_ip
         else:
-            self.current_server = server_ip
+            # Check if this is a connected server
+            if self.server_discovery and server_ip in self.server_discovery.connected_servers:
+                self.current_server = server_ip
+                print(f"✅ Switched to connected server: {server_ip}")
+            else:
+                # Try to connect to the server if not already connected
+                print(f"⚠️  Server {server_ip} not connected. Please connect first.")
+                self.current_server = local_ip
         
         # Refresh data for the new server
         self.update_data()
@@ -138,7 +145,31 @@ class DashboardData:
             import platform
             import os
             
-            # Get system information
+            # Check if we're monitoring a remote server
+            if self.current_server and self.current_server != '127.0.0.1':
+                from utils.network_utils import get_local_ip
+                local_ip = get_local_ip()
+                if self.current_server != local_ip:
+                    # Get remote server info
+                    if self.server_discovery and self.current_server in self.server_discovery.connected_servers:
+                        connection = self.server_discovery.connected_servers[self.current_server]
+                        info = connection.get('info', {})
+                        return {
+                            'hostname': info.get('hostname', self.current_server),
+                            'platform': info.get('os', 'Unknown'),
+                            'cpu_count': info.get('cpu_cores', 'Unknown'),
+                            'cpu_freq': {},
+                            'boot_time': 'Remote',
+                            'uptime': 'Remote',
+                            'load_avg': [info.get('load_avg', 0), 0, 0],
+                            'remote_server': True,
+                            'ip': self.current_server
+                        }
+                    else:
+                        # Fallback to local info if remote not available
+                        print(f"⚠️  Remote server {self.current_server} not connected, using local info")
+            
+            # Get system information for local server
             hostname = platform.node()
             platform_info = platform.platform()
             cpu_count = psutil.cpu_count()
@@ -193,7 +224,32 @@ class DashboardData:
     def _get_resource_usage(self):
         """Get current resource usage"""
         try:
-            # Get CPU usage
+            # Check if we're monitoring a remote server
+            if self.current_server and self.current_server != '127.0.0.1':
+                from utils.network_utils import get_local_ip
+                local_ip = get_local_ip()
+                if self.current_server != local_ip:
+                    # Get remote server resource usage
+                    if self.server_discovery and self.current_server in self.server_discovery.connected_servers:
+                        connection = self.server_discovery.connected_servers[self.current_server]
+                        info = connection.get('info', {})
+                        system_info = info.get('system_info', {})
+                        
+                        return {
+                            'cpu_percent': system_info.get('cpu_percent', 0),
+                            'memory_percent': system_info.get('memory_percent', 0),
+                            'memory_used': 0,  # Remote doesn't provide detailed memory info
+                            'memory_total': 0,
+                            'memory_available': 0,
+                            'swap_percent': 0,
+                            'disk_percent': system_info.get('disk_percent', 0),
+                            'load_avg': system_info.get('load_avg', 0),
+                            'remote_server': True
+                        }
+                    else:
+                        print(f"⚠️  Remote server {self.current_server} not connected, using local info")
+            
+            # Get resource usage for local server
             cpu_percent = psutil.cpu_percent(interval=0.1)  # Reduced interval for faster response
             
             # Get memory information
@@ -605,6 +661,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404, "Not Found")
     
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.send_header('Access-Control-Max-Age', '86400')
+        self.end_headers()
+    
     def send_dashboard_page(self):
         """Send the main dashboard HTML page"""
         html = self._get_dashboard_html()
@@ -860,6 +925,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                             print(f"⚠️  Connected to {ip} but couldn't fetch real-time system info")
                     except Exception as info_error:
                         print(f"⚠️  Connected to {ip} but error fetching real-time info: {info_error}")
+                    
+                    # Also update the current server if this is the first connection
+                    if not self.dashboard_data.current_server or self.dashboard_data.current_server == '127.0.0.1':
+                        self.dashboard_data.set_current_server(ip)
+                        print(f"✅ Set {ip} as current server for resource details")
                 
                 response = {
                     'success': success,
@@ -2416,23 +2486,48 @@ function updateDiscoveredServers(servers) {
         const cpuCores = serverInfo.cpu_cores || 'Unknown';
         const memory = serverInfo.memory || 'Unknown';
         
-        return `
-            <div class="server-item">
-                <div class="server-info">
-                    <div class="server-name">${ip}</div>
-                    <div class="server-details">
-                        <strong>Hostname:</strong> ${hostname}<br>
-                        <strong>OS:</strong> ${os}<br>
-                        <strong>CPU:</strong> ${cpuCores} cores<br>
-                        <strong>Memory:</strong> ${memory}<br>
-                        <strong>Discovered:</strong> ${new Date(info.discovered_at || Date.now()).toLocaleString()}
+        // Check if this is a Docker container
+        const isContainer = ip.startsWith('docker://');
+        const containerInfo = info.container_info || {};
+        
+        if (isContainer) {
+            return `
+                <div class="server-item container-item">
+                    <div class="server-info">
+                        <div class="server-name">🐳 ${containerInfo.name || ip}</div>
+                        <div class="server-details">
+                            <strong>Container ID:</strong> ${containerInfo.id || 'Unknown'}<br>
+                            <strong>Image:</strong> ${containerInfo.image || 'Unknown'}<br>
+                            <strong>Status:</strong> ${containerInfo.status || 'Unknown'}<br>
+                            <strong>CPU:</strong> ${containerInfo.cpu_percent || 0}%<br>
+                            <strong>Memory:</strong> ${containerInfo.memory_percent || 0}% (${containerInfo.memory_usage || 'Unknown'})<br>
+                            <strong>Type:</strong> Docker Container
+                        </div>
+                    </div>
+                    <div class="server-actions">
+                        <button onclick="connectToServer('${ip}')" class="btn btn-info">🐳 Monitor</button>
                     </div>
                 </div>
-                <div class="server-actions">
-                    <button onclick="connectToServer('${ip}')" class="btn btn-success">🔗 Connect</button>
+            `;
+        } else {
+            return `
+                <div class="server-item">
+                    <div class="server-info">
+                        <div class="server-name">🖥️ ${ip}</div>
+                        <div class="server-details">
+                            <strong>Hostname:</strong> ${hostname}<br>
+                            <strong>OS:</strong> ${os}<br>
+                            <strong>CPU:</strong> ${cpuCores} cores<br>
+                            <strong>Memory:</strong> ${memory}<br>
+                            <strong>Discovered:</strong> ${new Date(info.discovered_at || Date.now()).toLocaleString()}
+                        </div>
+                    </div>
+                    <div class="server-actions">
+                        <button onclick="connectToServer('${ip}')" class="btn btn-success">🔗 Connect</button>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
     }).join('');
     
     // Also update the server selector dropdown with discovered servers
@@ -2444,16 +2539,25 @@ function updateServerSelectorWithDiscovered(servers) {
     const currentValue = selector.value;
     
     // Keep local server as first option
-    selector.innerHTML = '<option value="LOCAL_IP">Local Server (LOCAL_IP)</option>';
+    selector.innerHTML = '<option value="LOCAL_IP">🖥️ Local Server (LOCAL_IP)</option>';
     
     // Add discovered servers to dropdown
     if (servers && Object.keys(servers).length > 0) {
         Object.entries(servers).forEach(([ip, info]) => {
             const serverInfo = info.info || {};
             const hostname = serverInfo.hostname || ip;
+            const containerInfo = info.container_info || {};
+            
             const option = document.createElement('option');
             option.value = ip;
-            option.textContent = `${hostname} (${ip}) - Discovered`;
+            
+            // Check if this is a Docker container
+            if (ip.startsWith('docker://')) {
+                option.textContent = `🐳 ${containerInfo.name || ip} - Container`;
+            } else {
+                option.textContent = `🖥️ ${hostname} (${ip}) - Server`;
+            }
+            
             selector.appendChild(option);
         });
     }
@@ -2468,7 +2572,15 @@ function updateServerSelectorWithDiscovered(servers) {
                     if (!selector.querySelector(`option[value="${ip}"]`)) {
                         const option = document.createElement('option');
                         option.value = ip;
-                        option.textContent = `${info.info?.hostname || ip} (${ip}) - Connected`;
+                        
+                        // Check if this is a Docker container
+                        if (ip.startsWith('docker://')) {
+                            const containerInfo = info.container_info || {};
+                            option.textContent = `🐳 ${containerInfo.name || ip} - Container`;
+                        } else {
+                            option.textContent = `🖥️ ${info.info?.hostname || ip} (${ip}) - Connected`;
+                        }
+                        
                         selector.appendChild(option);
                     }
                 });
@@ -2484,34 +2596,52 @@ function updateServerSelectorWithDiscovered(servers) {
 
 // Server Connection Functions
 async function connectToServer(ip) {
-    const username = prompt(`Enter username for ${ip} (default: root):`) || 'root';
-    const password = prompt(`Enter password for ${ip} (leave empty for key auth):`);
-    
-    try {
-        const response = await fetch('/api/connect-server', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ip, username, password })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert(`✅ Successfully connected to ${ip}`);
-            loadServerStatus();
-            updateServerSelector();
+    // Check if this is a Docker container
+    if (ip.startsWith('docker://')) {
+        // For containers, we don't need username/password
+        try {
+            const response = await fetch('/api/connect-server', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip, username: 'container', password: '' })
+            });
             
-            // Add the new server to the selector dropdown
-            const selector = document.getElementById('server-select');
-            const option = document.createElement('option');
-            option.value = ip;
-            option.textContent = `${ip} - Connected`;
-            selector.appendChild(option);
-        } else {
-            alert(`❌ Failed to connect to ${ip}: ${result.error}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(`✅ Successfully connected to container ${ip}`);
+                loadServerStatus();
+                updateServerSelector();
+            } else {
+                alert(`❌ Failed to connect to container ${ip}: ${result.error}`);
+            }
+        } catch (error) {
+            alert(`❌ Container connection error: ${error.message}`);
         }
-    } catch (error) {
-        alert(`❌ Connection error: ${error.message}`);
+    } else {
+        // For regular servers, prompt for credentials
+        const username = prompt(`Enter username for ${ip} (default: root):`) || 'root';
+        const password = prompt(`Enter password for ${ip} (leave empty for key auth):`);
+        
+        try {
+            const response = await fetch('/api/connect-server', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip, username, password })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(`✅ Successfully connected to ${ip}`);
+                loadServerStatus();
+                updateServerSelector();
+            } else {
+                alert(`❌ Failed to connect to ${ip}: ${result.error}`);
+            }
+        } catch (error) {
+            alert(`❌ Connection error: ${error.message}`);
+        }
     }
 }
 

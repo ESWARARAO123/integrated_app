@@ -18,7 +18,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.server_discovery import ServerDiscovery
-from utils.network_scanner import NetworkScanner
+from utils.quick_network_scanner import QuickNetworkScanner
 from config.settings import DEFAULT_CONFIG
 
 class ResourceData:
@@ -26,7 +26,7 @@ class ResourceData:
     
     def __init__(self):
         self.server_discovery = ServerDiscovery()
-        self.network_scanner = NetworkScanner()
+        self.network_scanner = QuickNetworkScanner()
         self.config = DEFAULT_CONFIG.copy()
         self.monitoring_active = False
         self.monitoring_thread = None

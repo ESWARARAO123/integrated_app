@@ -194,6 +194,14 @@ fi
             'os_distribution': os_distribution,
             'scan_time': datetime.now().isoformat()
         }
+    
+    def quick_scan(self, network_range: str, username: str = None, max_ips: int = 10, start_ip: int = 1) -> List[Dict]:
+        """
+        Quick scan method for compatibility with QuickNetworkScanner
+        This is a wrapper around scan_network for compatibility
+        """
+        print(f"🔍 Quick scanning network {network_range}.x (IPs {start_ip}-{start_ip + max_ips - 1})...")
+        return self.scan_network(network_range, username)
 
 def scan_network_range(network_range: str, username: str = None) -> List[Dict]:
     """Convenience function to scan a network range"""

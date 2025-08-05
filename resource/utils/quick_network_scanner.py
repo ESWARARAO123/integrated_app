@@ -36,30 +36,64 @@ class QuickNetworkScanner:
         
         discovered_servers = []
         
+        # Get current machine's IP to skip it
+        current_ips = []
+        try:
+            # Get all IP addresses of current machine
+            result = subprocess.run(['hostname', '-I'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                current_ips = result.stdout.strip().split()
+        except:
+            pass
+        
+        # Also add localhost variants
+        current_ips.extend(['127.0.0.1', 'localhost'])
+        
         # Scan IPs from start_ip to start_ip + max_ips
         for i in range(start_ip, min(start_ip + max_ips, 255)):
             ip = f"{network_range}.{i}"
             
             # Skip if it's the current machine
-            try:
-                current_ip = subprocess.check_output(['hostname', '-I'], universal_newlines=True).strip().split()[0]
-                if ip == current_ip:
-                    continue
-            except:
-                pass
+            if ip in current_ips:
+                print(f"  Skipping {ip} (current machine)")
+                continue
             
             print(f"  Testing {ip}...", end=' ', flush=True)
             
+            # First try ping to see if host is reachable
+            try:
+                ping_result = subprocess.run([
+                    'ping', '-c', '1', '-W', '1', ip
+                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=3)
+                
+                if ping_result.returncode != 0:
+                    print("❌ No ping")
+                    continue
+            except:
+                print("❌ Ping failed")
+                continue
+            
             # Test SSH connection (non-interactive)
             try:
+                # Try key-based authentication first
                 result = subprocess.run([
-                    'ssh', '-o', 'ConnectTimeout=2',
+                    'ssh', '-o', 'ConnectTimeout=3',
                     '-o', 'BatchMode=yes',
                     '-o', 'StrictHostKeyChecking=no',
                     '-o', 'UserKnownHostsFile=/dev/null',
                     f'{username}@{ip}',
                     'echo OK'
-                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=3)
+                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+                
+                # If key-based auth fails, try without BatchMode (allows password prompt)
+                if result.returncode != 0:
+                    result = subprocess.run([
+                        'ssh', '-o', 'ConnectTimeout=3',
+                        '-o', 'StrictHostKeyChecking=no',
+                        '-o', 'UserKnownHostsFile=/dev/null',
+                        f'{username}@{ip}',
+                        'echo OK'
+                    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
                 
                 if result.returncode == 0:
                     print("✅ SSH OK")
@@ -71,9 +105,9 @@ class QuickNetworkScanner:
                     print("❌ No SSH")
                     
             except subprocess.TimeoutExpired:
-                print("⏰ Timeout")
+                print("⏰ SSH Timeout")
             except Exception as e:
-                print(f"❌ Error: {e}")
+                print(f"❌ SSH Error: {e}")
         
         print(f"\n✅ Quick scan completed! Found {len(discovered_servers)} SSH-accessible servers")
         return discovered_servers

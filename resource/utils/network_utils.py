@@ -51,7 +51,7 @@ def get_network_interfaces() -> List[Dict]:
             for addr in addrs:
                 if addr.family == socket.AF_INET:
                     interface_info['ips'].append(addr.address)
-                elif addr.family == socket.AF_LINK:
+                elif hasattr(socket, 'AF_LINK') and addr.family == socket.AF_LINK:
                     interface_info['mac'] = addr.address
             
             if interface_info['ips']:

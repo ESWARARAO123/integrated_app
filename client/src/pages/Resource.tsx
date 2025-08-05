@@ -78,7 +78,7 @@ export default function Resource() {
       setError(null);
       
       // Connect to clean_manager_lev1 web dashboard API
-      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8007';
       const response = await fetch(`${resourceMonitorUrl}/api/data`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
