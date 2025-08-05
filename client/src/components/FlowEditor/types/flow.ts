@@ -119,6 +119,8 @@ export interface FlowEditorActions {
   // Auto-flow creation
   createFlowChain: (triggerNodeId: string, startPosition: { x: number; y: number }) => void;
   createPDStepsChain: (triggerNodeId: string, startPosition: { x: number; y: number }) => void;
+  createDefaultFlowBlocks: () => void;
+  spawnToolSelectionBlocks: (toolSelectionId: string, config: any) => void;
   
   // Settings
   updateWorkspaceSettings: (settings: Partial<WorkspaceSettings>) => void;

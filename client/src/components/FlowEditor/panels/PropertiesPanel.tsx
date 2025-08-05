@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Settings, FileInput } from 'lucide-react';
 import { useFlowEditor } from '../FlowEditorProvider';
 import { InputBlockForm } from '../forms/InputBlockForm';
+import { ToolSelectionForm } from '../forms/ToolSelectionForm';
 
 export const PropertiesPanel: React.FC = () => {
   const { selectedNode, selectNode, updateNode, deleteNode } = useFlowEditor();
@@ -52,6 +53,10 @@ export const PropertiesPanel: React.FC = () => {
 
     switch (selectedNode.type) {
       case 'input':
+        // Check if this is a Tool Selection block
+        if (selectedNode.data.parameterName === 'tool_used') {
+          return <ToolSelectionForm node={selectedNode} onUpdate={updateNode} />;
+        }
         return <InputBlockForm node={selectedNode} onUpdate={updateNode} />;
       default:
         return (

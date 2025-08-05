@@ -28,8 +28,8 @@ console.log(`Dir-Create proxy configured to forward to: ${targetUrl}`);
 const dirCreateProxy = createProxyMiddleware({
   target: targetUrl,
   changeOrigin: true,
-  timeout: 120000, // 2 minutes timeout
-  proxyTimeout: 120000, // 2 minutes proxy timeout
+  timeout: 300000, // 5 minutes timeout
+  proxyTimeout: 300000, // 5 minutes proxy timeout
   pathRewrite: {
     '^/api/dir-create': '', // Remove /api/dir-create prefix when forwarding
   },
@@ -44,8 +44,8 @@ const dirCreateProxy = createProxyMiddleware({
   onProxyReq: (proxyReq, req, res) => {
     console.log(`Proxying ${req.method} ${req.path} to dir-create service`);
     
-    // Handle body for POST requests
-    if (req.method === 'POST' && req.body) {
+    // Handle body for POST, PUT, and PATCH requests
+    if ((req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') && req.body) {
       const bodyData = JSON.stringify(req.body);
       proxyReq.setHeader('Content-Type', 'application/json');
       proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));

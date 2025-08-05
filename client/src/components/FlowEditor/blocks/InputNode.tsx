@@ -144,17 +144,11 @@ export const InputNode: React.FC<NodeProps> = (props) => {
     );
   };
 
-  // Set a proper description for the node - use value as label if available
-  const getDisplayLabel = () => {
-    if (nodeData.value && nodeData.value !== 'Not set') {
-      return nodeData.value;
-    }
-    return nodeData.label || 'Input Node';
-  };
-
+  // Keep the original label for the white text at the top
+  // Only the blue box should show the assigned value
   const nodeDataWithDescription = {
     ...nodeData,
-    label: getDisplayLabel(),
+    label: nodeData.label || 'Input Node', // Keep original label for white text
     description: nodeData.description || getParameterDescription(),
   };
 

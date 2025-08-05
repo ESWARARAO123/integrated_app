@@ -144,12 +144,13 @@ const getFlowdirExecutions = async (req, res) => {
     const { limit = 50, offset = 0, projectName, success } = req.query;
 
     let query = `
-      SELECT 
-        id, execution_id, flow_id, project_name, block_name, tool_name, 
-        stage, run_name, success, execution_time_ms, 
+      SELECT
+        id, execution_id, flow_id, project_name, block_name, tool_name,
+        stage, run_name, success, execution_time_ms,
         total_directories_created, total_files_created, total_symlinks_created,
+        summary, created_paths, logs,
         started_at, completed_at, error_message
-      FROM flowdir_executions 
+      FROM flowdir_executions
       WHERE user_id = $1
     `;
     
@@ -171,23 +172,62 @@ const getFlowdirExecutions = async (req, res) => {
     query += ` ORDER BY started_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     values.push(parseInt(limit), parseInt(offset));
 
+    console.log('Executing FlowDir executions query:', query);
+    console.log('Query values:', values);
+
     const result = await client.query(query, values);
-    
+    console.log('Query result rows:', result.rows.length);
+
+    // Parse JSON fields for each execution
+    const executions = result.rows.map(execution => {
+      const parsed = { ...execution };
+
+      // Safely parse JSON fields
+      try {
+        if (parsed.summary && typeof parsed.summary === 'string') {
+          parsed.summary = JSON.parse(parsed.summary);
+        }
+      } catch (e) {
+        console.warn('Failed to parse summary JSON:', e);
+        parsed.summary = null;
+      }
+
+      try {
+        if (parsed.created_paths && typeof parsed.created_paths === 'string') {
+          parsed.created_paths = JSON.parse(parsed.created_paths);
+        }
+      } catch (e) {
+        console.warn('Failed to parse created_paths JSON:', e);
+        parsed.created_paths = null;
+      }
+
+      try {
+        if (parsed.logs && typeof parsed.logs === 'string') {
+          parsed.logs = JSON.parse(parsed.logs);
+        }
+      } catch (e) {
+        console.warn('Failed to parse logs JSON:', e);
+        parsed.logs = null;
+      }
+
+      return parsed;
+    });
+
     // Get total count for pagination
     const countQuery = `
-      SELECT COUNT(*) as total 
-      FROM flowdir_executions 
+      SELECT COUNT(*) as total
+      FROM flowdir_executions
       WHERE user_id = $1
       ${projectName ? `AND project_name ILIKE '%${projectName}%'` : ''}
       ${success !== undefined ? `AND success = ${success === 'true'}` : ''}
     `;
-    
+
     const countResult = await client.query(countQuery, [userId]);
 
     res.json({
       success: true,
       data: {
-        executions: result.rows,
+        executions: executions,
         total: parseInt(countResult.rows[0].total),
         limit: parseInt(limit),
         offset: parseInt(offset)
@@ -195,9 +235,12 @@ const getFlowdirExecutions = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching FlowDir executions:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch FlowDir execution history'
+      error: 'Failed to fetch FlowDir execution history',
+      details: error.message
     });
   } finally {
     client.release();

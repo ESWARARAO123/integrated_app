@@ -2,7 +2,45 @@
 
 All notable changes to the Visual Flow Editor will be documented in this file.
 
-## [v0.2.3] - 2025-08-01 (Current) - FlowDir Integration Success 🎉
+## [v0.3.0] - 2025-08-05 (Current) - File Editor Integration & Context Menu System 🎉
+
+### ✅ **COMPLETED: File Editor Modal Integration**
+- **Large Chakra UI Modal**: Professional file editing interface inspired by FlowdirApprovalModal
+- **TCL File Support**: Full viewing and editing capabilities for configuration files
+- **Real-time MCP Integration**: Direct file operations via MCP server communication
+- **Enhanced User Experience**:
+  - Syntax highlighting with monospace font for TCL files
+  - Undo/redo functionality with keyboard shortcuts (Ctrl+Z, Ctrl+Y)
+  - Auto-save indicators and unsaved changes tracking
+  - Fullscreen toggle capability (F11)
+  - Professional status bar with file info and line count
+
+### ✅ **COMPLETED: Context Menu System**
+- **Right-click Block Interaction**: Context menus for all flow blocks
+- **Smart File Path Resolution**: Dynamic path construction from FlowDir execution database
+- **Multi-stage Support**: Config editing for Floorplan, Placement, CTS, and Route stages
+- **Context-aware Options**: Menu items adapt based on block type and capabilities
+- **Database Integration**: Leverages `flowdir_executions` table for path resolution
+
+### ✅ **COMPLETED: Robust MCP Response Parsing**
+- **Smart JSON Extraction**: Handles mixed console output and JSON responses
+- **Fallback Parsing Logic**: Multiple parsing strategies for different response formats
+- **Content Formatting**: Automatic conversion of escaped newlines to proper line breaks
+- **Error Resilience**: Graceful handling of malformed or incomplete responses
+- **Debug Logging**: Comprehensive logging for troubleshooting parsing issues
+
+### 🔧 **TECHNICAL IMPROVEMENTS**
+- Enhanced FileEditorModal with Chakra UI components for consistency
+- Improved error handling and user feedback for file operations
+- Dynamic username and run name extraction from FlowDir execution paths
+- Integration with existing MCP settings configuration (no hardcoded IPs)
+- Modular component architecture following project patterns
+
+### 🐛 **KNOWN ISSUES**
+- Context menu positioning affected by React Flow canvas transformations
+- Menu spawns far from blocks due to zoom/pan coordinate system conflicts
+
+## [v0.2.3] - 2025-08-01 - FlowDir Integration Success 🎉
 
 ### ✅ **COMPLETED: Docker API Integration**
 - **Successfully Dockerized FlowDir Module**: Created `docker-dir-create-module` container

@@ -5,6 +5,8 @@ import { useToast } from '@chakra-ui/react';
 import FlowdirApprovalModal, { FlowdirParameters } from './FlowdirApprovalModal';
 import { extractFlowdirParameters, validateFlowdirParameters, getFlowdirDescription } from './FlowdirParameterExtractor';
 import { getFlowEditorSettings } from '../../services/flowEditorSettingsService';
+import { createDefaultFlow, shouldAutoCreateBlocks, logAutoCreation } from './utils/autoFlowCreation';
+import { spawnToolSelectionBlocks, logSpawning, ToolSelectionConfig } from './utils/toolSelectionSpawning';
 
 interface FlowEditorContextType extends FlowEditorState, FlowEditorActions {}
 
@@ -996,7 +998,82 @@ export const FlowEditorProvider: React.FC<FlowEditorProviderProps> = ({ children
   const clearFlow = useCallback(() => {
     dispatch({ type: 'CLEAR_FLOW' });
     clearSessionData();
+
+    // Auto-create default flow after clearing
+    setTimeout(() => {
+      createDefaultFlowBlocks();
+    }, 100);
   }, [clearSessionData]);
+
+  const createDefaultFlowBlocks = useCallback(() => {
+    if (shouldAutoCreateBlocks(state.nodes)) {
+      logAutoCreation('Creating default flow blocks');
+
+      const { nodes, edges } = createDefaultFlow();
+
+      // Add nodes first
+      nodes.forEach(node => {
+        dispatch({ type: 'ADD_NODE', payload: node });
+      });
+
+      // Add edges after a small delay to ensure nodes are created
+      setTimeout(() => {
+        edges.forEach(edge => {
+          dispatch({ type: 'ADD_EDGE', payload: edge });
+        });
+
+        logAutoCreation('Default flow blocks created successfully', {
+          nodesCount: nodes.length,
+          edgesCount: edges.length
+        });
+      }, 150);
+    }
+  }, [state.nodes]);
+
+  const spawnToolSelectionBlocksHandler = useCallback((toolSelectionId: string, config: ToolSelectionConfig) => {
+    const toolSelectionNode = state.nodes.find(node => node.id === toolSelectionId);
+    if (!toolSelectionNode) {
+      console.error('Tool Selection node not found:', toolSelectionId);
+      return;
+    }
+
+    logSpawning('Starting block spawning for Tool Selection', { toolSelectionId, config });
+
+    const spawnedBlocks = spawnToolSelectionBlocks(
+      toolSelectionId,
+      toolSelectionNode.position,
+      config
+    );
+
+    // Add Run Name block
+    dispatch({ type: 'ADD_NODE', payload: spawnedBlocks.runNameBlock });
+
+    // Add Stage blocks
+    spawnedBlocks.stageBlocks.forEach(stageBlock => {
+      dispatch({ type: 'ADD_NODE', payload: stageBlock });
+    });
+
+    // Add Flow Step blocks
+    spawnedBlocks.flowStepBlocks.forEach(flowStepBlock => {
+      dispatch({ type: 'ADD_NODE', payload: flowStepBlock });
+    });
+
+    // Add connections after a small delay to ensure nodes are created
+    setTimeout(() => {
+      spawnedBlocks.connections.forEach(connection => {
+        dispatch({ type: 'ADD_EDGE', payload: connection });
+      });
+
+      logSpawning('Tool Selection blocks spawned successfully', {
+        runNameBlock: 1,
+        stageBlocks: spawnedBlocks.stageBlocks.length,
+        flowStepBlocks: spawnedBlocks.flowStepBlocks.length,
+        connections: spawnedBlocks.connections.length
+      });
+
+      dispatch({ type: 'ADD_LOG', payload: `Auto-spawned blocks from Tool Selection: ${spawnedBlocks.stageBlocks.length} stage(s), ${spawnedBlocks.flowStepBlocks.length} flow step(s)` });
+    }, 150);
+  }, [state.nodes]);
 
   const updateWorkspaceSettings = useCallback((settings: Partial<WorkspaceSettings>) => {
     if (state.workspaceSettings) {
@@ -1042,14 +1119,20 @@ export const FlowEditorProvider: React.FC<FlowEditorProviderProps> = ({ children
           // Load the most recently updated flow
           const lastFlow = flows[0]; // Already sorted by updated_at DESC
           const flowData = await loadFlow(lastFlow.id);
-          
+
           // Dispatch an event to notify the toolbar about the loaded flow
-          window.dispatchEvent(new CustomEvent('flowLoaded', { 
-            detail: { 
-              id: lastFlow.id, 
-              name: flowData.name || lastFlow.name 
-            } 
+          window.dispatchEvent(new CustomEvent('flowLoaded', {
+            detail: {
+              id: lastFlow.id,
+              name: flowData.name || lastFlow.name
+            }
           }));
+        } else {
+          // No saved flows found, create default flow for first-time users
+          console.log('🎯 No saved flows found, creating default flow for first-time user');
+          setTimeout(() => {
+            createDefaultFlowBlocks();
+          }, 200);
         }
       } catch (error) {
         console.error('Failed to load session or last flow:', error);
@@ -1103,6 +1186,8 @@ export const FlowEditorProvider: React.FC<FlowEditorProviderProps> = ({ children
     updateWorkspaceSettings,
     createFlowChain,
     createPDStepsChain,
+    createDefaultFlowBlocks,
+    spawnToolSelectionBlocks: spawnToolSelectionBlocksHandler,
   };
 
   return (

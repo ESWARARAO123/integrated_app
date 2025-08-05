@@ -23,12 +23,36 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3582;
 
+// Configure Express settings for large requests (disable trust proxy to avoid rate limiting issues)
+// app.set('trust proxy', true);
+
+// Increase server timeout for large file operations
+app.timeout = 300000; // 5 minutes
+
 // Configure middleware
 app.use(helmet());
 app.use(compression());
-// No CORS needed - accessed via proxy from main app
+// Enable CORS for cross-origin requests (needed for direct access and proxy)
+app.use(cors({
+  origin: ['http://localhost:5641', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Connection', 'Cache-Control'],
+  credentials: true
+}));
 app.use(morgan('combined'));
-app.use(bodyParser.json({ limit: '1mb' }));
+// Increase body parser limits for large config files and set timeout
+app.use(bodyParser.json({ 
+  limit: '50mb',
+  parameterLimit: 50000,
+  type: 'application/json'
+}));
+app.use(bodyParser.urlencoded({ 
+  limit: '50mb', 
+  extended: true,
+  parameterLimit: 50000
+}));
+app.use(bodyParser.text({ limit: '50mb' }));
+app.use(bodyParser.raw({ limit: '50mb' }));
 
 // Configure rate limiting
 const limiter = rateLimit({
@@ -39,6 +63,36 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Add timeout middleware for large requests
+app.use((req, res, next) => {
+  // Set longer timeout for PUT requests (file saves)
+  if (req.method === 'PUT' && req.url.includes('/api/config-file')) {
+    req.setTimeout(300000); // 5 minutes
+    res.setTimeout(300000); // 5 minutes
+    console.log(`⏱️ Extended timeout set for file save request: ${req.url}`);
+  }
+  next();
+});
+
+// Add error handler for body parsing issues
+app.use((error, req, res, next) => {
+  if (error.type === 'request.aborted') {
+    console.error('❌ Request aborted during body parsing:', {
+      url: req.url,
+      method: req.method,
+      contentLength: req.headers['content-length'],
+      error: error.message,
+      code: error.code
+    });
+    return res.status(400).json({
+      success: false,
+      error: 'Request aborted during body parsing',
+      details: 'The request body was too large or the connection was interrupted'
+    });
+  }
+  next(error);
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -47,6 +101,210 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
+});
+
+/**
+ * Config File Operations API Endpoints
+ * These endpoints provide file read/write operations via MCP for the visual flow editor
+ */
+
+// Read config file content via MCP
+app.get('/api/config-file', async (req, res) => {
+  try {
+    const { filePath, serverUrl } = req.query;
+
+    if (!filePath) {
+      return res.status(400).json({
+        success: false,
+        error: 'filePath parameter is required'
+      });
+    }
+
+    if (!serverUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'serverUrl parameter is required'
+      });
+    }
+
+    console.log(`📖 Reading config file: ${filePath}`);
+
+    // Execute MCP readFile command via orchestrator
+    const result = await executeMCPCommand(serverUrl, 'readFile', {
+      filePath: filePath
+    });
+
+    if (result.success) {
+      // Extract text content from MCP response
+      let fileContent = '';
+      if (result.data && typeof result.data === 'object' && result.data.text) {
+        fileContent = result.data.text;
+      } else if (typeof result.data === 'string') {
+        fileContent = result.data;
+      } else {
+        fileContent = result.data?.content || '';
+      }
+
+      res.json({
+        success: true,
+        content: fileContent,
+        filePath: filePath,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to read file',
+        filePath: filePath
+      });
+    }
+
+  } catch (error) {
+    console.error('Error reading config file:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+      filePath: req.query.filePath
+    });
+  }
+});
+
+// Write config file content via MCP
+app.put('/api/config-file', async (req, res) => {
+  try {
+    console.log(`📥 PUT request received - Content-Length: ${req.headers['content-length']}`);
+    console.log(`📥 Request body keys:`, Object.keys(req.body || {}));
+    
+    const { filePath, content, serverUrl } = req.body;
+
+    if (!filePath) {
+      return res.status(400).json({
+        success: false,
+        error: 'filePath is required in request body'
+      });
+    }
+
+    if (content === undefined || content === null) {
+      return res.status(400).json({
+        success: false,
+        error: 'content is required in request body'
+      });
+    }
+
+    if (!serverUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'serverUrl is required in request body'
+      });
+    }
+
+    console.log(`✏️ Writing config file: ${filePath}`);
+    console.log(`📊 Content length: ${content.length} characters`);
+
+    // Use shell command approach instead of editFile MCP tool
+    // This is more reliable and doesn't maintain persistent connections
+    const result = await writeFileViaShellCommand(serverUrl, filePath, content);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'File saved successfully',
+        filePath: filePath,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to write file',
+        filePath: filePath
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Error writing config file:', error);
+    console.error('❌ Error type:', error.constructor.name);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Request body available:', !!req.body);
+    console.error('❌ Request body keys:', req.body ? Object.keys(req.body) : 'none');
+    
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+      errorType: error.constructor.name,
+      errorCode: error.code,
+      filePath: req.body?.filePath || 'unknown'
+    });
+  }
+});
+
+// Replace specific lines in config file (more efficient for small changes)
+app.patch('/api/config-file', async (req, res) => {
+  try {
+    console.log(`🔄 PATCH request received for line replacement`);
+    console.log(`📥 Request body keys:`, Object.keys(req.body || {}));
+    
+    const { filePath, replacements, serverUrl } = req.body;
+
+    if (!filePath) {
+      return res.status(400).json({
+        success: false,
+        error: 'filePath is required in request body'
+      });
+    }
+
+    if (!replacements || !Array.isArray(replacements) || replacements.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'replacements array is required in request body'
+      });
+    }
+
+    if (!serverUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'serverUrl is required in request body'
+      });
+    }
+
+    console.log(`🔄 Replacing lines in config file: ${filePath}`);
+    console.log(`📊 Number of replacements: ${replacements.length}`);
+
+    // Use sed command approach for line replacements
+    const result = await replaceFileLines(serverUrl, filePath, replacements);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Lines replaced successfully',
+        method: result.method,
+        filePath: filePath,
+        replacements: replacements.length,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to replace lines',
+        method: result.method,
+        filePath: filePath
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Error replacing lines in config file:', error);
+    console.error('❌ Error type:', error.constructor.name);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Request body available:', !!req.body);
+    console.error('❌ Request body keys:', req.body ? Object.keys(req.body) : 'none');
+    
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+      errorType: error.constructor.name,
+      errorCode: error.code,
+      filePath: req.body?.filePath || 'unknown'
+    });
+  }
 });
 
 // Service info endpoint
@@ -543,6 +801,74 @@ def get_user_input():
 /**
  * MCP Helper Functions
  */
+
+/**
+ * Generic MCP command executor
+ * Executes any MCP tool via the orchestrator.py script
+ */
+async function executeMCPCommand(serverUrl, toolName, parameters) {
+  return new Promise((resolve) => {
+    const pythonScript = '/app/python/DIR_CREATE_MODULE/orchestrator.py';
+    const parametersJson = JSON.stringify(parameters);
+
+    console.log(`🔧 Executing MCP command: ${toolName} with params:`, parameters);
+
+    const pythonProcess = spawn('python', [
+      pythonScript,
+      '--server', serverUrl,
+      toolName,
+      parametersJson
+    ]);
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      console.log(`📋 MCP command ${toolName} completed with code: ${code}`);
+      console.log(`📤 stdout:`, stdout);
+      if (stderr) console.log(`❌ stderr:`, stderr);
+
+      if (code === 0) {
+        try {
+          // Try to parse JSON response
+          const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const result = JSON.parse(jsonMatch[0]);
+            resolve({ success: true, data: result });
+          } else {
+            // Return raw stdout if not JSON
+            resolve({ success: true, data: stdout.trim() });
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, return raw stdout
+          resolve({ success: true, data: stdout.trim() });
+        }
+      } else {
+        resolve({
+          success: false,
+          error: stderr || `Command failed with exit code ${code}`
+        });
+      }
+    });
+
+    pythonProcess.on('error', (error) => {
+      console.error(`❌ Failed to start MCP command ${toolName}:`, error);
+      resolve({
+        success: false,
+        error: `Failed to execute command: ${error.message}`
+      });
+    });
+  });
+}
+
 async function mcpCreateFile(serverUrl, filePath, content) {
   return new Promise((resolve) => {
     const pythonScript = '/app/python/DIR_CREATE_MODULE/orchestrator.py';
@@ -705,8 +1031,114 @@ function parseFlowdirOutput(stdout) {
 /**
  * Execute shell command via MCP runShellCommand
  */
+/**
+ * Write file content using shell commands instead of editFile MCP tool
+ * This approach is more reliable and doesn't maintain persistent connections
+ */
+async function writeFileViaShellCommand(serverUrl, filePath, content) {
+  try {
+    console.log(`🐚 Writing file via shell command: ${filePath}`);
+    
+    // Escape the content for shell command
+    // Use a here-document approach to handle special characters safely
+    const tempMarker = `EOF_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Create the shell command using cat with here-document
+    const shellCommand = `cat > "${filePath}" << '${tempMarker}'
+${content}
+${tempMarker}`;
+
+    console.log(`🐚 Shell command length: ${shellCommand.length} characters`);
+    console.log(`🐚 Using temp marker: ${tempMarker}`);
+
+    // Execute the shell command via MCP
+    const result = await mcpRunShellCommand(serverUrl, shellCommand);
+    
+    if (result.success) {
+      console.log(`✅ File written successfully via shell command`);
+      return {
+        success: true,
+        message: 'File written successfully using shell command',
+        method: 'shell_command',
+        filePath: filePath
+      };
+    } else {
+      console.error(`❌ Shell command failed:`, result.error);
+      return {
+        success: false,
+        error: result.error || 'Shell command execution failed',
+        method: 'shell_command'
+      };
+    }
+  } catch (error) {
+    console.error(`❌ Error in writeFileViaShellCommand:`, error);
+    return {
+      success: false,
+      error: error.message || 'Failed to write file via shell command',
+      method: 'shell_command'
+    };
+  }
+}
+
+/**
+ * Alternative: Replace specific lines in a file using sed commands
+ * More efficient for small changes
+ */
+async function replaceFileLines(serverUrl, filePath, replacements) {
+  try {
+    console.log(`🔄 Replacing lines in file: ${filePath}`);
+    console.log(`🔄 Replacements:`, replacements);
+
+    // Build sed command for multiple replacements
+    let sedCommand = `sed -i`;
+    
+    for (const replacement of replacements) {
+      const { lineNumber, newContent } = replacement;
+      // Escape special characters in the content
+      const escapedContent = newContent.replace(/[\/&]/g, '\\$&').replace(/\n/g, '\\n');
+      sedCommand += ` -e '${lineNumber}s/.*/${escapedContent}/'`;
+    }
+    
+    sedCommand += ` "${filePath}"`;
+
+    console.log(`🔄 Sed command: ${sedCommand}`);
+
+    // Execute the sed command via MCP
+    const result = await mcpRunShellCommand(serverUrl, sedCommand);
+    
+    if (result.success) {
+      console.log(`✅ Lines replaced successfully via sed`);
+      return {
+        success: true,
+        message: 'Lines replaced successfully using sed',
+        method: 'sed_replace',
+        filePath: filePath,
+        replacements: replacements.length
+      };
+    } else {
+      console.error(`❌ Sed command failed:`, result.error);
+      return {
+        success: false,
+        error: result.error || 'Sed command execution failed',
+        method: 'sed_replace'
+      };
+    }
+  } catch (error) {
+    console.error(`❌ Error in replaceFileLines:`, error);
+    return {
+      success: false,
+      error: error.message || 'Failed to replace lines via sed',
+      method: 'sed_replace'
+    };
+  }
+}
+
 async function mcpRunShellCommand(mcpServerUrl, command) {
   return new Promise((resolve, reject) => {
+    console.log(`🔗 Creating NEW MCP connection for shell command`);
+    console.log(`🎯 MCP Server: ${mcpServerUrl}`);
+    console.log(`🐚 Command: ${command.substring(0, 100)}...`);
+    
     const orchestratorProcess = spawn('python3', [
       '/app/python/DIR_CREATE_MODULE/orchestrator.py',
       '--server', mcpServerUrl,
@@ -755,9 +1187,14 @@ async function mcpRunShellCommand(mcpServerUrl, command) {
   });
 }
 
-// Start server
-app.listen(PORT, () => {
+// Start server with proper timeout configuration
+const server = app.listen(PORT, () => {
   console.log(`DIR Create Module API Server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
   console.log(`Service info: http://localhost:${PORT}/info`);
-}); 
+});
+
+// Set server timeouts to handle large requests
+server.timeout = 300000; // 5 minutes
+server.keepAliveTimeout = 300000; // 5 minutes
+server.headersTimeout = 310000; // Slightly longer than keepAliveTimeout 
