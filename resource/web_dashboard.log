@@ -1,0 +1,53 @@
+./Cursor-1.2.2-x86_64.AppImage: ignoring input
+Opening in existing browser session.
+Warning: Chart modules not found. Some features may not work.
+Warning: Could not initialize charts: name 'RealTimeCharts' is not defined
+📄 No configuration file found: server_config.json
+✅ Server discovery initialized
+✅ Quick network scanner initialized
+🚀 Starting RHEL Resource Manager Dashboard...
+📊 Dashboard URL: http://localhost:8007
+⏱️  Auto-refresh: Every 5 seconds
+🔄 Press Ctrl+C to stop
+🔍 Quick scanning network 172.16.16.x (IPs 1-30)...
+👤 Using username: root
+  Testing 172.16.16.1... ❌ No ping
+  Testing 172.16.16.2... ❌ No ping
+  Testing 172.16.16.3... ❌ No ping
+  Testing 172.16.16.4... ❌ No ping
+  Testing 172.16.16.5... ❌ No ping
+  Testing 172.16.16.6... ❌ No ping
+  Testing 172.16.16.7... ❌ No ping
+  Testing 172.16.16.8... ❌ No ping
+  Testing 172.16.16.9... ❌ No ping
+  Testing 172.16.16.10... ❌ No ping
+  Testing 172.16.16.11... ❌ No ping
+  Testing 172.16.16.12... ❌ No ping
+  Testing 172.16.16.13... ❌ No ping
+  Testing 172.16.16.14... ❌ No ping
+  Testing 172.16.16.15... ❌ No ping
+  Testing 172.16.16.16... ⏰ SSH Timeout
+  Testing 172.16.16.17... ❌ No SSH
+  Testing 172.16.16.18... ⏰ SSH Timeout
+  Testing 172.16.16.19... ❌ No ping
+  Testing 172.16.16.20... ❌ No ping
+  Testing 172.16.16.21... ⏰ SSH Timeout
+  Testing 172.16.16.22... ❌ No ping
+  Testing 172.16.16.23... ✅ SSH OK
+  Testing 172.16.16.24... ❌ No SSH
+  Testing 172.16.16.25... ❌ No ping
+  Testing 172.16.16.26... ❌ No SSH
+  Testing 172.16.16.27... ❌ No ping
+  Testing 172.16.16.28... ❌ No ping
+  Testing 172.16.16.29... ❌ No ping
+  Testing 172.16.16.30... ❌ No ping
+
+✅ Quick scan completed! Found 1 SSH-accessible servers
+Network scan completed. Found 1 SSH-accessible servers.
+🔍 Quick scanning network 172.16.16.x (IPs 20-24)...
+👤 Using username: root
+  Testing 172.16.16.20... ❌ No ping
+  Testing 172.16.16.21... ⏰ SSH Timeout
+  Testing 172.16.16.22... ❌ No ping
+  Testing 172.16.16.23... ✅ SSH OK
+  Testing 172.16.16.24... 
