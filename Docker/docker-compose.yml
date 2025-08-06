@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   chromadb:
     image: chromadb/chroma:latest
@@ -139,11 +137,11 @@ services:
     networks:
       - productdemo-network
 
-  resource-monitor:
+  resource-server:
     build:
       context: ..
-      dockerfile: Docker/Dockerfile.resource-monitor
-    container_name: productdemo-resource-monitor
+      dockerfile: Docker/Dockerfile.resource-server
+    container_name: productdemo-resource-server
     env_file:
       - .env
     ports:
@@ -151,11 +149,11 @@ services:
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
-    networks:
-      - productdemo-network
+    network_mode: host
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -179,7 +177,7 @@ services:
       - embedding-service
       - text-processor
       - mcp-orchestrator
-      - resource-monitor
+      - resource-server
     environment:
       - NODE_ENV=production
       - REDIS_HOST=redis
@@ -190,7 +188,7 @@ services:
       - MCP_ORCHESTRATOR_URL=http://mcp-orchestrator:${MCP_ORCHESTRATOR_PORT:-3581}
       - IMAGE_PROCESSOR_URL=http://image-processor:8430
       - PREDICTION_SERVICE_URL=http://prediction:8088
-      - RESOURCE_MONITOR_URL=http://resource-monitor:8005
+      - RESOURCE_MONITOR_URL=http://resource-server:8005
       # Use host IP for PostgreSQL and Ollama
       - DATABASE_HOST=${HOST_MACHINE_IP:-172.16.16.21}
       - OLLAMA_HOST=${HOST_MACHINE_IP:-172.16.16.21}

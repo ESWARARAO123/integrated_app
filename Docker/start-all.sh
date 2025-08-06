@@ -16,27 +16,27 @@ if ! docker info > /dev/null 2>&1; then
 fi
 
 # Load environment variables
-if [ -f "docker.env" ]; then
-    echo "📋 Loading environment variables from docker.env..."
-    export $(cat docker.env | grep -v '^#' | xargs)
+if [ -f ".env" ]; then
+    echo "📋 Loading environment variables from .env..."
+    export $(cat .env | grep -v '^#' | xargs)
 else
-    echo "⚠️  Warning: docker.env not found. Using default values."
+    echo "⚠️  Warning: .env not found. Using default values."
 fi
 
 # Stop any existing containers
 echo "🧹 Stopping existing containers..."
-docker-compose down --remove-orphans
+docker compose down --remove-orphans
 
 # Build all services
 echo "🔨 Building all services..."
-docker-compose build
+docker compose build
 
 if [ $? -eq 0 ]; then
     echo "✅ All services built successfully!"
     
     # Start all services
     echo "🚀 Starting all services..."
-    docker-compose up -d
+    docker compose up -d
     
     # Wait for services to start
     echo "⏳ Waiting for services to start..."
@@ -44,35 +44,35 @@ if [ $? -eq 0 ]; then
     
     # Check service status
     echo "📊 Service Status:"
-    docker-compose ps
+    docker compose ps
     
     # Check if key services are running
     echo ""
     echo "🔍 Checking key services..."
     
     # Check resource monitor
-    if docker-compose ps resource-monitor | grep -q "Up"; then
+    if docker compose ps resource-monitor | grep -q "Up"; then
         echo "✅ Resource Monitor: Running on http://localhost:${RESOURCE_MONITOR_PORT:-8005}"
     else
         echo "❌ Resource Monitor: Failed to start"
     fi
     
     # Check main app
-    if docker-compose ps app | grep -q "Up"; then
+    if docker compose ps app | grep -q "Up"; then
         echo "✅ Main Application: Running on http://localhost:${APP_PORT:-4342}"
     else
         echo "❌ Main Application: Failed to start"
     fi
     
     # Check ChromaDB
-    if docker-compose ps chromadb | grep -q "Up"; then
+    if docker compose ps chromadb | grep -q "Up"; then
         echo "✅ ChromaDB: Running on http://localhost:${CHROMADB_HOST_PORT:-8001}"
     else
         echo "❌ ChromaDB: Failed to start"
     fi
     
     # Check Redis
-    if docker-compose ps redis | grep -q "Up"; then
+    if docker compose ps redis | grep -q "Up"; then
         echo "✅ Redis: Running on localhost:${REDIS_HOST_PORT:-6379}"
     else
         echo "❌ Redis: Failed to start"
@@ -88,10 +88,10 @@ if [ $? -eq 0 ]; then
     echo "   🔴 Redis: localhost:${REDIS_HOST_PORT:-6379}"
     echo ""
     echo "🔧 Management Commands:"
-    echo "   📋 View logs: docker-compose logs -f [service-name]"
-    echo "   🛑 Stop all: docker-compose down"
-    echo "   🔄 Restart: docker-compose restart [service-name]"
-    echo "   📊 Status: docker-compose ps"
+    echo "   📋 View logs: docker compose logs -f [service-name]"
+    echo "   🛑 Stop all: docker compose down"
+    echo "   🔄 Restart: docker compose restart [service-name]"
+    echo "   📊 Status: docker compose ps"
     echo ""
     echo "💡 Resource Monitoring Features:"
     echo "   • Real-time CPU, Memory, Disk monitoring"
