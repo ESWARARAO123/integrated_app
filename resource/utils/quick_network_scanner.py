@@ -61,39 +61,46 @@ class QuickNetworkScanner:
             print(f"  Testing {ip}...", end=' ', flush=True)
             
             # First try ping to see if host is reachable
+            ping_success = False
             try:
+                # Use a more reliable ping approach
                 ping_result = subprocess.run([
-                    'ping', '-c', '1', '-W', '1', ip
-                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=3)
+                    'ping', '-c', '1', '-W', '2', ip
+                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
                 
-                if ping_result.returncode != 0:
-                    print("❌ No ping")
-                    continue
+                if ping_result.returncode == 0:
+                    ping_success = True
+                    print("✅ Ping OK", end=' ')
+                else:
+                    print("❌ No ping", end=' ')
             except:
-                print("❌ Ping failed")
-                continue
+                print("❌ Ping failed", end=' ')
+            
+            # If ping failed, still try SSH (some servers might not respond to ping)
+            if not ping_success:
+                print("(trying SSH anyway)", end=' ')
             
             # Test SSH connection (non-interactive)
             try:
                 # Try key-based authentication first
                 result = subprocess.run([
-                    'ssh', '-o', 'ConnectTimeout=3',
+                    'ssh', '-o', 'ConnectTimeout=5',
                     '-o', 'BatchMode=yes',
                     '-o', 'StrictHostKeyChecking=no',
                     '-o', 'UserKnownHostsFile=/dev/null',
                     f'{username}@{ip}',
                     'echo OK'
-                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
                 
                 # If key-based auth fails, try without BatchMode (allows password prompt)
                 if result.returncode != 0:
                     result = subprocess.run([
-                        'ssh', '-o', 'ConnectTimeout=3',
+                        'ssh', '-o', 'ConnectTimeout=5',
                         '-o', 'StrictHostKeyChecking=no',
                         '-o', 'UserKnownHostsFile=/dev/null',
                         f'{username}@{ip}',
                         'echo OK'
-                    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+                    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
                 
                 if result.returncode == 0:
                     print("✅ SSH OK")
@@ -117,31 +124,31 @@ class QuickNetworkScanner:
         try:
             # Get hostname
             hostname_result = subprocess.run([
-                'ssh', '-o', 'ConnectTimeout=2', f'{username}@{ip}', 'hostname'
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=3, universal_newlines=True)
+                'ssh', '-o', 'ConnectTimeout=3', f'{username}@{ip}', 'hostname'
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, universal_newlines=True)
             
             hostname = hostname_result.stdout.strip() if hostname_result.returncode == 0 else 'Unknown'
             
             # Get OS info
             os_result = subprocess.run([
-                'ssh', '-o', 'ConnectTimeout=2', f'{username}@{ip}', 
+                'ssh', '-o', 'ConnectTimeout=3', f'{username}@{ip}', 
                 'grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d\\" -f2 || echo "Unknown"'
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=3, universal_newlines=True)
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, universal_newlines=True)
             
             os_info = os_result.stdout.strip() if os_result.returncode == 0 else 'Unknown'
             
             # Get CPU cores
             cpu_result = subprocess.run([
-                'ssh', '-o', 'ConnectTimeout=2', f'{username}@{ip}', 'nproc 2>/dev/null || echo "Unknown"'
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=3, universal_newlines=True)
+                'ssh', '-o', 'ConnectTimeout=3', f'{username}@{ip}', 'nproc 2>/dev/null || echo "Unknown"'
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, universal_newlines=True)
             
             cpu_cores = cpu_result.stdout.strip() if cpu_result.returncode == 0 else 'Unknown'
             
             # Get memory info
             mem_result = subprocess.run([
-                'ssh', '-o', 'ConnectTimeout=2', f'{username}@{ip}', 
+                'ssh', '-o', 'ConnectTimeout=3', f'{username}@{ip}', 
                 'free -h 2>/dev/null | grep "^Mem:" | awk "{print \\$2}" || echo "Unknown"'
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=3, universal_newlines=True)
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, universal_newlines=True)
             
             memory = mem_result.stdout.strip() if mem_result.returncode == 0 else 'Unknown'
             

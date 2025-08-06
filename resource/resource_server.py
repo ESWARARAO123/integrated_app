@@ -332,9 +332,15 @@ class ResourceAPIHandler(BaseHTTPRequestHandler):
             
             if self.resource_data.network_scanner:
                 try:
-                    discovered = self.resource_data.network_scanner.quick_scan(
-                        network_range, username, max_ips=max_ips, start_ip=start_ip
-                    )
+                    # Try to use host network scanning if available
+                    discovered = self._scan_from_host(network_range, username, max_ips, start_ip)
+                    
+                    if not discovered:
+                        # Fallback to container-based scanning
+                        discovered = self.resource_data.network_scanner.quick_scan(
+                            network_range, username, max_ips=max_ips, start_ip=start_ip
+                        )
+                    
                     print(f"Network scan completed. Found {len(discovered)} SSH-accessible servers.")
                     
                     if self.resource_data.server_discovery:
@@ -373,6 +379,126 @@ class ResourceAPIHandler(BaseHTTPRequestHandler):
             
         except Exception as e:
             self.send_error(500, str(e))
+    
+    def _scan_from_host(self, network_range: str, username: str, max_ips: int, start_ip: int):
+        """Try to scan from host network perspective"""
+        try:
+            # Check if we can access the host network
+            import subprocess
+            import json
+            from datetime import datetime
+            
+            discovered = []
+            end_ip = min(start_ip + max_ips - 1, 254)
+            
+            print(f"🔍 Host-based scanning network {network_range}.x (IPs {start_ip}-{end_ip})...")
+            
+            for i in range(start_ip, min(start_ip + max_ips, 255)):
+                ip = f"{network_range}.{i}"
+                print(f"  Testing {ip}...", end=' ', flush=True)
+                
+                # First try ping to see if host is reachable
+                ping_success = False
+                try:
+                    ping_result = subprocess.run([
+                        'ping', '-c', '1', '-W', '2', ip
+                    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+                    
+                    if ping_result.returncode == 0:
+                        ping_success = True
+                        print("✅ Ping OK", end=' ')
+                    else:
+                        print("❌ No ping", end=' ')
+                except:
+                    print("❌ Ping failed", end=' ')
+                
+                # Try SSH connection with different authentication methods
+                ssh_success = False
+                ssh_error = None
+                
+                try:
+                    # Try key-based authentication first
+                    result = subprocess.run([
+                        'ssh', '-o', 'ConnectTimeout=5',
+                        '-o', 'BatchMode=yes',
+                        '-o', 'StrictHostKeyChecking=no',
+                        '-o', 'UserKnownHostsFile=/dev/null',
+                        f'{username}@{ip}',
+                        'echo OK'
+                    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                    
+                    if result.returncode == 0:
+                        ssh_success = True
+                        print("✅ SSH OK (key auth)")
+                    else:
+                        # Check if it's a password authentication error
+                        stderr_output = result.stderr.decode('utf-8', errors='ignore')
+                        if 'Permission denied' in stderr_output and ('password' in stderr_output.lower() or 'publickey' in stderr_output.lower()):
+                            ssh_success = True
+                            ssh_error = "Requires password authentication"
+                            print("✅ SSH reachable (password required)")
+                        else:
+                            ssh_error = stderr_output
+                            print("❌ No SSH")
+                        
+                except subprocess.TimeoutExpired:
+                    ssh_error = "Connection timeout"
+                    print("⏰ SSH Timeout")
+                except Exception as e:
+                    ssh_error = str(e)
+                    print(f"❌ SSH Error: {e}")
+                
+                if ssh_success:
+                    # Get basic server info
+                    try:
+                        hostname_result = subprocess.run([
+                            'ssh', '-o', 'ConnectTimeout=3', f'{username}@{ip}', 'hostname'
+                        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, universal_newlines=True)
+                        
+                        hostname = hostname_result.stdout.strip() if hostname_result.returncode == 0 else 'Unknown'
+                        
+                        os_result = subprocess.run([
+                            'ssh', '-o', 'ConnectTimeout=3', f'{username}@{ip}', 
+                            'grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d\\" -f2 || echo "Unknown"'
+                        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5, universal_newlines=True)
+                        
+                        os_info = os_result.stdout.strip() if os_result.returncode == 0 else 'Unknown'
+                        
+                        server_info = {
+                            'ip': ip,
+                            'hostname': hostname,
+                            'os': os_info,
+                            'cpu_cores': 'Unknown',
+                            'memory': 'Unknown',
+                            'ssh_accessible': True,
+                            'requires_password': ssh_error == "Requires password authentication",
+                            'ssh_error': ssh_error,
+                            'discovered_at': datetime.now().isoformat()
+                        }
+                        
+                        discovered.append(server_info)
+                        
+                    except Exception as e:
+                        print(f"Error getting info for {ip}: {e}")
+                        server_info = {
+                            'ip': ip,
+                            'hostname': 'Unknown',
+                            'os': 'Unknown',
+                            'cpu_cores': 'Unknown',
+                            'memory': 'Unknown',
+                            'ssh_accessible': True,
+                            'requires_password': ssh_error == "Requires password authentication",
+                            'ssh_error': ssh_error,
+                            'discovered_at': datetime.now().isoformat()
+                        }
+                        discovered.append(server_info)
+            
+            print(f"✅ Host-based scan completed! Found {len(discovered)} SSH-accessible servers")
+            return discovered
+            
+        except Exception as e:
+            print(f"Host-based scanning failed: {e}")
+            return []
     
     def handle_stop_scan(self):
         """Handle stop scanning request"""

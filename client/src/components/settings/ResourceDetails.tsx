@@ -31,7 +31,7 @@ export default function ResourceDetails() {
   // Server Management Functions
   const fetchServerStatus = async () => {
     try {
-      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8007';
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
       console.log('📡 Fetching server status from:', resourceMonitorUrl);
       
       const response = await fetch(`${resourceMonitorUrl}/api/server-status`);
@@ -65,7 +65,7 @@ export default function ResourceDetails() {
     try {
       setServerManagement(prev => ({ ...prev, isScanning: true, scanStatus: 'Scanning network...' }));
       
-      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8007';
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
       console.log('🔍 Starting network scan with URL:', resourceMonitorUrl);
       console.log('🔍 Scan parameters:', {
         network_range: serverManagement.networkRange,
@@ -121,7 +121,7 @@ export default function ResourceDetails() {
 
   const stopNetworkScan = async () => {
     try {
-      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8007';
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
       await fetch(`${resourceMonitorUrl}/api/stop-scan`, { method: 'POST' });
       setServerManagement(prev => ({ ...prev, isScanning: false, scanStatus: 'Scan stopped' }));
     } catch (err) {
@@ -131,7 +131,7 @@ export default function ResourceDetails() {
 
   const connectToServer = async (ip: string, username: string, password: string) => {
     try {
-      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8007';
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
       const response = await fetch(`${resourceMonitorUrl}/api/connect-server`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -153,7 +153,7 @@ export default function ResourceDetails() {
 
   const disconnectFromServer = async (ip: string) => {
     try {
-      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8007';
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
       const response = await fetch(`${resourceMonitorUrl}/api/disconnect-server`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,7 +175,7 @@ export default function ResourceDetails() {
 
   const saveConfiguration = async () => {
     try {
-      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8007';
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
       const response = await fetch(`${resourceMonitorUrl}/api/save-config`, { method: 'POST' });
       if (response.ok) {
         const data = await response.json();
@@ -189,7 +189,7 @@ export default function ResourceDetails() {
 
   const loadConfiguration = async () => {
     try {
-      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8007';
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
       const response = await fetch(`${resourceMonitorUrl}/api/load-config`, { method: 'POST' });
       if (response.ok) {
         const data = await response.json();
