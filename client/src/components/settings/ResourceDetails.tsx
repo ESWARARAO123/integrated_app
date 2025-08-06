@@ -5,6 +5,8 @@ import {
   ChartBarIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+import SSHConnectionModal from './SSHConnectionModal';
+import ServerSelector from './ServerSelector';
 
 export default function ResourceDetails() {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +21,14 @@ export default function ResourceDetails() {
     isScanning: false,
     discoveredServers: {},
     connectedServers: {},
+    currentServer: { ip: '172.16.16.21', hostname: 'server3', status: 'current' },
     scanStatus: ''
+  });
+
+  // Connection Modal State
+  const [connectionModal, setConnectionModal] = useState({
+    isOpen: false,
+    selectedServer: null as any
   });
 
   const [manualServer, setManualServer] = useState({
@@ -144,11 +153,28 @@ export default function ResourceDetails() {
           await fetchServerStatus(); // Refresh server list
         }
         return data;
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Connection failed');
       }
     } catch (err) {
       console.error('Error connecting to server:', err);
-      return { success: false, error: err.message };
+      throw err;
     }
+  };
+
+  const handleConnectClick = (server: any) => {
+    setConnectionModal({
+      isOpen: true,
+      selectedServer: server
+    });
+  };
+
+  const handleServerSelect = (server: any) => {
+    setServerManagement(prev => ({
+      ...prev,
+      currentServer: server
+    }));
   };
 
   const disconnectFromServer = async (ip: string) => {
@@ -371,7 +397,7 @@ export default function ResourceDetails() {
                           </span>
                         </div>
                         <button
-                          onClick={() => connectToServer(ip, serverManagement.sshUsername, '')}
+                          onClick={() => handleConnectClick(server.info || { ip, hostname: 'Unknown' })}
                           className="px-3 py-1 rounded text-sm transition-all"
                           style={{
                             backgroundColor: 'var(--color-success)',
@@ -551,6 +577,14 @@ export default function ResourceDetails() {
           </div>
         </div>
       </div>
+
+      {/* SSH Connection Modal */}
+      <SSHConnectionModal
+        isOpen={connectionModal.isOpen}
+        onClose={() => setConnectionModal({ isOpen: false, selectedServer: null })}
+        onConnect={connectToServer}
+        server={connectionModal.selectedServer}
+      />
     </div>
   );
 } 

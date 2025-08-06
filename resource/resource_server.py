@@ -272,22 +272,27 @@ class ResourceAPIHandler(BaseHTTPRequestHandler):
     def send_server_status(self):
         """Send server discovery status"""
         try:
+            # Get current server info
+            current_server = {
+                'ip': '172.16.16.21',  # Current server IP
+                'hostname': 'server3',
+                'status': 'current',
+                'connected_at': datetime.now().isoformat()
+            }
+            
+            # Get discovered and connected servers
+            discovered_servers = {}
             if self.resource_data.server_discovery:
-                status = self.resource_data.server_discovery.get_status_summary()
-                connected_servers = self.resource_data.server_discovery.connected_servers
                 discovered_servers = self.resource_data.server_discovery.discovered_servers
-                
-                response = {
-                    'success': True,
-                    'status': status,
-                    'connected_servers': connected_servers,
-                    'discovered_servers': discovered_servers
-                }
-            else:
-                response = {
-                    'success': False,
-                    'error': 'Server discovery not available'
-                }
+            
+            connected_servers = getattr(self.resource_data, 'connected_servers', {})
+            
+            response = {
+                'success': True,
+                'current_server': current_server,
+                'discovered_servers': discovered_servers,
+                'connected_servers': connected_servers
+            }
             
             self.send_response_headers()
             self.wfile.write(json.dumps(response, default=str).encode('utf-8'))
@@ -391,10 +396,29 @@ class ResourceAPIHandler(BaseHTTPRequestHandler):
             discovered = []
             end_ip = min(start_ip + max_ips - 1, 254)
             
+            # Get current machine's IP to skip it
+            current_ips = []
+            try:
+                result = subprocess.run(['hostname', '-I'], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    current_ips = result.stdout.strip().split()
+            except:
+                pass
+            
+            # Also add localhost variants
+            current_ips.extend(['127.0.0.1', 'localhost'])
+            
             print(f"🔍 Host-based scanning network {network_range}.x (IPs {start_ip}-{end_ip})...")
+            print(f"📍 Current machine IPs: {current_ips}")
             
             for i in range(start_ip, min(start_ip + max_ips, 255)):
                 ip = f"{network_range}.{i}"
+                
+                # Skip if it's the current machine
+                if ip in current_ips:
+                    print(f"  Skipping {ip} (current machine)")
+                    continue
+                
                 print(f"  Testing {ip}...", end=' ', flush=True)
                 
                 # First try ping to see if host is reachable
@@ -528,17 +552,71 @@ class ResourceAPIHandler(BaseHTTPRequestHandler):
             
             if not ip:
                 response = {'success': False, 'error': 'IP address is required'}
-            elif self.resource_data.server_discovery:
-                success = self.resource_data.server_discovery.connect_to_server(ip, username, password)
-                response = {
-                    'success': success,
-                    'message': f"Connection {'successful' if success else 'failed'} to {ip}"
-                }
             else:
-                response = {'success': False, 'error': 'Server discovery not available'}
+                # Test SSH connection with provided credentials
+                success, error_msg = self._test_ssh_connection(ip, username, password)
+                
+                if success:
+                    # Store connection info
+                    if not hasattr(self.resource_data, 'connected_servers'):
+                        self.resource_data.connected_servers = {}
+                    
+                    self.resource_data.connected_servers[ip] = {
+                        'ip': ip,
+                        'username': username,
+                        'connected_at': datetime.now().isoformat(),
+                        'status': 'connected'
+                    }
+                    
+                    response = {
+                        'success': True,
+                        'message': f'Successfully connected to {ip}',
+                        'server_info': self.resource_data.connected_servers[ip]
+                    }
+                else:
+                    response = {
+                        'success': False,
+                        'error': f'Failed to connect to {ip}: {error_msg}'
+                    }
             
             self.send_response_headers()
             self.wfile.write(json.dumps(response).encode('utf-8'))
+            
+        except Exception as e:
+            self.send_error(500, str(e))
+    
+    def _test_ssh_connection(self, ip: str, username: str, password: str) -> tuple:
+        """Test SSH connection with username and password"""
+        try:
+            import subprocess
+            
+            if password:
+                # Use sshpass for password authentication
+                result = subprocess.run([
+                    'sshpass', '-p', password,
+                    'ssh', '-o', 'ConnectTimeout=10',
+                    '-o', 'StrictHostKeyChecking=no',
+                    f'{username}@{ip}', 'echo "SSH connection test successful"'
+                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=15)
+            else:
+                # Try key-based authentication
+                result = subprocess.run([
+                    'ssh', '-o', 'ConnectTimeout=10',
+                    '-o', 'BatchMode=yes',
+                    '-o', 'StrictHostKeyChecking=no',
+                    f'{username}@{ip}', 'echo "SSH connection test successful"'
+                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=15)
+            
+            if result.returncode == 0:
+                return True, None
+            else:
+                error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+                return False, error_msg
+                
+        except subprocess.TimeoutExpired:
+            return False, "Connection timeout"
+        except Exception as e:
+            return False, str(e)
             
         except Exception as e:
             self.send_error(500, str(e))

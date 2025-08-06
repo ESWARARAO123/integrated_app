@@ -12,6 +12,7 @@ import {
   ClockIcon,
   CogIcon
 } from '@heroicons/react/24/outline';
+import ServerSelector from '../components/settings/ServerSelector';
 
 interface ResourceData {
   cpu: {
@@ -70,6 +71,43 @@ export default function Resource() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5);
   const [selectedView, setSelectedView] = useState<'overview' | 'detailed' | 'alerts'>('overview');
+
+  // Server Management State
+  const [serverManagement, setServerManagement] = useState({
+    currentServer: { ip: '172.16.16.21', hostname: 'server3', status: 'current' },
+    connectedServers: {},
+    discoveredServers: {}
+  });
+
+  // Fetch server status
+  const fetchServerStatus = async () => {
+    try {
+      const resourceMonitorUrl = process.env.REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+      const response = await fetch(`${resourceMonitorUrl}/api/server-status`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setServerManagement(prev => ({
+            ...prev,
+            currentServer: data.current_server,
+            connectedServers: data.connected_servers,
+            discoveredServers: data.discovered_servers
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching server status:', err);
+    }
+  };
+
+  const handleServerSelect = (server: any) => {
+    setServerManagement(prev => ({
+      ...prev,
+      currentServer: server
+    }));
+    // Refresh resource data for the selected server
+    fetchResourceData();
+  };
 
   // Fetch resource data from clean_manager_lev1 dashboard
   const fetchResourceData = async () => {
@@ -152,6 +190,11 @@ export default function Resource() {
     }
   }, [autoRefresh, refreshInterval]);
 
+  // Fetch server status on component mount
+  useEffect(() => {
+    fetchServerStatus();
+  }, []);
+
   // Format bytes to human readable
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -196,12 +239,22 @@ export default function Resource() {
         className="flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text)' }}>System Resources</h1>
-          <p style={{ color: 'var(--color-text-secondary)' }}>Monitor and analyze system performance</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
+            System Resources - {serverManagement.currentServer.hostname || serverManagement.currentServer.ip}
+          </h1>
+          <p style={{ color: 'var(--color-text-secondary)' }}>
+            Monitor and analyze system performance for {serverManagement.currentServer.status === 'current' ? 'current server' : 'connected server'}
+          </p>
         </div>
         
         {/* Controls */}
         <div className="flex flex-wrap gap-4 items-center">
+          <ServerSelector
+            currentServer={serverManagement.currentServer}
+            connectedServers={serverManagement.connectedServers}
+            onServerSelect={handleServerSelect}
+          />
+          
           <button
             onClick={fetchResourceData}
             disabled={isLoading}
