@@ -2,7 +2,42 @@
 
 All notable changes to the Visual Flow Editor will be documented in this file.
 
-## [v0.3.0] - 2025-08-05 (Current) - File Editor Integration & Context Menu System 🎉
+## [v0.3.1] - 2025-08-06 - Context Menu & File Editor Fixes 🛠️
+
+### ✅ **FIXED: Context Menu Positioning**
+- **Precise Menu Placement**: Context menus now spawn directly next to the clicked block
+- **DOM Isolation**: Implemented React `createPortal` to render menus in document body
+- **Event Propagation Control**: Added `stopPropagation()` to prevent unwanted block movement
+- **Viewport-Aware Positioning**: Menu automatically adjusts position to stay within viewport
+- **Coordinate System Fix**: Uses `getBoundingClientRect()` instead of global coordinates
+
+### ✅ **FIXED: File Editor Save Operations**
+- **Robust File Saving**: Implemented dual save strategies for reliable file operations
+- **Smart Diff Analysis**: Added intelligent file diff system to determine optimal save method
+- **Line-by-Line Editing**: Uses `sed` commands for minor changes (≤5 lines or ≤10%)
+- **Full File Replacement**: Uses `cat << EOF` for larger changes
+- **Fresh MCP Connections**: Each save operation creates a new connection to prevent timeout issues
+- **CORS Support**: Added proper CORS headers to support cross-origin requests
+- **Proxy Enhancement**: Fixed proxy to correctly handle PUT and PATCH requests
+- **Improved Error Handling**: Added comprehensive error reporting and retry logic
+- **User Feedback**: Added save method indicators ("Saved via Sed", "Saved via Shell", "No Changes")
+
+### 🔧 **TECHNICAL IMPROVEMENTS**
+- **Server Timeouts**: Increased to 5 minutes (300,000ms) to handle large file operations
+- **Body Parser Limits**: Increased from 1MB to 50MB to accommodate larger file contents
+- **New File Services**: Added `fileDiffService.ts` for intelligent diff analysis
+- **Shell Command Approach**: Replaced problematic `editFile` MCP tool with more reliable shell commands
+- **PATCH Endpoint**: Added new endpoint for efficient line-by-line file editing
+
+### 🐛 **RESOLVED ISSUES**
+- Fixed context menu spawning far from blocks
+- Fixed block position changing when interacting with menu
+- Fixed file save operations failing with `net::ERR_EMPTY_RESPONSE`
+- Fixed `BadRequestError: request aborted` in Docker logs
+- Fixed connection reuse issues in MCP operations
+- Fixed CORS issues with direct backend access
+
+## [v0.3.0] - 2025-08-05 - File Editor Integration & Context Menu System 🎉
 
 ### ✅ **COMPLETED: File Editor Modal Integration**
 - **Large Chakra UI Modal**: Professional file editing interface inspired by FlowdirApprovalModal
