@@ -231,6 +231,23 @@ services:
     networks:
       - productdemo-network
 
+  resource-server:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.resource-server
+    container_name: productdemo-resource-server
+    ports:
+      - "${RESOURCE_MONITOR_PORT:-8005}:8005"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - productdemo-network
+
       
 volumes:
   redis_data:

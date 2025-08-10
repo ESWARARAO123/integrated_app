@@ -1,0 +1,45 @@
+FROM python:3.12-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    procps \
+    openssh-client \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY python/resource/requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir psutil
+
+# Copy the resource management application
+COPY python/resource/ .
+
+# Make scripts executable
+RUN chmod +x start_resource_server.sh
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash resourceuser && \
+    chown -R resourceuser:resourceuser /app
+
+# Switch to non-root user
+USER resourceuser
+
+# Expose port
+EXPOSE 8005
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8005/api/data || exit 1
+
+# Start the resource management server
+CMD ["python", "resource_server.py", "--host", "0.0.0.0"] 
