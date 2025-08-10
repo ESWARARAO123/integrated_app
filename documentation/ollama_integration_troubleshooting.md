@@ -44,7 +44,7 @@ This guide helps diagnose and fix common issues with the Ollama AI integration i
 
 2. For a different host/port:
    ```
-   node scripts/test-ollama-connection.js 172.16.16.26 11434
+   node scripts/test-ollama-connection.js 172.16.16.21 11434
    ```
 
 3. Review the output and follow the recommendations
@@ -70,7 +70,7 @@ If the diagnostic tool shows that your database settings are incorrect, you can 
    ```ini
    [database]
    database-type = postgres
-   database-host = 172.16.16.26
+   database-host = 172.16.16.21
    database-port = 5432
    database-user = postgres
    database-password = root
@@ -126,7 +126,7 @@ If the diagnostic script shows database connection issues:
 3. Ensure the database user has proper permissions
 4. Test direct database connection with:
    ```
-   psql -U postgres -h 172.16.16.26 -d copilot
+   psql -U postgres -h 172.16.16.21 -d copilot
    ```
 
 ## If All Else Fails

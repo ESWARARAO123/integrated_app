@@ -9,7 +9,7 @@ PinnacleAi uses a comprehensive Docker-based microservices architecture that orc
 ### Service Topology
 
 ```
-Host Machine (172.16.16.26)
+Host Machine (172.16.16.21)
 ├── PostgreSQL Database
 ├── Ollama AI Service
 └── File System Storage
@@ -254,9 +254,9 @@ IMAGE_PROCESSOR_URL=http://image-processor:8430
 
 ### Host Integration
 ```bash
-DATABASE_HOST=172.16.16.26        # PostgreSQL on host
-OLLAMA_HOST=172.16.16.26          # Ollama on host
-HOST_MACHINE_IP=172.16.16.26      # Host IP for services
+DATABASE_HOST=172.16.16.21        # PostgreSQL on host
+OLLAMA_HOST=172.16.16.21          # Ollama on host
+HOST_MACHINE_IP=172.16.16.21      # Host IP for services
 ```
 
 ## Configuration Management
