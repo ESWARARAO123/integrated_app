@@ -10,7 +10,8 @@ import {
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
   BugAntIcon,
-  RectangleGroupIcon
+  RectangleGroupIcon,
+  ServerIcon
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
@@ -138,6 +139,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onToggle, user, isAd
           </NavLink>
           <NavLink to="/chatbot" icon={ChatBubbleLeftRightIcon} collapsed={!isOpen} onClick={() => !isLargeScreen && onClose()}>
             Chatbot
+          </NavLink>
+          <NavLink to="/resource" icon={ServerIcon} collapsed={!isOpen} onClick={() => !isLargeScreen && onClose()}>
+            Resource
           </NavLink>
           {isAdmin && isAdmin() && (
             <NavLink to="/users" icon={UsersIcon} collapsed={!isOpen} onClick={() => !isLargeScreen && onClose()}>

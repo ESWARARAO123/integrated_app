@@ -21,6 +21,7 @@ import RunStatusDbSettings from '../components/settings/RunStatusDbSettings';
 import DBInfoSettings from '../components/settings/db_info';
 import PredictionDBSettings from '../components/settings/PredictionDBSettings';
 import FlowEditorSettings from '../components/settings/FlowEditorSettings';
+import ResourceDetails from '../components/settings/ResourceDetails';
 
 // Import ThemeType from the ThemeContext
 type ThemeType = 'dark' | 'light' | 'midnight';
@@ -139,6 +140,7 @@ export default function Settings() {
     { id: 'debugging', name: 'Debugging', icon: BugAntIcon, adminOnly: false },
     { id: 'db_info', name: 'Database Settings', icon: ServerIcon, adminOnly: false },
     { id: 'prediction_db', name: 'Prediction DB', icon: CircleStackIcon, adminOnly: false },
+    { id: 'resource_details', name: 'Resource Details', icon: ServerIcon, adminOnly: false },
   ];
 
   // Filter tabs based on user role
@@ -555,6 +557,18 @@ export default function Settings() {
                   Configure your Prediction database connection for flow analysis and visualization.
                 </p>
                 <PredictionDBSettings />
+              </div>
+            )}
+
+            {activeTab === 'resource_details' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-text)' }}>
+                  Resource Details
+                </h2>
+                <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+                  Monitor system resources and manage server connections.
+                </p>
+                <ResourceDetails />
               </div>
             )}
           </motion.div>
