@@ -238,6 +238,6 @@ volumes:
 
 networks:
   productdemo-network:
-    driver: bridge
-
+    external: true
+    name: docker_productdemo-network
 
