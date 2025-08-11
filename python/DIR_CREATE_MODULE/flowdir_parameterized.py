@@ -324,7 +324,7 @@ else:
 		if stage in ("LEC","STA"):
 		    pass
 		else:
-			os.system(f'find {pj(central_directory_path,project[0],tool_used,stage)}/* -maxdepth 0 -type d  -exec cp -rf  {{}} {pj(pname,rtlv,block_name,stage,user_name,f"run_{tool_used}_{run}")}/ \\\\; ')
+			os.system(f'find {pj(central_directory_path,project[0],tool_used,stage)}/* -maxdepth 0 -type d  -exec cp -rf  {{}} {pj(pname,rtlv,block_name,stage,user_name,f"run_{tool_used}_{run}")}/ \\; ')
 			log_action("FILE_COPIED", f"Central scripts copied for {stage}")
 
 log_progress(7, 10, "Setting up centroid inputs")

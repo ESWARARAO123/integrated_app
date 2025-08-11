@@ -1,9 +1,9 @@
-const pool = require('../config/database');
+const { pool } = require('../database');
 
 // Get user's flow editor settings
 const getFlowEditorSettings = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.session.userId;
 
     const result = await pool.query(
       'SELECT * FROM flow_editor_settings WHERE user_id = $1',
@@ -24,7 +24,7 @@ const getFlowEditorSettings = async (req, res) => {
 // Save or update user's flow editor settings
 const saveFlowEditorSettings = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.session.userId;
     const {
       // Execution Configuration
       working_directory,
@@ -193,7 +193,7 @@ const saveFlowEditorSettings = async (req, res) => {
 // Reset user's flow editor settings to defaults
 const resetFlowEditorSettings = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.session.userId;
 
     await pool.query(
       'DELETE FROM flow_editor_settings WHERE user_id = $1',

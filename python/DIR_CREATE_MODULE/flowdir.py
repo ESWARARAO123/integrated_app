@@ -3,8 +3,8 @@ import os,getpass,json,time,sys
 from os.path import join as pj 
 import subprocess
 #######
-os.chdir('/mnt/projects_107/vasu_backend')  #top work area location
-central_directory_path ="/mnt/projects/vasu_backend/flow/central_scripts"  #realpath of the central scripts path
+os.chdir('/nas/nas_v1/Innovus_trials/users')  #top work area location
+central_directory_path ="/nas/nas_v1/Innovus_trials/users/central_scripts"  #realpath of the central scripts path
 #######
 
 rtlv='Phase-0'
