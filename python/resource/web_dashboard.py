@@ -10,7 +10,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 
 # Database configuration
-DB_HOST = "172.16.16.23"
+DB_HOST = "172.16.16.21"
 DB_PORT = "5432"
 DB_NAME = "demo"
 DB_USER = "postgres"

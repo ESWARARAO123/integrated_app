@@ -4,7 +4,12 @@ import {
   ExclamationTriangleIcon,
   ArrowPathIcon,
   ClockIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  CpuChipIcon,
+  CircleStackIcon,
+  ComputerDesktopIcon,
+  SignalIcon,
+  CogIcon
 } from '@heroicons/react/24/outline';
 
 interface TableData {
@@ -16,6 +21,13 @@ interface DatabaseTable {
   name: string;
   rowCount: number;
   columnCount: number;
+}
+
+interface ResourceBlock {
+  title: string;
+  icon: any;
+  data: { [key: string]: any };
+  color: string;
 }
 
 export default function Resource() {
@@ -136,6 +148,101 @@ export default function Resource() {
     return 'var(--color-text)';
   };
 
+  // Transform table data into resource blocks
+  const getResourceBlocks = (): ResourceBlock[] => {
+    if (!tableData || !tableData.data || tableData.data.length === 0) {
+      return [];
+    }
+
+    const row = tableData.data[0]; // Get the first row (most recent data)
+    const columns = tableData.columns;
+    const dataMap: { [key: string]: any } = {};
+
+    // Create a map of column names to values
+    columns.forEach((column, index) => {
+      if (column !== 'id' && column !== 'entry_type') {
+        dataMap[column] = row[index];
+      }
+    });
+
+    // Define resource blocks
+    const blocks: ResourceBlock[] = [
+      {
+        title: 'CPU Information',
+        icon: CpuChipIcon,
+        data: {
+          'CPU Cores': dataMap.cpu_cores,
+          'CPU Threads': dataMap.cpu_threads,
+          'Frequency (MHz)': dataMap.cpu_frequency_mhz,
+          'Usage (%)': dataMap.cpu_usage_percent
+        },
+        color: 'var(--color-primary)'
+      },
+      {
+        title: 'Memory Information',
+        icon: CircleStackIcon,
+        data: {
+          'Total (GB)': dataMap.memory_total_gb,
+          'Used (GB)': dataMap.memory_used_gb,
+          'Free (GB)': dataMap.memory_free_gb,
+          'Usage (%)': dataMap.memory_usage_percent
+        },
+        color: 'var(--color-success)'
+      },
+      {
+        title: 'Disk Information',
+        icon: ComputerDesktopIcon,
+        data: {
+          'Total (GB)': dataMap.disk_total_gb,
+          'Used (GB)': dataMap.disk_used_gb,
+          'Free (GB)': dataMap.disk_free_gb,
+          'Usage (%)': dataMap.disk_usage_percent
+        },
+        color: 'var(--color-warning)'
+      },
+      {
+        title: 'Network Information',
+        icon: SignalIcon,
+        data: {
+          'Bytes Sent (GB)': dataMap.network_bytes_sent_gb,
+          'Bytes Received (GB)': dataMap.network_bytes_recv_gb
+        },
+        color: 'var(--color-info)'
+      },
+      {
+        title: 'System Information',
+        icon: CogIcon,
+        data: {
+          'Load (1min)': dataMap.load_1min,
+          'Load (5min)': dataMap.load_5min,
+          'Load (15min)': dataMap.load_15min,
+          'Uptime (seconds)': dataMap.uptime_seconds,
+          'Running Processes': dataMap.running_processes
+        },
+        color: 'var(--color-secondary)'
+      }
+    ];
+
+    return blocks;
+  };
+
+  // Format uptime from seconds to human readable
+  const formatUptime = (seconds: number): string => {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  };
+
+  const resourceBlocks = getResourceBlocks();
+
   return (
     <div className="flex-1 overflow-hidden">
       {/* Header */}
@@ -158,7 +265,7 @@ export default function Resource() {
             disabled={isLoading || !selectedTable}
             className="flex items-center space-x-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-                         <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
         </div>
@@ -169,7 +276,7 @@ export default function Resource() {
         {error && (
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
             <div className="flex items-center space-x-2">
-                             <ExclamationTriangleIcon className="w-5 h-5 text-destructive" />
+              <ExclamationTriangleIcon className="w-5 h-5 text-destructive" />
               <span className="text-destructive font-medium">{error}</span>
             </div>
           </div>
@@ -201,64 +308,67 @@ export default function Resource() {
         {isLoading && (
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center space-x-3">
-                             <ArrowPathIcon className="w-6 h-6 animate-spin text-primary" />
+              <ArrowPathIcon className="w-6 h-6 animate-spin text-primary" />
               <span className="text-lg">Loading table data...</span>
             </div>
           </div>
         )}
 
-        {/* Table Info */}
-        {selectedTable && !isLoading && (
-          <div className="mb-4 p-4 bg-muted/50 rounded-lg">
-            <div className="flex items-center space-x-4 text-sm">
-              <span className="font-medium">Table: {selectedTable}</span>
-              {tableData && (
-                <>
-                  <span>• Rows: {tableData.data.length}</span>
-                  <span>• Columns: {tableData.columns.length}</span>
-                </>
-              )}
+        {/* Resource Blocks */}
+        {resourceBlocks.length > 0 && !isLoading && (
+          <div className="space-y-6">
+            <div className="mb-4 p-4 bg-muted/50 rounded-lg">
+              <div className="flex items-center space-x-4 text-sm">
+                <span className="font-medium">Table: {selectedTable}</span>
+                <span>• Data from most recent entry</span>
+                {tableData && (
+                  <span>• Total rows: {tableData.data.length}</span>
+                )}
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* Table Data */}
-        {tableData && !isLoading && (
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-muted/50 border-b border-border">
-                    {tableData.columns.map((column, index) => (
-                      <th
-                        key={index}
-                        className="px-4 py-3 text-left text-sm font-medium text-muted-foreground"
-                      >
-                        {column}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableData.data.map((row, rowIndex) => (
-                    <tr
-                      key={rowIndex}
-                      className="border-b border-border hover:bg-muted/30 transition-colors"
-                    >
-                      {row.map((cell, cellIndex) => (
-                        <td
-                          key={cellIndex}
-                          className="px-4 py-3 text-sm"
-                          style={{ color: getStatusColor(cell, tableData.columns[cellIndex]) }}
-                          title={String(cell)}
-                        >
-                          {formatCellValue(cell)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {resourceBlocks.map((block, index) => (
+                <div
+                  key={index}
+                  className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-center space-x-3 mb-4">
+                    <block.icon className="w-6 h-6" style={{ color: block.color }} />
+                    <h3 className="text-lg font-semibold">{block.title}</h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {Object.entries(block.data).map(([key, value]) => {
+                      // Special formatting for certain fields
+                      let displayValue = formatCellValue(value);
+                      let displayKey = key;
+                      
+                      if (key === 'Uptime (seconds)' && typeof value === 'number') {
+                        displayValue = formatUptime(value);
+                        displayKey = 'Uptime';
+                      } else if (key === 'Timestamp' && typeof value === 'string') {
+                        displayValue = new Date(value).toLocaleString();
+                        displayKey = 'Last Updated';
+                      } else if (key.includes('Usage (%)')) {
+                        displayKey = 'Usage';
+                      }
+                      
+                      return (
+                        <div key={key} className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">{displayKey}:</span>
+                          <span 
+                            className="text-sm font-medium"
+                            style={{ color: getStatusColor(value, key.toLowerCase()) }}
+                          >
+                            {displayValue}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -269,18 +379,18 @@ export default function Resource() {
             <ServerIcon className="w-16 h-16 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Table Selected</h3>
             <p className="text-muted-foreground max-w-md">
-              Select a table from the dropdown above to view its data. The table viewer will display all columns and rows from your database tables.
+              Select a table from the dropdown above to view its data. The data will be displayed in organized blocks showing CPU, Memory, Disk, Network, and System information.
             </p>
           </div>
         )}
 
         {/* No Data State */}
-        {selectedTable && tableData && tableData.data.length === 0 && !isLoading && (
+        {selectedTable && resourceBlocks.length === 0 && !isLoading && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-                         <ChartBarIcon className="w-16 h-16 text-muted-foreground mb-4" />
+            <ChartBarIcon className="w-16 h-16 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Data Found</h3>
             <p className="text-muted-foreground">
-              The selected table '{selectedTable}' contains no data.
+              The selected table '{selectedTable}' contains no data or doesn't have the expected column structure.
             </p>
           </div>
         )}
