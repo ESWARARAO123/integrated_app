@@ -143,7 +143,7 @@ The team is currently working on:
    - Ensure `schema_migrations` table is created before other migrations
    
 2. **Ollama Integration**:
-   - Connection to Ollama server fails with both localhost and IP address (172.16.16.23)
+   - Connection to Ollama server fails with both localhost and IP address (172.16.16.21)
    - Default timeout of 15 seconds may be insufficient for connection
    - Test connection fails in the UI despite Ollama server running
    - Unable to save settings or sync models due to connection issues
@@ -177,7 +177,7 @@ The current development approach is focused on completing the AI integration wit
 There is a connection issue with the Ollama AI integration. Key findings:
 
 1. The Ollama server is running locally at `localhost:11434` and is accessible (tested via curl).
-2. The user is also trying to connect to `172.16.16.23:11434` but having trouble.
+2. The user is also trying to connect to `172.16.16.21:11434` but having trouble.
 3. The connection test in the OllamaSettings component fails despite the server being available.
 4. The issue appears to be in how API requests are proxied to the Ollama server.
 

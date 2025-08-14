@@ -220,6 +220,15 @@ export default function Resource() {
           'Running Processes': dataMap.running_processes
         },
         color: 'var(--color-secondary)'
+      },
+      // New License Block
+      {
+        title: 'License Information',
+        icon: ChartBarIcon,
+        data: {
+          'License Info': dataMap.license_info || 'Not Available'
+        },
+        color: 'var(--color-accent)' // Use a distinct color for the license block
       }
     ];
 
@@ -249,7 +258,7 @@ export default function Resource() {
       <div className="flex items-center justify-between p-6 border-b border-border">
         <div className="flex items-center space-x-3">
           <ServerIcon className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-bold">Database Table Viewer</h1>
+          <h1 className="text-2xl font-bold">Resource Monitor</h1>
         </div>
         
         <div className="flex items-center space-x-4">
@@ -286,7 +295,7 @@ export default function Resource() {
         <div className="mb-6">
           <div className="flex items-center space-x-4">
             <label htmlFor="table-select" className="text-sm font-medium">
-              Select Database Table:
+              Select Server:
             </label>
             <select
               id="table-select"
@@ -317,15 +326,6 @@ export default function Resource() {
         {/* Resource Blocks */}
         {resourceBlocks.length > 0 && !isLoading && (
           <div className="space-y-6">
-            <div className="mb-4 p-4 bg-muted/50 rounded-lg">
-              <div className="flex items-center space-x-4 text-sm">
-                <span className="font-medium">Table: {selectedTable}</span>
-                <span>• Data from most recent entry</span>
-                {tableData && (
-                  <span>• Total rows: {tableData.data.length}</span>
-                )}
-              </div>
-            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {resourceBlocks.map((block, index) => (
@@ -397,4 +397,4 @@ export default function Resource() {
       </div>
     </div>
   );
-} 
+}

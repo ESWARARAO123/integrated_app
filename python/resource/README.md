@@ -4,14 +4,14 @@ A simple web-based dashboard for viewing data from PostgreSQL database tables.
 
 ## Features
 
-- **Database Connectivity**: Connects to PostgreSQL database at `172.16.16.23:5432`
+- **Database Connectivity**: Connects to PostgreSQL database at `172.16.16.21:5432`
 - **Table Discovery**: Automatically discovers all tables in the database
 - **Data Display**: Shows table data in a clean, responsive format
 - **Simple Interface**: Clean dropdown selector and table view
 
 ## Database Configuration
 
-- **Host**: 172.16.16.23
+- **Host**: 172.16.16.21
 - **Port**: 5432
 - **Database**: demo
 - **User**: postgres

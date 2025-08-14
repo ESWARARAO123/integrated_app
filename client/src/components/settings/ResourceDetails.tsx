@@ -21,7 +21,7 @@ export default function ResourceDetails() {
     isScanning: false,
     discoveredServers: {},
     connectedServers: {},
-    currentServer: { ip: '172.16.16.23', hostname: 'server3', status: 'current' },
+    currentServer: { ip: '172.16.16.21', hostname: 'server3', status: 'current' },
     scanStatus: ''
   });
 

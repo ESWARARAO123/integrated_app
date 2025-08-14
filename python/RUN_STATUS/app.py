@@ -25,7 +25,7 @@ def get_database_config():
     
     # For Docker environment, use host machine IP as fallback
     # For local development, use localhost as fallback
-    default_host = os.getenv('HOST_MACHINE_IP', '172.16.16.23') if is_docker else 'localhost'
+    default_host = os.getenv('HOST_MACHINE_IP', '172.16.16.21') if is_docker else 'localhost'
     
     return {
         'host': os.getenv('DATABASE_HOST') or os.getenv('POSTGRES_HOST') or default_host,

@@ -127,7 +127,7 @@ Create a `.env` file in the Docker directory:
 
 ```
 # Host machine IP (for accessing PostgreSQL and Ollama)
-HOST_MACHINE_IP=172.16.16.23
+HOST_MACHINE_IP=172.16.16.21
 
 # Service ports
 APP_PORT=5641
@@ -143,7 +143,7 @@ DIR_CREATE_PORT=3582
 IMAGE_PROCESSOR_PORT=8430
 
 # Database configuration
-DATABASE_HOST=172.16.16.23
+DATABASE_HOST=172.16.16.21
 DATABASE_PORT=5432
 DATABASE_NAME=copilot
 DATABASE_USER=postgres
@@ -805,7 +805,7 @@ cp -r ./DATA/chroma_data/* $BACKUP_DIR/
 docker start productdemo-chromadb
 
 # Backup PostgreSQL database
-pg_dump -h 172.16.16.23 -U postgres -d copilot > "/backups/postgres/copilot_$TIMESTAMP.sql"
+pg_dump -h 172.16.16.21 -U postgres -d copilot > "/backups/postgres/copilot_$TIMESTAMP.sql"
 
 # Compress backups
 tar -czf "/backups/archive/vision_rag_backup_$TIMESTAMP.tar.gz" $BACKUP_DIR "/backups/postgres/copilot_$TIMESTAMP.sql"

@@ -4,7 +4,7 @@ import psycopg2
 from psycopg2 import sql
 
 # Database connection details
-DB_HOST = "172.16.16.23"
+DB_HOST = "172.16.16.21"
 DB_PORT = "5432"
 DB_NAME = "algodb"
 DB_USER = "postgres"

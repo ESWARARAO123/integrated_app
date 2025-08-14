@@ -20,5 +20,5 @@ fi
 
 # Start the dashboard
 echo "🌐 Starting Database Table Viewer on http://localhost:8005"
-echo "🗄️  Connecting to database: 172.16.16.23:5432/demo"
+echo "🗄️  Connecting to database: 172.16.16.21:5432/demo"
 python3 web_dashboard.py --port 8005 --host localhost 
