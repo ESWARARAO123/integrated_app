@@ -56,7 +56,7 @@ const client = await pool.connect();
 
 ### **Settings-Based Connection Should Now Work**:
 1. ✅ Go to Settings → RunStatus Database Settings
-2. ✅ Enter database details (host=172.16.16.21, port=5432, database=copilot, etc.)
+2. ✅ Enter database details (host=172.16.16.23, port=5432, database=copilot, etc.)
 3. ✅ Click "Test Connection" → Should work without 404 error
 4. ✅ Click "Save Configuration" → Should save without pool error
 5. ✅ Go to RunStatus page → Should show "Auto-Connected" status
@@ -77,12 +77,12 @@ const client = await pool.connect();
 1. **Restart your server**
 2. **Test Settings-based connection**:
    - Go to Settings → RunStatus Database Settings
-   - Enter: host=172.16.16.21, port=5432, database=copilot, user=postgres, password=xxx
+   - Enter: host=172.16.16.23, port=5432, database=copilot, user=postgres, password=xxx
    - Click "Test Connection" (should succeed without 404)
    - Click "Save Configuration" (should succeed without pool error)
 3. **Verify RunStatus page**:
    - Go to RunStatus page
-   - Should show "Auto-Connected to 172.16.16.21:5432/copilot"
+   - Should show "Auto-Connected to 172.16.16.23:5432/copilot"
    - Tables should appear in the list
    - Simple Flow analysis should work
 
@@ -115,6 +115,6 @@ RunStatus database service reloaded successfully
 
 3. **Test manual connection** as fallback (should still work)
 
-4. **Verify network connectivity** to 172.16.16.21:5432
+4. **Verify network connectivity** to 172.16.16.23:5432
 
 The main issues have been resolved. After server restart, both the Settings-based and Manual connection methods should work properly. 

@@ -78,7 +78,7 @@ async function ensurePredictionDbSettingsTable() {
 
 ### **Prediction Database Settings Should Now Work**:
 1. ✅ Go to Settings → Prediction Database Settings
-2. ✅ Enter database details (host=172.16.16.21, port=5432, database=windowsalgodb, etc.)
+2. ✅ Enter database details (host=172.16.16.23, port=5432, database=windowsalgodb, etc.)
 3. ✅ Click "Test Connection" → Should work
 4. ✅ Click "Save Configuration" → Should save without table errors
 5. ✅ Table will be auto-created if missing
@@ -101,7 +101,7 @@ async function ensurePredictionDbSettingsTable() {
 1. **Restart your server**
 2. **Test Prediction Database Settings**:
    - Go to Settings → Prediction Database Settings
-   - Enter: host=172.16.16.21, port=5432, database=windowsalgodb, user=postgres, password=xxx
+   - Enter: host=172.16.16.23, port=5432, database=windowsalgodb, user=postgres, password=xxx
    - Click "Test Connection" (should succeed)
    - Click "Save Configuration" (should succeed without table error)
 3. **Verify table creation**:

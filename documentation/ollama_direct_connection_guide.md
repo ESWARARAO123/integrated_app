@@ -16,7 +16,7 @@ This guide explains the new direct connection feature which allows you to connec
 ### Step 1: Set Your Ollama Host & Port
 
 1. Navigate to Settings > AI Settings
-2. Enter your Ollama server host (e.g., `localhost`, `172.16.16.21`, etc.)
+2. Enter your Ollama server host (e.g., `localhost`, `172.16.16.23`, etc.)
 3. Enter your Ollama server port (default: `11434`)
 4. Enter your default model (e.g., `llama3`)
 
