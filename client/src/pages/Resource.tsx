@@ -589,7 +589,7 @@ export default function Resource() {
             onChange={(e) => handleTableSelect(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-700 min-w-[250px]"
           >
-            <option value="">?? Show Dashboard (All Servers)</option>
+            <option value="">🌐 Show Dashboard (All Servers)</option>
             {tables.map((table) => (
               <option key={table.name} value={table.name}>
                 {table.name}
