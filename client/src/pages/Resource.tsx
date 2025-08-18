@@ -346,8 +346,8 @@ export default function Resource() {
           'Usage (%)': dataMap.cpu_usage_percent,
         },
         chart: (
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="w-full md:w-1/2 h-40">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative w-full md:w-1/2 h-40 flex items-center justify-center">
               <Doughnut
                 data={{
                   datasets: [
@@ -358,11 +358,39 @@ export default function Resource() {
                     },
                   ],
                 }}
-                options={{ cutout: '70%', plugins: { legend: { display: false } } }}
+                options={{ cutout: '75%', plugins: { legend: { display: false } } }}
               />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold text-blue-600">
+                  {formatCellValue(dataMap.cpu_usage_percent)}%
+                </span>
+                <span className="text-xs text-gray-500 mt-1">Used</span>
+              </div>
             </div>
-            <div className="w-full md:w-1/2 h-40">
-              <Line data={{ labels: [], datasets: [{ data: cpuTrend, borderColor: '#3B82F6', fill: true }] }} options={lineOptions} />
+            <div className="w-full md:w-1/2 h-40 flex flex-col justify-center">
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Cores:</span> {dataMap.cpu_cores}
+              </div>
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Threads:</span> {dataMap.cpu_threads}
+              </div>
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Frequency:</span> {formatCellValue(dataMap.cpu_frequency_mhz)} MHz
+              </div>
+              <div className="mt-4 h-16">
+                <Line
+                  data={{
+                    labels: Array(cpuTrend.length).fill(''),
+                    datasets: [{ data: cpuTrend, borderColor: '#3B82F6', fill: true, backgroundColor: 'rgba(59,130,246,0.1)' }],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { display: false }, y: { display: false } },
+                  }}
+                />
+              </div>
             </div>
           </div>
         ),
@@ -378,8 +406,8 @@ export default function Resource() {
           'Usage (%)': dataMap.memory_usage_percent,
         },
         chart: (
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="w-full md:w-1/2 h-40">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative w-full md:w-1/2 h-40 flex items-center justify-center">
               <Doughnut
                 data={{
                   datasets: [
@@ -390,11 +418,39 @@ export default function Resource() {
                     },
                   ],
                 }}
-                options={{ cutout: '70%', plugins: { legend: { display: false } } }}
+                options={{ cutout: '75%', plugins: { legend: { display: false } } }}
               />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold text-green-600">
+                  {formatCellValue(dataMap.memory_usage_percent)}%
+                </span>
+                <span className="text-xs text-gray-500 mt-1">Used</span>
+              </div>
             </div>
-            <div className="w-full md:w-1/2 h-40">
-              <Line data={{ labels: [], datasets: [{ data: memTrend, borderColor: '#10B981', fill: true }] }} options={lineOptions} />
+            <div className="w-full md:w-1/2 h-40 flex flex-col justify-center">
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Total:</span> {formatCellValue(dataMap.memory_total_gb)} GB
+              </div>
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Used:</span> {formatCellValue(dataMap.memory_used_gb)} GB
+              </div>
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Free:</span> {formatCellValue(dataMap.memory_free_gb)} GB
+              </div>
+              <div className="mt-4 h-16">
+                <Line
+                  data={{
+                    labels: Array(memTrend.length).fill(''),
+                    datasets: [{ data: memTrend, borderColor: '#10B981', fill: true, backgroundColor: 'rgba(16,185,129,0.1)' }],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { display: false }, y: { display: false } },
+                  }}
+                />
+              </div>
             </div>
           </div>
         ),
@@ -410,8 +466,8 @@ export default function Resource() {
           'Usage (%)': dataMap.disk_usage_percent,
         },
         chart: (
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="w-full md:w-1/2 h-40">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative w-full md:w-1/2 h-40 flex items-center justify-center">
               <Doughnut
                 data={{
                   datasets: [
@@ -422,11 +478,39 @@ export default function Resource() {
                     },
                   ],
                 }}
-                options={{ cutout: '70%', plugins: { legend: { display: false } } }}
+                options={{ cutout: '75%', plugins: { legend: { display: false } } }}
               />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold text-yellow-600">
+                  {formatCellValue(dataMap.disk_usage_percent)}%
+                </span>
+                <span className="text-xs text-gray-500 mt-1">Used</span>
+              </div>
             </div>
-            <div className="w-full md:w-1/2 h-40">
-              <Line data={{ labels: [], datasets: [{ data: diskTrend, borderColor: '#F59E0B', fill: true }] }} options={lineOptions} />
+            <div className="w-full md:w-1/2 h-40 flex flex-col justify-center">
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Total:</span> {formatCellValue(dataMap.disk_total_gb)} GB
+              </div>
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Used:</span> {formatCellValue(dataMap.disk_used_gb)} GB
+              </div>
+              <div className="mb-2">
+                <span className="font-semibold text-gray-700">Free:</span> {formatCellValue(dataMap.disk_free_gb)} GB
+              </div>
+              <div className="mt-4 h-16">
+                <Line
+                  data={{
+                    labels: Array(diskTrend.length).fill(''),
+                    datasets: [{ data: diskTrend, borderColor: '#F59E0B', fill: true, backgroundColor: 'rgba(245,158,11,0.1)' }],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { display: false }, y: { display: false } },
+                  }}
+                />
+              </div>
             </div>
           </div>
         ),
