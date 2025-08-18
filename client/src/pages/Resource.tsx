@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { 
-  ServerIcon, 
+import {
+  ServerIcon,
   ExclamationTriangleIcon,
   ArrowPathIcon,
   ClockIcon,
@@ -9,8 +10,32 @@ import {
   CircleStackIcon,
   ComputerDesktopIcon,
   SignalIcon,
-  CogIcon
+  CogIcon,
 } from '@heroicons/react/24/outline';
+
+// Chart.js
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Tooltip,
+  Legend
+);
 
 interface TableData {
   columns: string[];
@@ -28,6 +53,7 @@ interface ResourceBlock {
   icon: any;
   data: { [key: string]: any };
   color: string;
+  chart?: React.ReactNode;
 }
 
 export default function Resource() {
@@ -38,17 +64,19 @@ export default function Resource() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  const resourceMonitorUrl = (process.env as any).REACT_APP_RESOURCE_MONITOR_URL || 'http://localhost:8005';
+  // Use environment variable if available, otherwise fallback
+  // Use environment variable if available, otherwise fallback
+  // @ts-ignore
+  const resourceMonitorUrl = (import.meta as any).env && (import.meta as any).env.VITE_RESOURCE_MONITOR_URL
+    ? (import.meta as any).env.VITE_RESOURCE_MONITOR_URL
+    : 'http://localhost:8005';
 
-  // Fetch available tables
+  // Fetch tables
   const fetchTables = async () => {
     try {
       setError(null);
       const response = await fetch(`${resourceMonitorUrl}/api/tables`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
       if (result.success) {
         setTables(result.tables.map((table: string) => ({
@@ -59,7 +87,7 @@ export default function Resource() {
       }
     } catch (err) {
       setError('Failed to fetch tables');
-      console.error('Error fetching tables:', err);
+      console.error(err);
     }
   };
 
@@ -68,12 +96,8 @@ export default function Resource() {
     try {
       setIsLoading(true);
       setError(null);
-      
       const response = await fetch(`${resourceMonitorUrl}/api/table-data?table=${encodeURIComponent(tableName)}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
       if (result.success) {
         setTableData({
@@ -84,59 +108,38 @@ export default function Resource() {
       }
     } catch (err) {
       setError('Failed to fetch table data');
-      console.error('Error fetching table data:', err);
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle table selection
   const handleTableSelect = (tableName: string) => {
     setSelectedTable(tableName);
-    if (tableName) {
-      fetchTableData(tableName);
-    } else {
-      setTableData(null);
-    }
+    if (tableName) fetchTableData(tableName);
+    else setTableData(null);
   };
 
-  // Refresh data
   const refreshData = () => {
-    if (selectedTable) {
-      fetchTableData(selectedTable);
-    }
+    if (selectedTable) fetchTableData(selectedTable);
   };
 
-  // Load tables on component mount
   useEffect(() => {
     fetchTables();
   }, []);
 
-  // Format cell value for display
+  // Format cell value
   const formatCellValue = (value: any): string => {
-    if (value === null || value === undefined) {
-      return '';
-    }
-    
+    if (value === null || value === undefined) return '';
     if (typeof value === 'number') {
-      if (value % 1 === 0) {
-        return value.toLocaleString();
-      } else {
-        return value.toFixed(2);
-      }
+      if (value % 1 === 0) return value.toLocaleString();
+      return value.toFixed(2);
     }
-    
-    if (typeof value === 'string') {
-      if (value.length > 50) {
-        return value.substring(0, 47) + '...';
-      }
-      return value;
-    }
-    
+    if (typeof value === 'string' && value.length > 50) return value.substring(0, 47) + '...';
     return String(value);
   };
 
-  // Get status color based on value
+  // Get status color
   const getStatusColor = (value: any, columnName: string): string => {
     if (typeof value === 'number') {
       if (columnName.includes('usage') || columnName.includes('percent')) {
@@ -148,35 +151,122 @@ export default function Resource() {
     return 'var(--color-text)';
   };
 
-  // Transform table data into resource blocks
-  const getResourceBlocks = (): ResourceBlock[] => {
-    if (!tableData || !tableData.data || tableData.data.length === 0) {
-      return [];
+  // Generate dummy trend data for charts (in real app, pull from DB history)
+  const generateTrendData = (currentValue: number, length: number = 60): number[] => {
+    const data: number[] = [];
+    let base = currentValue * 0.8;
+    for (let i = 0; i < length; i++) {
+      const noise = Math.random() * 20 - 10;
+      data.push(base + noise);
     }
+    return data;
+  };
 
-    const row = tableData.data[0]; // Get the first row (most recent data)
+  // Transform data into chart-ready format
+  const getResourceBlocks = (): ResourceBlock[] => {
+    if (!tableData || !tableData.data || tableData.data.length === 0) return [];
+
+    const row = tableData.data[0];
     const columns = tableData.columns;
     const dataMap: { [key: string]: any } = {};
 
-    // Create a map of column names to values
-    columns.forEach((column, index) => {
-      if (column !== 'id' && column !== 'entry_type') {
-        dataMap[column] = row[index];
+    columns.forEach((col, idx) => {
+      if (col !== 'id' && col !== 'entry_type') {
+        dataMap[col] = row[idx];
       }
     });
 
-    // Define resource blocks
-    const blocks: ResourceBlock[] = [
+    // Create chart data
+    const cpuUsageTrend = generateTrendData(dataMap.cpu_usage_percent || 0);
+    const memUsageTrend = generateTrendData(dataMap.memory_usage_percent || 0);
+    const diskUsageTrend = generateTrendData(dataMap.disk_usage_percent || 0);
+
+    // CPU Chart Data
+    const cpuChartData = {
+      labels: Array.from({ length: 60 }, (_, i) => `${i + 1}s`),
+      datasets: [
+        {
+          label: 'CPU Usage (%)',
+          data: cpuUsageTrend,
+          borderColor: '#3B82F6',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          fill: true,
+          tension: 0.4,
+        },
+      ],
+    };
+
+    // Memory Chart Data
+    const memChartData = {
+      labels: Array.from({ length: 60 }, (_, i) => `${i + 1}s`),
+      datasets: [
+        {
+          label: 'Memory Usage (%)',
+          data: memUsageTrend,
+          borderColor: '#10B981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true,
+          tension: 0.4,
+        },
+      ],
+    };
+
+    // Disk Chart Data
+    const diskChartData = {
+      labels: Array.from({ length: 60 }, (_, i) => `${i + 1}s`),
+      datasets: [
+        {
+          label: 'Disk Usage (%)',
+          data: diskUsageTrend,
+          borderColor: '#F59E0B',
+          backgroundColor: 'rgba(245, 158, 11, 0.1)',
+          fill: true,
+          tension: 0.4,
+        },
+      ],
+    };
+
+    return [
       {
         title: 'CPU Information',
         icon: CpuChipIcon,
         data: {
-          'CPU Cores': dataMap.cpu_cores,
-          'CPU Threads': dataMap.cpu_threads,
-          'Frequency (MHz)': dataMap.cpu_frequency_mhz,
-          'Usage (%)': dataMap.cpu_usage_percent
+          'Cores': dataMap.cpu_cores,
+          'Threads': dataMap.cpu_threads,
+          'Frequency': dataMap.cpu_frequency_mhz,
+          'Usage (%)': dataMap.cpu_usage_percent,
         },
-        color: 'var(--color-primary)'
+        color: 'var(--color-primary)',
+        chart: (
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+            <div className="w-full md:w-1/2 h-40 flex items-center justify-center">
+              <Doughnut
+                data={{
+                  labels: ['Used', 'Free'],
+                  datasets: [
+                    {
+                      data: [dataMap.cpu_usage_percent || 0, 100 - (dataMap.cpu_usage_percent || 0)],
+                      backgroundColor: ['#3B82F6', '#E5E7EB'],
+                      borderColor: ['#3B82F6', '#E5E7EB'],
+                      borderWidth: 2,
+                    },
+                  ],
+                }}
+                options={{
+                  cutout: '70%',
+                  plugins: {
+                    legend: { display: false },
+                  },
+                  responsive: true,
+                  maintainAspectRatio: false,
+                }}
+              />
+            </div>
+            <div className="w-full md:w-1/2 h-40 flex items-center justify-center">
+              <Line data={cpuChartData} options={{ responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } } }} />
+            </div>
+          </div>
+        ),
       },
       {
         title: 'Memory Information',
@@ -185,9 +275,39 @@ export default function Resource() {
           'Total (GB)': dataMap.memory_total_gb,
           'Used (GB)': dataMap.memory_used_gb,
           'Free (GB)': dataMap.memory_free_gb,
-          'Usage (%)': dataMap.memory_usage_percent
+          'Usage (%)': dataMap.memory_usage_percent,
         },
-        color: 'var(--color-success)'
+        color: 'var(--color-success)',
+        chart: (
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+            <div className="w-full md:w-1/2 h-40 flex items-center justify-center">
+              <Doughnut
+                data={{
+                  labels: ['Used', 'Free'],
+                  datasets: [
+                    {
+                      data: [dataMap.memory_usage_percent || 0, 100 - (dataMap.memory_usage_percent || 0)],
+                      backgroundColor: ['#10B981', '#E5E7EB'],
+                      borderColor: ['#10B981', '#E5E7EB'],
+                      borderWidth: 2,
+                    },
+                  ],
+                }}
+                options={{
+                  cutout: '70%',
+                  plugins: {
+                    legend: { display: false },
+                  },
+                  responsive: true,
+                  maintainAspectRatio: false,
+                }}
+              />
+            </div>
+            <div className="w-full md:w-1/2 h-40 flex items-center justify-center">
+              <Line data={memChartData} options={{ responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } } }} />
+            </div>
+          </div>
+        ),
       },
       {
         title: 'Disk Information',
@@ -196,18 +316,49 @@ export default function Resource() {
           'Total (GB)': dataMap.disk_total_gb,
           'Used (GB)': dataMap.disk_used_gb,
           'Free (GB)': dataMap.disk_free_gb,
-          'Usage (%)': dataMap.disk_usage_percent
+          'Usage (%)': dataMap.disk_usage_percent,
         },
-        color: 'var(--color-warning)'
+        color: 'var(--color-warning)',
+        chart: (
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+            <div className="w-full md:w-1/2 h-40 flex items-center justify-center">
+              <Doughnut
+                data={{
+                  labels: ['Used', 'Free'],
+                  datasets: [
+                    {
+                      data: [dataMap.disk_usage_percent || 0, 100 - (dataMap.disk_usage_percent || 0)],
+                      backgroundColor: ['#F59E0B', '#E5E7EB'],
+                      borderColor: ['#F59E0B', '#E5E7EB'],
+                      borderWidth: 2,
+                    },
+                  ],
+                }}
+                options={{
+                  cutout: '70%',
+                  plugins: {
+                    legend: { display: false },
+                  },
+                  responsive: true,
+                  maintainAspectRatio: false,
+                }}
+              />
+            </div>
+            <div className="w-full md:w-1/2 h-40 flex items-center justify-center">
+              <Line data={diskChartData} options={{ responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } } }} />
+            </div>
+          </div>
+        ),
       },
       {
         title: 'Network Information',
         icon: SignalIcon,
         data: {
           'Bytes Sent (GB)': dataMap.network_bytes_sent_gb,
-          'Bytes Received (GB)': dataMap.network_bytes_recv_gb
+          'Bytes Received (GB)': dataMap.network_bytes_recv_gb,
         },
-        color: 'var(--color-info)'
+        color: 'var(--color-info)',
+        chart: null,
       },
       {
         title: 'System Information',
@@ -216,63 +367,55 @@ export default function Resource() {
           'Load (1min)': dataMap.load_1min,
           'Load (5min)': dataMap.load_5min,
           'Load (15min)': dataMap.load_15min,
-          'Uptime (seconds)': dataMap.uptime_seconds,
-          'Running Processes': dataMap.running_processes
+          'Uptime': formatUptime(dataMap.uptime_seconds),
+          'Processes': dataMap.running_processes,
         },
-        color: 'var(--color-secondary)'
+        color: 'var(--color-secondary)',
+        chart: null,
       },
-      // New License Block
       {
         title: 'License Information',
         icon: ChartBarIcon,
         data: {
-          'License Info': dataMap.license_info || 'Not Available'
+          'License Info': dataMap.license_info || 'Not Available',
         },
-        color: 'var(--color-accent)' // Use a distinct color for the license block
-      }
+        color: 'var(--color-accent)',
+        chart: null,
+      },
     ];
-
-    return blocks;
   };
 
-  // Format uptime from seconds to human readable
   const formatUptime = (seconds: number): string => {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     
-    if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m`;
-    } else if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else {
-      return `${minutes}m`;
-    }
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
   };
 
   const resourceBlocks = getResourceBlocks();
 
   return (
-    <div className="flex-1 overflow-hidden">
+    <div className="flex-1 overflow-hidden bg-gray-50">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border">
+      <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
         <div className="flex items-center space-x-3">
-          <ServerIcon className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-bold">Resource Monitor</h1>
+          <ServerIcon className="w-6 h-6 text-blue-600" />
+          <h1 className="text-2xl font-bold">OpsIntel</h1>
         </div>
         
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <ClockIcon className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              {lastUpdate ? `Last updated: ${lastUpdate.toLocaleTimeString()}` : 'No data loaded'}
-            </span>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <ClockIcon className="w-4 h-4" />
+            <span>{lastUpdate ? `Last updated: ${lastUpdate.toLocaleTimeString()}` : 'No data loaded'}</span>
           </div>
           
           <button
             onClick={refreshData}
             disabled={isLoading || !selectedTable}
-            className="flex items-center space-x-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center space-x-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
             <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
@@ -283,10 +426,10 @@ export default function Resource() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
         {error && (
-          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-center space-x-2">
-              <ExclamationTriangleIcon className="w-5 h-5 text-destructive" />
-              <span className="text-destructive font-medium">{error}</span>
+              <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
+              <span className="text-red-700 font-medium">{error}</span>
             </div>
           </div>
         )}
@@ -294,16 +437,16 @@ export default function Resource() {
         {/* Table Selector */}
         <div className="mb-6">
           <div className="flex items-center space-x-4">
-            <label htmlFor="table-select" className="text-sm font-medium">
+            <label htmlFor="table-select" className="text-sm font-medium text-gray-700">
               Select Server:
             </label>
             <select
               id="table-select"
               value={selectedTable}
               onChange={(e) => handleTableSelect(e.target.value)}
-              className="px-3 py-2 border border-border rounded-md bg-background text-foreground min-w-[200px]"
+              className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-700 min-w-[200px]"
             >
-              <option value="">Choose a table...</option>
+              <option value="">Choose a server...</option>
               {tables.map((table) => (
                 <option key={table.name} value={table.name}>
                   {table.name}
@@ -317,46 +460,45 @@ export default function Resource() {
         {isLoading && (
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center space-x-3">
-              <ArrowPathIcon className="w-6 h-6 animate-spin text-primary" />
-              <span className="text-lg">Loading table data...</span>
+              <ArrowPathIcon className="w-6 h-6 animate-spin text-blue-600" />
+              <span className="text-lg">Loading data...</span>
             </div>
           </div>
         )}
 
         {/* Resource Blocks */}
         {resourceBlocks.length > 0 && !isLoading && (
-          <div className="space-y-6">
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {resourceBlocks.map((block, index) => (
-                <div
-                  key={index}
-                  className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow"
-                >
-                  <div className="flex items-center space-x-3 mb-4">
-                    <block.icon className="w-6 h-6" style={{ color: block.color }} />
-                    <h3 className="text-lg font-semibold">{block.title}</h3>
-                  </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {resourceBlocks.map((block, index) => (
+              <div
+                key={index}
+                className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center space-x-3 mb-4">
+                  <block.icon className="w-6 h-6" style={{ color: block.color }} />
+                  <h3 className="text-lg font-semibold text-gray-800">{block.title}</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  {block.chart && (
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      {block.chart}
+                    </div>
+                  )}
                   
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {Object.entries(block.data).map(([key, value]) => {
-                      // Special formatting for certain fields
                       let displayValue = formatCellValue(value);
                       let displayKey = key;
-                      
-                      if (key === 'Uptime (seconds)' && typeof value === 'number') {
-                        displayValue = formatUptime(value);
+
+                      if (key === 'Uptime') {
+                        displayValue = formatUptime(value as number);
                         displayKey = 'Uptime';
-                      } else if (key === 'Timestamp' && typeof value === 'string') {
-                        displayValue = new Date(value).toLocaleString();
-                        displayKey = 'Last Updated';
-                      } else if (key.includes('Usage (%)')) {
-                        displayKey = 'Usage';
                       }
-                      
+
                       return (
                         <div key={key} className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">{displayKey}:</span>
+                          <span className="text-sm text-gray-600">{displayKey}:</span>
                           <span 
                             className="text-sm font-medium"
                             style={{ color: getStatusColor(value, key.toLowerCase()) }}
@@ -368,18 +510,18 @@ export default function Resource() {
                     })}
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         )}
 
         {/* Empty State */}
         {!selectedTable && !isLoading && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <ServerIcon className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No Table Selected</h3>
-            <p className="text-muted-foreground max-w-md">
-              Select a table from the dropdown above to view its data. The data will be displayed in organized blocks showing CPU, Memory, Disk, Network, and System information.
+            <ServerIcon className="w-16 h-16 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Server Selected</h3>
+            <p className="text-gray-600 max-w-md">
+              Select a server from the dropdown above to view its resource details.
             </p>
           </div>
         )}
@@ -387,10 +529,10 @@ export default function Resource() {
         {/* No Data State */}
         {selectedTable && resourceBlocks.length === 0 && !isLoading && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <ChartBarIcon className="w-16 h-16 text-muted-foreground mb-4" />
+            <ChartBarIcon className="w-16 h-16 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium mb-2">No Data Found</h3>
-            <p className="text-muted-foreground">
-              The selected table '{selectedTable}' contains no data or doesn't have the expected column structure.
+            <p className="text-gray-600">
+              The selected server '{selectedTable}' has no data or doesn't have expected metrics.
             </p>
           </div>
         )}

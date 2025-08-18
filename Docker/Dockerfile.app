@@ -48,9 +48,11 @@ RUN chmod +x python/RAG-MODULE/extract_text.py || echo "extract_text.py will be 
 # Copy the rest of the application
 COPY . .
 
+
 # Build client application
 WORKDIR /app/client
-RUN npm install && npm run build &&npm install axios && npm install react-router-dom && npm install @heroicons/react
+# Install all dependencies including chart.js and react-chartjs-2
+RUN npm install && npm run build && npm install axios react-router-dom @heroicons/react chart.js react-chartjs-2
 
 # Back to app root
 WORKDIR /app
