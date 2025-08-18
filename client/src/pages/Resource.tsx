@@ -636,7 +636,11 @@ export default function Resource() {
                           className="text-sm font-medium"
                           style={{ color: getStatusColor(value, key.toLowerCase()) }}
                         >
-                          {key === 'Uptime' ? formatUptime(value) : formatCellValue(value)}
+                          {key === 'Uptime'
+                            ? typeof value === 'number'
+                              ? formatUptime(value)
+                              : value
+                            : formatCellValue(value)}
                         </span>
                       </div>
                     ))}
